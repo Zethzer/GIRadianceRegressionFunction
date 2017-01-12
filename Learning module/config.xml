@@ -1,0 +1,13 @@
+<Config>
+  <Network>
+    <Architecture>12 20 10 3</Architecture>
+    <InputsNames>position.x position.y position.z view.x view.y view.z source.x source.y source.z normal.x normal.ynormal.z</InputsNames>
+    <OutputsNames>R G B</OutputsNames>
+    <ScalingMethod>MinimumMaximum</ScalingMethod>
+    <UnscalingMethod>NoUnscaling</UnscalingMethod>
+  </Network>
+  <Learning>
+    <Method>LevenbergMarquardt</Method>
+    <MaxError>0.05</MaxError>
+  </Learning>
+</Config>
