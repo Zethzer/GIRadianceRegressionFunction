@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -42,39 +44,56 @@
 #include "shape.h"
 #include "scene.h"
 #include "mipmap.h"
+#include "imageio.h"
+
+namespace pbrt {
 
 // GonioPhotometricLight Declarations
 class GonioPhotometricLight : public Light {
-public:
+  public:
     // GonioPhotometricLight Public Methods
-    GonioPhotometricLight(const Transform &light2world, const Spectrum &, const
-    string &texname);
-    Spectrum Sample_L(const Point &p, float pEpsilon, const LightSample &ls,
-        float time, Vector *wi, float *pdf, VisibilityTester *vis) const;
-    ~GonioPhotometricLight() { delete mipmap; }
-    bool IsDeltaLight() const { return true; }
-    Spectrum Scale(const Vector &w) const {
-        Vector wp = Normalize(WorldToLight(w));
-        swap(wp.y, wp.z);
-        float theta = SphericalTheta(wp);
-        float phi   = SphericalPhi(wp);
-        float s = phi * INV_TWOPI, t = theta * INV_PI;
-        return (mipmap == NULL) ? 1.f :
-            Spectrum(mipmap->Lookup(s, t), SPECTRUM_ILLUMINANT);
+    Spectrum Sample_Li(const Interaction &ref, const Point2f &u, Vector3f *wi,
+                       Float *pdf, VisibilityTester *vis) const;
+    GonioPhotometricLight(const Transform &LightToWorld,
+                          const MediumInterface &mediumInterface,
+                          const Spectrum &I, const std::string &texname)
+        : Light((int)LightFlags::DeltaPosition, LightToWorld, mediumInterface),
+          pLight(LightToWorld(Point3f(0, 0, 0))),
+          I(I) {
+        // Create _mipmap_ for _GonioPhotometricLight_
+        Point2i resolution;
+        std::unique_ptr<RGBSpectrum[]> texels = ReadImage(texname, &resolution);
+        if (texels)
+            mipmap.reset(new MIPMap<RGBSpectrum>(resolution, texels.get()));
     }
-    Spectrum Power(const Scene *) const;
-    Spectrum Sample_L(const Scene *scene, const LightSample &ls, float u1, float u2,
-        float time, Ray *ray, Normal *Ns, float *pdf) const;
-    float Pdf(const Point &, const Vector &) const;
-private:
+    Spectrum Scale(const Vector3f &w) const {
+        Vector3f wp = Normalize(WorldToLight(w));
+        std::swap(wp.y, wp.z);
+        Float theta = SphericalTheta(wp);
+        Float phi = SphericalPhi(wp);
+        Point2f st(phi * Inv2Pi, theta * InvPi);
+        return !mipmap ? RGBSpectrum(1.f)
+                       : Spectrum(mipmap->Lookup(st), SpectrumType::Illuminant);
+    }
+    Spectrum Power() const;
+    Float Pdf_Li(const Interaction &, const Vector3f &) const;
+    Spectrum Sample_Le(const Point2f &u1, const Point2f &u2, Float time,
+                       Ray *ray, Normal3f *nLight, Float *pdfPos,
+                       Float *pdfDir) const;
+    void Pdf_Le(const Ray &, const Normal3f &, Float *pdfPos,
+                Float *pdfDir) const;
+
+  private:
     // GonioPhotometricLight Private Data
-    Point lightPos;
-    Spectrum Intensity;
-    MIPMap<RGBSpectrum> *mipmap;
+    const Point3f pLight;
+    const Spectrum I;
+    std::unique_ptr<MIPMap<RGBSpectrum>> mipmap;
 };
 
+std::shared_ptr<GonioPhotometricLight> CreateGoniometricLight(
+    const Transform &light2world, const Medium *medium,
+    const ParamSet &paramSet);
 
-GonioPhotometricLight *CreateGoniometricLight(const Transform &light2world,
-        const ParamSet &paramSet);
+}  // namespace pbrt
 
-#endif // PBRT_LIGHTS_GONIOMETRIC_H
+#endif  // PBRT_LIGHTS_GONIOMETRIC_H

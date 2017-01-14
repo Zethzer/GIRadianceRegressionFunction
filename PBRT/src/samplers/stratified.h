@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,29 +40,31 @@
 
 // samplers/stratified.h*
 #include "sampler.h"
-#include "film.h"
+#include "rng.h"
+
+namespace pbrt {
 
 // StratifiedSampler Declarations
-class StratifiedSampler : public Sampler {
-public:
+class StratifiedSampler : public PixelSampler {
+  public:
     // StratifiedSampler Public Methods
-    StratifiedSampler(int xstart, int xend, int ystart, int yend,
-                      int xs, int ys, bool jitter, float sopen, float sclose);
-    ~StratifiedSampler();
-    int RoundSize(int size) const { return size; }
-    Sampler *GetSubSampler(int num, int count);
-    int GetMoreSamples(Sample *sample, RNG &rng);
-    int MaximumSampleCount() { return xPixelSamples * yPixelSamples; }
-private:
+    StratifiedSampler(int xPixelSamples, int yPixelSamples, bool jitterSamples,
+                      int nSampledDimensions)
+        : PixelSampler(xPixelSamples * yPixelSamples, nSampledDimensions),
+          xPixelSamples(xPixelSamples),
+          yPixelSamples(yPixelSamples),
+          jitterSamples(jitterSamples) {}
+    void StartPixel(const Point2i &);
+    std::unique_ptr<Sampler> Clone(int seed);
+
+  private:
     // StratifiedSampler Private Data
-    int xPixelSamples, yPixelSamples;
-    bool jitterSamples;
-    int xPos, yPos;
-    float *sampleBuf;
+    const int xPixelSamples, yPixelSamples;
+    const bool jitterSamples;
 };
 
+StratifiedSampler *CreateStratifiedSampler(const ParamSet &params);
 
-StratifiedSampler *CreateStratifiedSampler(const ParamSet &params, const Film *film,
-    const Camera *camera);
+}  // namespace pbrt
 
-#endif // PBRT_SAMPLERS_STRATIFIED_H
+#endif  // PBRT_SAMPLERS_STRATIFIED_H

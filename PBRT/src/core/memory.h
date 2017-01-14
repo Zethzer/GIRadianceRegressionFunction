@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,173 +40,145 @@
 
 // core/memory.h*
 #include "pbrt.h"
-#include "parallel.h"
+#include "port.h"
+#include <list>
+
+namespace pbrt {
 
 // Memory Declarations
-class ReferenceCounted {
-public:
-    ReferenceCounted() { nReferences = 0; }
-    AtomicInt32 nReferences;
-private:
-    ReferenceCounted(const ReferenceCounted &);
-    ReferenceCounted &operator=(const ReferenceCounted &);
-};
-
-
-template <typename T> class Reference {
-public:
-    // Reference Public Methods
-    Reference(T *p = NULL) {
-        ptr = p;
-        if (ptr) AtomicAdd(&ptr->nReferences, 1);
-    }
-    Reference(const Reference<T> &r) {
-        ptr = r.ptr;
-        if (ptr) AtomicAdd(&ptr->nReferences, 1);
-    }
-    Reference &operator=(const Reference<T> &r) {
-        if (r.ptr) AtomicAdd(&r.ptr->nReferences, 1);
-        if (ptr && AtomicAdd(&ptr->nReferences, -1) == 0) delete ptr;
-        ptr = r.ptr;
-        return *this;
-    }
-    Reference &operator=(T *p) {
-        if (p) AtomicAdd(&p->nReferences, 1);
-        if (ptr && AtomicAdd(&ptr->nReferences, -1) == 0) delete ptr;
-        ptr = p;
-        return *this;
-    }
-    ~Reference() {
-        if (ptr && AtomicAdd(&ptr->nReferences, -1) == 0)
-            delete ptr;
-    }
-    T *operator->() { return ptr; }
-    const T *operator->() const { return ptr; }
-    operator bool() const { return ptr != NULL; }
-    const T *GetPtr() const { return ptr; }
-private:
-    T *ptr;
-};
-
-
+#define ARENA_ALLOC(arena, Type) new ((arena).Alloc(sizeof(Type))) Type
 void *AllocAligned(size_t size);
-template <typename T> T *AllocAligned(uint32_t count) {
+template <typename T>
+T *AllocAligned(size_t count) {
     return (T *)AllocAligned(count * sizeof(T));
 }
 
-
 void FreeAligned(void *);
-class MemoryArena {
-public:
+class
+#ifdef PBRT_HAVE_ALIGNAS
+alignas(PBRT_L1_CACHE_LINE_SIZE)
+#endif // PBRT_HAVE_ALIGNAS
+    MemoryArena {
+  public:
     // MemoryArena Public Methods
-    MemoryArena(uint32_t bs = 32768) {
-        blockSize = bs;
-        curBlockPos = 0;
-        currentBlock = AllocAligned<char>(blockSize);
-    }
+    MemoryArena(size_t blockSize = 262144) : blockSize(blockSize) {}
     ~MemoryArena() {
         FreeAligned(currentBlock);
-        for (uint32_t i = 0; i < usedBlocks.size(); ++i)
-            FreeAligned(usedBlocks[i]);
-        for (uint32_t i = 0; i < availableBlocks.size(); ++i)
-            FreeAligned(availableBlocks[i]);
+        for (auto &block : usedBlocks) FreeAligned(block.second);
+        for (auto &block : availableBlocks) FreeAligned(block.second);
     }
-    void *Alloc(uint32_t sz) {
-        // Round up _sz_ to minimum machine alignment
-        sz = ((sz + 15) & (~15));
-        if (curBlockPos + sz > blockSize) {
-            // Get new block of memory for _MemoryArena_
-            usedBlocks.push_back(currentBlock);
-            if (availableBlocks.size() && sz <= blockSize) {
-                currentBlock = availableBlocks.back();
-                availableBlocks.pop_back();
+    void *Alloc(size_t nBytes) {
+        // Round up _nBytes_ to minimum machine alignment
+        nBytes = ((nBytes + 15) & (~15));
+        if (currentBlockPos + nBytes > currentAllocSize) {
+            // Add current block to _usedBlocks_ list
+            if (currentBlock) {
+                usedBlocks.push_back(
+                    std::make_pair(currentAllocSize, currentBlock));
+                currentBlock = nullptr;
+                currentAllocSize = 0;
             }
-            else
-                currentBlock = AllocAligned<char>(max(sz, blockSize));
-            curBlockPos = 0;
+
+            // Get new block of memory for _MemoryArena_
+
+            // Try to get memory block from _availableBlocks_
+            for (auto iter = availableBlocks.begin();
+                 iter != availableBlocks.end(); ++iter) {
+                if (iter->first >= nBytes) {
+                    currentAllocSize = iter->first;
+                    currentBlock = iter->second;
+                    availableBlocks.erase(iter);
+                    break;
+                }
+            }
+            if (!currentBlock) {
+                currentAllocSize = std::max(nBytes, blockSize);
+                currentBlock = AllocAligned<uint8_t>(currentAllocSize);
+            }
+            currentBlockPos = 0;
         }
-        void *ret = currentBlock + curBlockPos;
-        curBlockPos += sz;
+        void *ret = currentBlock + currentBlockPos;
+        currentBlockPos += nBytes;
         return ret;
     }
-    template<typename T> T *Alloc(uint32_t count = 1) {
-        T *ret = (T *)Alloc(count * sizeof(T));
-        for (uint32_t i = 0; i < count; ++i)
-            new (&ret[i]) T();
+    template <typename T>
+    T *Alloc(size_t n = 1, bool runConstructor = true) {
+        T *ret = (T *)Alloc(n * sizeof(T));
+        if (runConstructor)
+            for (size_t i = 0; i < n; ++i) new (&ret[i]) T();
         return ret;
     }
-    void FreeAll() {
-        curBlockPos = 0;
-        while (usedBlocks.size()) {
-    #ifndef NDEBUG
-            memset(usedBlocks.back(), 0xfa, blockSize);
-    #endif
-            availableBlocks.push_back(usedBlocks.back());
-            usedBlocks.pop_back();
-        }
+    void Reset() {
+        currentBlockPos = 0;
+        availableBlocks.splice(availableBlocks.begin(), usedBlocks);
     }
-private:
+    size_t TotalAllocated() const {
+        size_t total = currentAllocSize;
+        for (const auto &alloc : usedBlocks) total += alloc.first;
+        for (const auto &alloc : availableBlocks) total += alloc.first;
+        return total;
+    }
+
+  private:
+    MemoryArena(const MemoryArena &) = delete;
+    MemoryArena &operator=(const MemoryArena &) = delete;
     // MemoryArena Private Data
-    uint32_t curBlockPos, blockSize;
-    char *currentBlock;
-    vector<char *> usedBlocks, availableBlocks;
+    const size_t blockSize;
+    size_t currentBlockPos = 0, currentAllocSize = 0;
+    uint8_t *currentBlock = nullptr;
+    std::list<std::pair<size_t, uint8_t *>> usedBlocks, availableBlocks;
 };
 
-
-template <typename T, int logBlockSize> class BlockedArray {
-public:
+template <typename T, int logBlockSize>
+class BlockedArray {
+  public:
     // BlockedArray Public Methods
-    BlockedArray(uint32_t nu, uint32_t nv, const T *d = NULL) {
-        uRes = nu;
-        vRes = nv;
-        uBlocks = RoundUp(uRes) >> logBlockSize;
-        uint32_t nAlloc = RoundUp(uRes) * RoundUp(vRes);
+    BlockedArray(int uRes, int vRes, const T *d = nullptr)
+        : uRes(uRes), vRes(vRes), uBlocks(RoundUp(uRes) >> logBlockSize) {
+        int nAlloc = RoundUp(uRes) * RoundUp(vRes);
         data = AllocAligned<T>(nAlloc);
-        for (uint32_t i = 0; i < nAlloc; ++i)
-            new (&data[i]) T();
+        for (int i = 0; i < nAlloc; ++i) new (&data[i]) T();
         if (d)
-            for (uint32_t v = 0; v < vRes; ++v)
-                for (uint32_t u = 0; u < uRes; ++u)
-                    (*this)(u, v) = d[v * uRes + u];
+            for (int v = 0; v < vRes; ++v)
+                for (int u = 0; u < uRes; ++u) (*this)(u, v) = d[v * uRes + u];
     }
-    uint32_t BlockSize() const { return 1 << logBlockSize; }
-    uint32_t RoundUp(uint32_t x) const {
+    PBRT_CONSTEXPR int BlockSize() const { return 1 << logBlockSize; }
+    int RoundUp(int x) const {
         return (x + BlockSize() - 1) & ~(BlockSize() - 1);
     }
-    uint32_t uSize() const { return uRes; }
-    uint32_t vSize() const { return vRes; }
+    int uSize() const { return uRes; }
+    int vSize() const { return vRes; }
     ~BlockedArray() {
-        for (uint32_t i = 0; i < uRes * vRes; ++i)
-            data[i].~T();
+        for (int i = 0; i < uRes * vRes; ++i) data[i].~T();
         FreeAligned(data);
     }
-    uint32_t Block(uint32_t a) const { return a >> logBlockSize; }
-    uint32_t Offset(uint32_t a) const { return (a & (BlockSize() - 1)); }
-    T &operator()(uint32_t u, uint32_t v) {
-        uint32_t bu = Block(u), bv = Block(v);
-        uint32_t ou = Offset(u), ov = Offset(v);
-        uint32_t offset = BlockSize() * BlockSize() * (uBlocks * bv + bu);
+    int Block(int a) const { return a >> logBlockSize; }
+    int Offset(int a) const { return (a & (BlockSize() - 1)); }
+    T &operator()(int u, int v) {
+        int bu = Block(u), bv = Block(v);
+        int ou = Offset(u), ov = Offset(v);
+        int offset = BlockSize() * BlockSize() * (uBlocks * bv + bu);
         offset += BlockSize() * ov + ou;
         return data[offset];
     }
-    const T &operator()(uint32_t u, uint32_t v) const {
-        uint32_t bu = Block(u), bv = Block(v);
-        uint32_t ou = Offset(u), ov = Offset(v);
-        uint32_t offset = BlockSize() * BlockSize() * (uBlocks * bv + bu);
+    const T &operator()(int u, int v) const {
+        int bu = Block(u), bv = Block(v);
+        int ou = Offset(u), ov = Offset(v);
+        int offset = BlockSize() * BlockSize() * (uBlocks * bv + bu);
         offset += BlockSize() * ov + ou;
         return data[offset];
     }
     void GetLinearArray(T *a) const {
-        for (uint32_t v = 0; v < vRes; ++v)
-            for (uint32_t u = 0; u < uRes; ++u)
-                *a++ = (*this)(u, v);
+        for (int v = 0; v < vRes; ++v)
+            for (int u = 0; u < uRes; ++u) *a++ = (*this)(u, v);
     }
-private:
+
+  private:
     // BlockedArray Private Data
     T *data;
-    uint32_t uRes, vRes, uBlocks;
+    const int uRes, vRes, uBlocks;
 };
 
+}  // namespace pbrt
 
-
-#endif // PBRT_CORE_MEMORY_H
+#endif  // PBRT_CORE_MEMORY_H

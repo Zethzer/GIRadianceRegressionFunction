@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,25 +41,37 @@
 // shapes/disk.h*
 #include "shape.h"
 
+namespace pbrt {
+
 // Disk Declarations
 class Disk : public Shape {
-public:
+  public:
     // Disk Public Methods
-    Disk(const Transform *o2w, const Transform *w2o, bool ro, float height,
-         float radius, float innerRadius, float phiMax);
-    BBox ObjectBound() const;
-    bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
-                   DifferentialGeometry *dg) const;
-    bool IntersectP(const Ray &ray) const;
-    float Area() const;
-    Point Sample(float u1, float u2, Normal *Ns) const;
-private:
+    Disk(const Transform *ObjectToWorld, const Transform *WorldToObject,
+         bool reverseOrientation, Float height, Float radius, Float innerRadius,
+         Float phiMax)
+        : Shape(ObjectToWorld, WorldToObject, reverseOrientation),
+          height(height),
+          radius(radius),
+          innerRadius(innerRadius),
+          phiMax(Radians(Clamp(phiMax, 0, 360))) {}
+    Bounds3f ObjectBound() const;
+    bool Intersect(const Ray &ray, Float *tHit, SurfaceInteraction *isect,
+                   bool testAlphaTexture) const;
+    bool IntersectP(const Ray &ray, bool testAlphaTexture) const;
+    Float Area() const;
+    Interaction Sample(const Point2f &u, Float *pdf) const;
+
+  private:
     // Disk Private Data
-    float height, radius, innerRadius, phiMax;
+    const Float height, radius, innerRadius, phiMax;
 };
 
+std::shared_ptr<Disk> CreateDiskShape(const Transform *o2w,
+                                      const Transform *w2o,
+                                      bool reverseOrientation,
+                                      const ParamSet &params);
 
-Disk *CreateDiskShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_SHAPES_DISK_H
+#endif  // PBRT_SHAPES_DISK_H

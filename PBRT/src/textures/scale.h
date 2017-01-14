@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,25 +43,31 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // ScaleTexture Declarations
 template <typename T1, typename T2>
 class ScaleTexture : public Texture<T2> {
-public:
+  public:
     // ScaleTexture Public Methods
-    ScaleTexture(Reference<Texture<T1> > t1, Reference<Texture<T2> > t2)
-        : tex1(t1), tex2(t2) { }
-    T2 Evaluate(const DifferentialGeometry &dg) const {
-        return tex1->Evaluate(dg) * tex2->Evaluate(dg);
+    ScaleTexture(const std::shared_ptr<Texture<T1>> &tex1,
+                 const std::shared_ptr<Texture<T2>> &tex2)
+        : tex1(tex1), tex2(tex2) {}
+    T2 Evaluate(const SurfaceInteraction &si) const {
+        return tex1->Evaluate(si) * tex2->Evaluate(si);
     }
-private:
-    Reference<Texture<T1> > tex1;
-    Reference<Texture<T2> > tex2;
+
+  private:
+    // ScaleTexture Private Data
+    std::shared_ptr<Texture<T1>> tex1;
+    std::shared_ptr<Texture<T2>> tex2;
 };
 
+ScaleTexture<Float, Float> *CreateScaleFloatTexture(const Transform &tex2world,
+                                                    const TextureParams &tp);
+ScaleTexture<Spectrum, Spectrum> *CreateScaleSpectrumTexture(
+    const Transform &tex2world, const TextureParams &tp);
 
-ScaleTexture<float, float> *CreateScaleFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
-ScaleTexture<Spectrum, Spectrum> *CreateScaleSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+}  // namespace pbrt
 
-#endif // PBRT_TEXTURES_SCALE_H
+#endif  // PBRT_TEXTURES_SCALE_H

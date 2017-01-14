@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,41 +40,15 @@
 
 // shapes/loopsubdiv.h*
 #include "shape.h"
-struct SDVertex;
-struct SDFace;
+
+namespace pbrt {
 
 // LoopSubdiv Declarations
-class LoopSubdiv : public Shape {
-public:
-    // LoopSubdiv Public Methods
-    LoopSubdiv(const Transform *o2w, const Transform *w2o, bool ro,
-               int nt, int nv, const int *vi,
-               const Point *P, int nlevels);
-    ~LoopSubdiv();
-    bool CanIntersect() const;
-    void Refine(vector<Reference<Shape> > &refined) const;
-    BBox ObjectBound() const;
-    BBox WorldBound() const;
-private:
-    // LoopSubdiv Private Methods
-    static float beta(int valence) {
-        if (valence == 3) return 3.f/16.f;
-        else return 3.f / (8.f * valence);
-    }
-    static Point weightOneRing(SDVertex *vert, float beta);
-    static Point weightBoundary(SDVertex *vert, float beta);
-    static float gamma(int valence) {
-        return 1.f / (valence + 3.f / (8.f * beta(valence)));
-    }
+std::vector<std::shared_ptr<Shape>> CreateLoopSubdiv(const Transform *o2w,
+                                                     const Transform *w2o,
+                                                     bool reverseOrientation,
+                                                     const ParamSet &params);
 
-    // LoopSubdiv Private Data
-    int nLevels;
-    vector<SDVertex *> vertices;
-    vector<SDFace *> faces;
-};
+}  // namespace pbrt
 
-
-LoopSubdiv *CreateLoopSubdivShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
-
-#endif // PBRT_SHAPES_LOOPSUBDIV_H
+#endif  // PBRT_SHAPES_LOOPSUBDIV_H

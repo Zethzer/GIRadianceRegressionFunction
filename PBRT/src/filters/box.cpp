@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,20 +32,18 @@
 
 
 // filters/box.cpp*
-#include "stdafx.h"
 #include "filters/box.h"
 #include "paramset.h"
 
-// Box Filter Method Definitions
-float BoxFilter::Evaluate(float x, float y) const {
-    return 1.;
-}
+namespace pbrt {
 
+// Box Filter Method Definitions
+Float BoxFilter::Evaluate(const Point2f &p) const { return 1.; }
 
 BoxFilter *CreateBoxFilter(const ParamSet &ps) {
-    float xw = ps.FindOneFloat("xwidth", 0.5f);
-    float yw = ps.FindOneFloat("ywidth", 0.5f);
-    return new BoxFilter(xw, yw);
+    Float xw = ps.FindOneFloat("xwidth", 0.5f);
+    Float yw = ps.FindOneFloat("ywidth", 0.5f);
+    return new BoxFilter(Vector2f(xw, yw));
 }
 
-
+}  // namespace pbrt

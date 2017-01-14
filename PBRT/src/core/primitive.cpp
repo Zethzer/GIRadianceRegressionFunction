@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,171 +32,100 @@
 
 
 // core/primitive.cpp*
-#include "stdafx.h"
 #include "primitive.h"
 #include "light.h"
-#include "intersection.h"
+#include "interaction.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // Primitive Method Definitions
-uint32_t Primitive::nextprimitiveId = 1;
-Primitive::~Primitive() { }
-
-bool Primitive::CanIntersect() const {
-    return true;
-}
-
-
-
-void Primitive::Refine(vector<Reference<Primitive> > &refined) const {
-    Severe("Unimplemented Primitive::Refine() method called!");
-}
-
-
-void
-Primitive::FullyRefine(vector<Reference<Primitive> > &refined) const {
-    vector<Reference<Primitive> > todo;
-    todo.push_back(const_cast<Primitive *>(this));
-    while (todo.size()) {
-        // Refine last primitive in todo list
-        Reference<Primitive> prim = todo.back();
-        todo.pop_back();
-        if (prim->CanIntersect())
-            refined.push_back(prim);
-        else
-            prim->Refine(todo);
-    }
-}
-
-
+Primitive::~Primitive() {}
 const AreaLight *Aggregate::GetAreaLight() const {
-    Severe("Aggregate::GetAreaLight() method"
-         "called; should have gone to GeometricPrimitive");
-    return NULL;
+    LOG(FATAL) <<
+        "Aggregate::GetAreaLight() method"
+        "called; should have gone to GeometricPrimitive";
+    return nullptr;
 }
 
-
-BSDF *Aggregate::GetBSDF(const DifferentialGeometry &,
-        const Transform &, MemoryArena &) const {
-    Severe("Aggregate::GetBSDF() method"
-        "called; should have gone to GeometricPrimitive");
-    return NULL;
+const Material *Aggregate::GetMaterial() const {
+    LOG(FATAL) <<
+        "Aggregate::GetMaterial() method"
+        "called; should have gone to GeometricPrimitive";
+    return nullptr;
 }
 
-
-BSSRDF *Aggregate::GetBSSRDF(const DifferentialGeometry &,
-        const Transform &, MemoryArena &) const {
-    Severe("Aggregate::GetBSSRDF() method"
-        "called; should have gone to GeometricPrimitive");
-    return NULL;
+void Aggregate::ComputeScatteringFunctions(SurfaceInteraction *isect,
+                                           MemoryArena &arena,
+                                           TransportMode mode,
+                                           bool allowMultipleLobes) const {
+    LOG(FATAL) <<
+        "Aggregate::ComputeScatteringFunctions() method"
+        "called; should have gone to GeometricPrimitive";
 }
-
-
 
 // TransformedPrimitive Method Definitions
 bool TransformedPrimitive::Intersect(const Ray &r,
-                                     Intersection *isect) const {
-    Transform w2p;
-    WorldToPrimitive.Interpolate(r.time, &w2p);
-    Ray ray = w2p(r);
-    if (!primitive->Intersect(ray, isect))
-        return false;
-    r.maxt = ray.maxt;
-    isect->primitiveId = primitiveId;
-    if (!w2p.IsIdentity()) {
-        // Compute world-to-object transformation for instance
-        isect->WorldToObject = isect->WorldToObject * w2p;
-        isect->ObjectToWorld = Inverse(isect->WorldToObject);
-
-        // Transform instance's differential geometry to world space
-        Transform PrimitiveToWorld = Inverse(w2p);
-        isect->dg.p = PrimitiveToWorld(isect->dg.p);
-        isect->dg.nn = Normalize(PrimitiveToWorld(isect->dg.nn));
-        isect->dg.dpdu = PrimitiveToWorld(isect->dg.dpdu);
-        isect->dg.dpdv = PrimitiveToWorld(isect->dg.dpdv);
-        isect->dg.dndu = PrimitiveToWorld(isect->dg.dndu);
-        isect->dg.dndv = PrimitiveToWorld(isect->dg.dndv);
-    }
+                                     SurfaceInteraction *isect) const {
+    // Compute _ray_ after transformation by _PrimitiveToWorld_
+    Transform InterpolatedPrimToWorld;
+    PrimitiveToWorld.Interpolate(r.time, &InterpolatedPrimToWorld);
+    Ray ray = Inverse(InterpolatedPrimToWorld)(r);
+    if (!primitive->Intersect(ray, isect)) return false;
+    r.tMax = ray.tMax;
+    // Transform instance's intersection data to world space
+    if (!InterpolatedPrimToWorld.IsIdentity())
+        *isect = InterpolatedPrimToWorld(*isect);
+    CHECK_GE(Dot(isect->n, isect->shading.n), 0);
     return true;
 }
 
-
 bool TransformedPrimitive::IntersectP(const Ray &r) const {
-    return primitive->IntersectP(WorldToPrimitive(r));
+    Transform InterpolatedPrimToWorld;
+    PrimitiveToWorld.Interpolate(r.time, &InterpolatedPrimToWorld);
+    Transform InterpolatedWorldToPrim = Inverse(InterpolatedPrimToWorld);
+    return primitive->IntersectP(InterpolatedWorldToPrim(r));
 }
-
-
 
 // GeometricPrimitive Method Definitions
-BBox GeometricPrimitive::WorldBound() const {
-    return shape->WorldBound();
-}
-
+Bounds3f GeometricPrimitive::WorldBound() const { return shape->WorldBound(); }
 
 bool GeometricPrimitive::IntersectP(const Ray &r) const {
     return shape->IntersectP(r);
 }
 
-
-bool GeometricPrimitive::CanIntersect() const {
-    return shape->CanIntersect();
-}
-
-
-void GeometricPrimitive::
-        Refine(vector<Reference<Primitive> > &refined)
-        const {
-    vector<Reference<Shape> > r;
-    shape->Refine(r);
-    for (uint32_t i = 0; i < r.size(); ++i) {
-        GeometricPrimitive *gp = new GeometricPrimitive(r[i],
-               material, areaLight);
-        refined.push_back(gp);
-    }
-}
-
-
-GeometricPrimitive::GeometricPrimitive(const Reference<Shape> &s,
-        const Reference<Material> &m, AreaLight *a)
-    : shape(s), material(m), areaLight(a) {
-}
-
-
 bool GeometricPrimitive::Intersect(const Ray &r,
-                                   Intersection *isect) const {
-    float thit, rayEpsilon;
-    if (!shape->Intersect(r, &thit, &rayEpsilon, &isect->dg))
-        return false;
+                                   SurfaceInteraction *isect) const {
+    Float tHit;
+    if (!shape->Intersect(r, &tHit, isect)) return false;
+    r.tMax = tHit;
     isect->primitive = this;
-    isect->WorldToObject = *shape->WorldToObject;
-    isect->ObjectToWorld = *shape->ObjectToWorld;
-    isect->shapeId = shape->shapeId;
-    isect->primitiveId = primitiveId;
-    isect->rayEpsilon = rayEpsilon;
-    r.maxt = thit;
+    CHECK_GE(Dot(isect->n, isect->shading.n), 0.);
+    // Initialize _SurfaceInteraction::mediumInterface_ after _Shape_
+    // intersection
+    if (mediumInterface.IsMediumTransition())
+        isect->mediumInterface = mediumInterface;
+    else
+        isect->mediumInterface = MediumInterface(r.medium);
     return true;
 }
 
-
 const AreaLight *GeometricPrimitive::GetAreaLight() const {
-    return areaLight;
+    return areaLight.get();
 }
 
-
-BSDF *GeometricPrimitive::GetBSDF(const DifferentialGeometry &dg,
-                                  const Transform &ObjectToWorld,
-                                  MemoryArena &arena) const {
-    DifferentialGeometry dgs;
-    shape->GetShadingGeometry(ObjectToWorld, dg, &dgs);
-    return material->GetBSDF(dg, dgs, arena);
+const Material *GeometricPrimitive::GetMaterial() const {
+    return material.get();
 }
 
-
-BSSRDF *GeometricPrimitive::GetBSSRDF(const DifferentialGeometry &dg,
-                                  const Transform &ObjectToWorld,
-                                  MemoryArena &arena) const {
-    DifferentialGeometry dgs;
-    shape->GetShadingGeometry(ObjectToWorld, dg, &dgs);
-    return material->GetBSSRDF(dg, dgs, arena);
+void GeometricPrimitive::ComputeScatteringFunctions(
+    SurfaceInteraction *isect, MemoryArena &arena, TransportMode mode,
+    bool allowMultipleLobes) const {
+    ProfilePhase p(Prof::ComputeScatteringFuncs);
+    if (material)
+        material->ComputeScatteringFunctions(isect, arena, mode,
+                                             allowMultipleLobes);
+    CHECK_GE(Dot(isect->n, isect->shading.n), 0.);
 }
 
-
+}  // namespace pbrt

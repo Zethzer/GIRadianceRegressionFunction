@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,44 +42,48 @@
 #include "pbrt.h"
 #include "primitive.h"
 
+namespace pbrt {
+
 // KdTreeAccel Declarations
 struct KdAccelNode;
 struct BoundEdge;
 class KdTreeAccel : public Aggregate {
-public:
+  public:
     // KdTreeAccel Public Methods
-    KdTreeAccel(const vector<Reference<Primitive> > &p,
-                int icost = 80, int scost = 1,  float ebonus = 0.5f, int maxp = 1,
-                int maxDepth = -1);
-    BBox WorldBound() const { return bounds; }
-    bool CanIntersect() const { return true; }
+    KdTreeAccel(const std::vector<std::shared_ptr<Primitive>> &p,
+                int isectCost = 80, int traversalCost = 1,
+                Float emptyBonus = 0.5, int maxPrims = 1, int maxDepth = -1);
+    Bounds3f WorldBound() const { return bounds; }
     ~KdTreeAccel();
-    bool Intersect(const Ray &ray, Intersection *isect) const;
+    bool Intersect(const Ray &ray, SurfaceInteraction *isect) const;
     bool IntersectP(const Ray &ray) const;
-private:
+
+  private:
     // KdTreeAccel Private Methods
-    void buildTree(int nodeNum, const BBox &bounds,
-        const vector<BBox> &primBounds, uint32_t *primNums, int nprims, int depth,
-        BoundEdge *edges[3], uint32_t *prims0, uint32_t *prims1, int badRefines = 0);
+    void buildTree(int nodeNum, const Bounds3f &bounds,
+                   const std::vector<Bounds3f> &primBounds, int *primNums,
+                   int nprims, int depth,
+                   const std::unique_ptr<BoundEdge[]> edges[3], int *prims0,
+                   int *prims1, int badRefines = 0);
 
     // KdTreeAccel Private Data
-    int isectCost, traversalCost, maxPrims, maxDepth;
-    float emptyBonus;
-    vector<Reference<Primitive> > primitives;
+    const int isectCost, traversalCost, maxPrims;
+    const Float emptyBonus;
+    std::vector<std::shared_ptr<Primitive>> primitives;
+    std::vector<int> primitiveIndices;
     KdAccelNode *nodes;
     int nAllocedNodes, nextFreeNode;
-    BBox bounds;
-    MemoryArena arena;
+    Bounds3f bounds;
 };
-
 
 struct KdToDo {
     const KdAccelNode *node;
-    float tmin, tmax;
+    Float tMin, tMax;
 };
 
+std::shared_ptr<KdTreeAccel> CreateKdTreeAccelerator(
+    const std::vector<std::shared_ptr<Primitive>> &prims, const ParamSet &ps);
 
-KdTreeAccel *CreateKdTreeAccelerator(const vector<Reference<Primitive> > &prims,
-        const ParamSet &ps);
+}  // namespace pbrt
 
-#endif // PBRT_ACCELERATORS_KDTREEACCEL_H
+#endif  // PBRT_ACCELERATORS_KDTREEACCEL_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,23 +32,22 @@
 
 
 // textures/scale.cpp*
-#include "stdafx.h"
 #include "textures/scale.h"
 
+namespace pbrt {
+
 // ScaleTexture Method Definitions
-ScaleTexture<float, float> *CreateScaleFloatTexture(const Transform &tex2world,
-        const TextureParams &tp) {
-    return new ScaleTexture<float, float>(tp.GetFloatTexture("tex1", 1.f),
-        tp.GetFloatTexture("tex2", 1.f));
+ScaleTexture<Float, Float> *CreateScaleFloatTexture(const Transform &tex2world,
+                                                    const TextureParams &tp) {
+    return new ScaleTexture<Float, Float>(tp.GetFloatTexture("tex1", 1.f),
+                                          tp.GetFloatTexture("tex2", 1.f));
 }
 
-
-
-ScaleTexture<Spectrum, Spectrum> *CreateScaleSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp) {
+ScaleTexture<Spectrum, Spectrum> *CreateScaleSpectrumTexture(
+    const Transform &tex2world, const TextureParams &tp) {
     return new ScaleTexture<Spectrum, Spectrum>(
         tp.GetSpectrumTexture("tex1", Spectrum(1.f)),
         tp.GetSpectrumTexture("tex2", Spectrum(1.f)));
 }
 
-
+}  // namespace pbrt

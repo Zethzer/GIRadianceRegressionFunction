@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,14 +41,17 @@
 // filters/box.h*
 #include "filter.h"
 
+namespace pbrt {
+
 // Box Filter Declarations
 class BoxFilter : public Filter {
-public:
-    BoxFilter(float xw, float yw) : Filter(xw, yw) { }
-    float Evaluate(float x, float y) const;
+  public:
+    BoxFilter(const Vector2f &radius) : Filter(radius) {}
+    Float Evaluate(const Point2f &p) const;
 };
-
 
 BoxFilter *CreateBoxFilter(const ParamSet &ps);
 
-#endif // PBRT_FILTERS_BOX_H
+}  // namespace pbrt
+
+#endif  // PBRT_FILTERS_BOX_H

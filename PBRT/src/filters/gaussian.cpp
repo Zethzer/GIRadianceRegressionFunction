@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,22 +32,22 @@
 
 
 // filters/gaussian.cpp*
-#include "stdafx.h"
 #include "filters/gaussian.h"
 #include "paramset.h"
 
-// Gaussian Filter Method Definitions
-float GaussianFilter::Evaluate(float x, float y) const {
-    return Gaussian(x, expX) * Gaussian(y, expY);
-}
+namespace pbrt {
 
+// Gaussian Filter Method Definitions
+Float GaussianFilter::Evaluate(const Point2f &p) const {
+    return Gaussian(p.x, expX) * Gaussian(p.y, expY);
+}
 
 GaussianFilter *CreateGaussianFilter(const ParamSet &ps) {
     // Find common filter parameters
-    float xw = ps.FindOneFloat("xwidth", 2.f);
-    float yw = ps.FindOneFloat("ywidth", 2.f);
-    float alpha = ps.FindOneFloat("alpha", 2.f);
-    return new GaussianFilter(xw, yw, alpha);
+    Float xw = ps.FindOneFloat("xwidth", 2.f);
+    Float yw = ps.FindOneFloat("ywidth", 2.f);
+    Float alpha = ps.FindOneFloat("alpha", 2.f);
+    return new GaussianFilter(Vector2f(xw, yw), alpha);
 }
 
-
+}  // namespace pbrt

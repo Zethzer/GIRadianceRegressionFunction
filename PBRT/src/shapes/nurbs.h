@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,35 +43,13 @@
 #include "shape.h"
 #include "geometry.h"
 
+namespace pbrt {
 
-// NURBS Declarations
-class NURBS : public Shape {
-public:
-    // NURBS Methods
-    NURBS(const Transform *o2w, const Transform *w2o,
-        bool ReverseOrientation, int nu, int uorder,
-        const float *uknot, float umin, float umax,
-        int nv, int vorder, const float *vknot, float vmin, float vmax,
-        const float *P, bool isHomogeneous);
-    ~NURBS();
-    BBox ObjectBound() const;
-    BBox WorldBound() const;
-    bool CanIntersect() const { return false; }
-    void Refine(vector<Reference<Shape> > &refined) const;
-private:
-    // NURBS Data
-    int nu, uorder, nv, vorder;
-    float umin, umax, vmin, vmax;
-    float *uknot, *vknot;
-    bool isHomogeneous;
-    float *P;
-};
+std::vector<std::shared_ptr<Shape>> CreateNURBS(const Transform *o2w,
+                                                const Transform *w2o,
+                                                bool reverseOrientation,
+                                                const ParamSet &params);
 
+}  // namespace pbrt
 
-
-
-extern NURBS *CreateNURBSShape(const Transform *o2w, const Transform *w2o,
-    bool ReverseOrientation, const ParamSet &params);
-
-
-#endif // PBRT_SHAPES_NURBS_H
+#endif  // PBRT_SHAPES_NURBS_H

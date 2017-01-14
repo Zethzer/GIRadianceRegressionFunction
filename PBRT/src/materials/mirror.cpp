@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,35 +32,35 @@
 
 
 // materials/mirror.cpp*
-#include "stdafx.h"
 #include "materials/mirror.h"
 #include "spectrum.h"
 #include "reflection.h"
 #include "paramset.h"
 #include "texture.h"
+#include "interaction.h"
+
+namespace pbrt {
 
 // MirrorMaterial Method Definitions
-BSDF *MirrorMaterial::GetBSDF(const DifferentialGeometry &dgGeom, const DifferentialGeometry &dgShading, MemoryArena &arena) const {
-    // Allocate _BSDF_, possibly doing bump mapping with _bumpMap_
-    DifferentialGeometry dgs;
-    if (bumpMap)
-        Bump(bumpMap, dgGeom, dgShading, &dgs);
-    else
-        dgs = dgShading;
-    BSDF *bsdf = BSDF_ALLOC(arena, BSDF)(dgs, dgGeom.nn);
-    Spectrum R = Kr->Evaluate(dgs).Clamp();
+void MirrorMaterial::ComputeScatteringFunctions(SurfaceInteraction *si,
+                                                MemoryArena &arena,
+                                                TransportMode mode,
+                                                bool allowMultipleLobes) const {
+    // Perform bump mapping with _bumpMap_, if present
+    if (bumpMap) Bump(bumpMap, si);
+    si->bsdf = ARENA_ALLOC(arena, BSDF)(*si);
+    Spectrum R = Kr->Evaluate(*si).Clamp();
     if (!R.IsBlack())
-        bsdf->Add(BSDF_ALLOC(arena, SpecularReflection)(R,
-            BSDF_ALLOC(arena, FresnelNoOp)()));
-    return bsdf;
+        si->bsdf->Add(ARENA_ALLOC(arena, SpecularReflection)(
+            R, ARENA_ALLOC(arena, FresnelNoOp)()));
 }
 
-
-MirrorMaterial *CreateMirrorMaterial(const Transform &xform,
-        const TextureParams &mp) {
-    Reference<Texture<Spectrum> > Kr = mp.GetSpectrumTexture("Kr", Spectrum(0.9f));
-    Reference<Texture<float> > bumpMap = mp.GetFloatTextureOrNull("bumpmap");
+MirrorMaterial *CreateMirrorMaterial(const TextureParams &mp) {
+    std::shared_ptr<Texture<Spectrum>> Kr =
+        mp.GetSpectrumTexture("Kr", Spectrum(0.9f));
+    std::shared_ptr<Texture<Float>> bumpMap =
+        mp.GetFloatTextureOrNull("bumpmap");
     return new MirrorMaterial(Kr, bumpMap);
 }
 
-
+}  // namespace pbrt

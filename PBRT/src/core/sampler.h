@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,68 +42,87 @@
 #include "pbrt.h"
 #include "geometry.h"
 #include "rng.h"
-#include "memory.h"
+#include <inttypes.h>
 
-// Sampling Declarations
+namespace pbrt {
+
+// Sampler Declarations
 class Sampler {
-public:
+  public:
     // Sampler Interface
     virtual ~Sampler();
-    Sampler(int xstart, int xend, int ystart, int yend,
-            int spp, float sopen, float sclose);
-    virtual int GetMoreSamples(Sample *sample, RNG &rng) = 0;
-    virtual int MaximumSampleCount() = 0;
-    virtual bool ReportResults(Sample *samples, const RayDifferential *rays,
-        const Spectrum *Ls, const Intersection *isects, int count);
-    virtual Sampler *GetSubSampler(int num, int count) = 0;
-    virtual int RoundSize(int size) const = 0;
+    Sampler(int64_t samplesPerPixel);
+    virtual void StartPixel(const Point2i &p);
+    virtual Float Get1D() = 0;
+    virtual Point2f Get2D() = 0;
+    CameraSample GetCameraSample(const Point2i &pRaster);
+    void Request1DArray(int n);
+    void Request2DArray(int n);
+    virtual int RoundCount(int n) const { return n; }
+    const Float *Get1DArray(int n);
+    const Point2f *Get2DArray(int n);
+    virtual bool StartNextSample();
+    virtual std::unique_ptr<Sampler> Clone(int seed) = 0;
+    virtual bool SetSampleNumber(int64_t sampleNum);
+    std::string StateString() const {
+      return StringPrintf("(%d,%d), sample %" PRId64, currentPixel.x,
+                          currentPixel.y, currentPixelSampleIndex);
+    }
+    int64_t CurrentSampleNumber() const { return currentPixelSampleIndex; }
 
     // Sampler Public Data
-    const int xPixelStart, xPixelEnd, yPixelStart, yPixelEnd;
-    const int samplesPerPixel;
-    const float shutterOpen, shutterClose;
-protected:
-    // Sampler Protected Methods
-    void ComputeSubWindow(int num, int count, int *xstart, int *xend, int *ystart, int *yend) const;
+    const int64_t samplesPerPixel;
+
+  protected:
+    // Sampler Protected Data
+    Point2i currentPixel;
+    int64_t currentPixelSampleIndex;
+    std::vector<int> samples1DArraySizes, samples2DArraySizes;
+    std::vector<std::vector<Float>> sampleArray1D;
+    std::vector<std::vector<Point2f>> sampleArray2D;
+
+  private:
+    // Sampler Private Data
+    size_t array1DOffset, array2DOffset;
 };
 
+class PixelSampler : public Sampler {
+  public:
+    // PixelSampler Public Methods
+    PixelSampler(int64_t samplesPerPixel, int nSampledDimensions);
+    bool StartNextSample();
+    bool SetSampleNumber(int64_t);
+    Float Get1D();
+    Point2f Get2D();
 
-struct CameraSample {
-    float imageX, imageY;
-    float lensU, lensV;
-    float time;
+  protected:
+    // PixelSampler Protected Data
+    std::vector<std::vector<Float>> samples1D;
+    std::vector<std::vector<Point2f>> samples2D;
+    int current1DDimension = 0, current2DDimension = 0;
+    RNG rng;
 };
 
+class GlobalSampler : public Sampler {
+  public:
+    // GlobalSampler Public Methods
+    bool StartNextSample();
+    void StartPixel(const Point2i &);
+    bool SetSampleNumber(int64_t sampleNum);
+    Float Get1D();
+    Point2f Get2D();
+    GlobalSampler(int64_t samplesPerPixel) : Sampler(samplesPerPixel) {}
+    virtual int64_t GetIndexForSample(int64_t sampleNum) const = 0;
+    virtual Float SampleDimension(int64_t index, int dimension) const = 0;
 
-struct Sample : public CameraSample {
-    // Sample Public Methods
-    Sample(Sampler *sampler, SurfaceIntegrator *surf, VolumeIntegrator *vol,
-        const Scene *scene);
-    uint32_t Add1D(uint32_t num) {
-        n1D.push_back(num);
-        return n1D.size()-1;
-    }
-    uint32_t Add2D(uint32_t num) {
-        n2D.push_back(num);
-        return n2D.size()-1;
-    }
-    ~Sample() {
-        if (oneD != NULL) {
-            FreeAligned(oneD[0]);
-            FreeAligned(oneD);
-        }
-    }
-    Sample *Duplicate(int count) const;
-
-    // Sample Public Data
-    vector<uint32_t> n1D, n2D;
-    float **oneD, **twoD;
-private:
-    // Sample Private Methods
-    void AllocateSampleMemory();
-    Sample() { oneD = twoD = NULL; }
+  private:
+    // GlobalSampler Private Data
+    int dimension;
+    int64_t intervalSampleIndex;
+    static const int arrayStartDim = 5;
+    int arrayEndDim;
 };
 
+}  // namespace pbrt
 
-
-#endif // PBRT_CORE_SAMPLER_H
+#endif  // PBRT_CORE_SAMPLER_H

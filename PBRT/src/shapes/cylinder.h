@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,25 +41,37 @@
 // shapes/cylinder.h*
 #include "shape.h"
 
+namespace pbrt {
+
 // Cylinder Declarations
 class Cylinder : public Shape {
-public:
+  public:
     // Cylinder Public Methods
-    Cylinder(const Transform *o2w, const Transform *w2o, bool ro, float rad,
-             float zmin, float zmax, float phiMax);
-    BBox ObjectBound() const;
-    bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
-                   DifferentialGeometry *dg) const;
-    bool IntersectP(const Ray &ray) const;
-    float Area() const;
-    Point Sample(float u1, float u2, Normal *Ns) const;
-protected:
+    Cylinder(const Transform *ObjectToWorld, const Transform *WorldToObject,
+             bool reverseOrientation, Float radius, Float zMin, Float zMax,
+             Float phiMax)
+        : Shape(ObjectToWorld, WorldToObject, reverseOrientation),
+          radius(radius),
+          zMin(std::min(zMin, zMax)),
+          zMax(std::max(zMin, zMax)),
+          phiMax(Radians(Clamp(phiMax, 0, 360))) {}
+    Bounds3f ObjectBound() const;
+    bool Intersect(const Ray &ray, Float *tHit, SurfaceInteraction *isect,
+                   bool testAlphaTexture) const;
+    bool IntersectP(const Ray &ray, bool testAlphaTexture) const;
+    Float Area() const;
+    Interaction Sample(const Point2f &u, Float *pdf) const;
+
+  protected:
     // Cylinder Private Data
-    float radius, zmin, zmax, phiMax;
+    const Float radius, zMin, zMax, phiMax;
 };
 
+std::shared_ptr<Cylinder> CreateCylinderShape(const Transform *o2w,
+                                              const Transform *w2o,
+                                              bool reverseOrientation,
+                                              const ParamSet &params);
 
-Cylinder *CreateCylinderShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_SHAPES_CYLINDER_H
+#endif  // PBRT_SHAPES_CYLINDER_H

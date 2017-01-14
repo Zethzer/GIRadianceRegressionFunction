@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,24 +40,45 @@
 
 // samplers/halton.h*
 #include "sampler.h"
-#include "film.h"
+#include "lowdiscrepancy.h"
+
+namespace pbrt {
 
 // HaltonSampler Declarations
-class HaltonSampler : public Sampler {
-public:
-    HaltonSampler(int xs, int xe, int ys, int ye, int ps, float sopen, float sclose);
-    int MaximumSampleCount() { return 1; }
-    int GetMoreSamples(Sample *sample, RNG &rng);
-    Sampler *GetSubSampler(int num, int count);
-    int RoundSize(int size) const { return size; }
+class HaltonSampler : public GlobalSampler {
+  public:
+    // HaltonSampler Public Methods
+    HaltonSampler(int nsamp, const Bounds2i &sampleBounds,
+                  bool sampleAtCenter = false);
+    int64_t GetIndexForSample(int64_t sampleNum) const;
+    Float SampleDimension(int64_t index, int dimension) const;
+    std::unique_ptr<Sampler> Clone(int seed);
 
-private:
+  private:
     // HaltonSampler Private Data
-    int wantedSamples, currentSample;
+    static std::vector<uint16_t> radicalInversePermutations;
+    Point2i baseScales, baseExponents;
+    int sampleStride;
+    int multInverse[2];
+    mutable Point2i pixelForOffset = Point2i(std::numeric_limits<int>::max(),
+                                             std::numeric_limits<int>::max());
+    mutable int64_t offsetForCurrentPixel;
+    // Added after book publication: force all image samples to be at the
+    // center of the pixel area.
+    bool sampleAtPixelCenter;
+
+    // HaltonSampler Private Methods
+    const uint16_t *PermutationForDimension(int dim) const {
+        if (dim >= PrimeTableSize)
+            LOG(FATAL) << StringPrintf("HaltonSampler can only sample %d "
+                                       "dimensions.", PrimeTableSize);
+        return &radicalInversePermutations[PrimeSums[dim]];
+    }
 };
 
+HaltonSampler *CreateHaltonSampler(const ParamSet &params,
+                                   const Bounds2i &sampleBounds);
 
-HaltonSampler *CreateHaltonSampler(const ParamSet &params, const Film *film,
-    const Camera *camera);
+}  // namespace pbrt
 
-#endif // PBRT_SAMPLERS_HALTON_H
+#endif  // PBRT_SAMPLERS_HALTON_H

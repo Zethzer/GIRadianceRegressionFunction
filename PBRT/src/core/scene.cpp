@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,38 +32,46 @@
 
 
 // core/scene.cpp*
-#include "stdafx.h"
 #include "scene.h"
 #include "camera.h"
 #include "film.h"
 #include "sampler.h"
-#include "volume.h"
 #include "parallel.h"
 #include "progressreporter.h"
-#include "renderer.h"
+#include "stats.h"
+
+namespace pbrt {
+
+STAT_COUNTER("Intersections/Regular ray intersection tests",
+             nIntersectionTests);
+STAT_COUNTER("Intersections/Shadow ray intersection tests", nShadowTests);
 
 // Scene Method Definitions
-Scene::~Scene() {
-    delete aggregate;
-    delete volumeRegion;
-    for (uint32_t i = 0; i < lights.size(); ++i)
-        delete lights[i];
+bool Scene::Intersect(const Ray &ray, SurfaceInteraction *isect) const {
+    ++nIntersectionTests;
+    DCHECK_NE(ray.d, Vector3f(0,0,0));
+    return aggregate->Intersect(ray, isect);
 }
 
-
-Scene::Scene(Primitive *accel, const vector<Light *> &lts,
-             VolumeRegion *vr) {
-    lights = lts;
-    aggregate = accel;
-    volumeRegion = vr;
-    // Scene Constructor Implementation
-    bound = aggregate->WorldBound();
-    if (volumeRegion) bound = Union(bound, volumeRegion->WorldBound());
+bool Scene::IntersectP(const Ray &ray) const {
+    ++nShadowTests;
+    DCHECK_NE(ray.d, Vector3f(0,0,0));
+    return aggregate->IntersectP(ray);
 }
 
+bool Scene::IntersectTr(Ray ray, Sampler &sampler, SurfaceInteraction *isect,
+                        Spectrum *Tr) const {
+    *Tr = Spectrum(1.f);
+    while (true) {
+        bool hitSurface = Intersect(ray, isect);
+        // Accumulate beam transmittance for ray segment
+        if (ray.medium) *Tr *= ray.medium->Tr(ray, sampler);
 
-const BBox &Scene::WorldBound() const {
-    return bound;
+        // Initialize next ray segment or terminate transmittance computation
+        if (!hitSurface) return false;
+        if (isect->primitive->GetMaterial() != nullptr) return true;
+        ray = isect->SpawnRay(ray.d);
+    }
 }
 
-
+}  // namespace pbrt

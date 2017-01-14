@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,27 +40,46 @@
 
 // core/progressreporter.h*
 #include "pbrt.h"
+#include <atomic>
+#include <chrono>
+#include <thread>
+
+namespace pbrt {
 
 // ProgressReporter Declarations
 class ProgressReporter {
-public:
+  public:
     // ProgressReporter Public Methods
-    ProgressReporter(int totalWork, const string &title,
-                     int barLength = -1);
+    ProgressReporter(int64_t totalWork, const std::string &title);
     ~ProgressReporter();
-    void Update(int num = 1);
+    void Update(int64_t num = 1) {
+        if (num == 0 || PbrtOptions.quiet) return;
+        workDone += num;
+    }
+    Float ElapsedMS() const {
+        std::chrono::system_clock::time_point now =
+            std::chrono::system_clock::now();
+        int64_t elapsedMS =
+            std::chrono::duration_cast<std::chrono::milliseconds>(now -
+                                                                  startTime)
+                .count();
+        return (Float)elapsedMS;
+    }
     void Done();
-private:
+
+  private:
+    // ProgressReporter Private Methods
+    void PrintBar();
+
     // ProgressReporter Private Data
-    const int totalWork;
-    int workDone, plussesPrinted, totalPlusses;
-    Timer *timer;
-    FILE *outFile;
-    char *buf, *curSpace;
-    Mutex *mutex;
+    const int64_t totalWork;
+    const std::string title;
+    const std::chrono::system_clock::time_point startTime;
+    std::atomic<int64_t> workDone;
+    std::atomic<bool> exitThread;
+    std::thread updateThread;
 };
 
+}  // namespace pbrt
 
-extern int TerminalWidth();
-
-#endif // PBRT_CORE_PROGRESSREPORTER_H
+#endif  // PBRT_CORE_PROGRESSREPORTER_H

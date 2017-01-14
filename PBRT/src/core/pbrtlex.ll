@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -29,37 +30,44 @@
 
  */
 
-/* state used for include file stuff */
-%{
+%option nounistd
 
-#define YY_MAIN 0
-#define YY_NEVER_INTERACTIVE 1
+%{
 
 #include "pbrt.h"
 #include "api.h"
 #include "fileutil.h"
 
-struct ParamArray;
-
-#if defined(PBRT_IS_WINDOWS)
+#if defined(PBRT_IS_MSVC)
+#include <io.h>
 #pragma warning(disable:4244)
 #pragma warning(disable:4065)
 #pragma warning(disable:4018)
 #pragma warning(disable:4996)
-#endif
-#include "pbrtparse.hh"
+int isatty(int fd) { return _isatty(fd); }
+#else
+#include <unistd.h>
+#endif  // PBRT_IS_MSVC
+
+namespace pbrt {
+struct ParamArray;
+}
+
+#include "pbrtparse.h"
+
+namespace pbrt {
 
 struct IncludeInfo {
-    string filename;
+    std::string filename;
     YY_BUFFER_STATE bufState;
     int lineNum;
 };
 
-
-vector<IncludeInfo> includeStack;
+std::vector<IncludeInfo> includeStack;
 
 extern int line_num;
 int str_pos;
+extern int catIndentCount;
 
 void add_string_char(char c) {
     yylval.string[str_pos++] = c;
@@ -73,13 +81,13 @@ void include_push(char *filename) {
         exit(1);
     }
 
-    string new_file = AbsolutePath(ResolveFilename(filename));
+    std::string new_file = AbsolutePath(ResolveFilename(filename));
 
     FILE *f = fopen(new_file.c_str(), "r");
     if (!f)
         Error("Unable to open included scene file \"%s\"", new_file.c_str());
     else {
-        extern string current_file;
+        extern std::string current_file;
         IncludeInfo ii;
         ii.filename = current_file;
         ii.bufState = YY_CURRENT_BUFFER;
@@ -98,7 +106,7 @@ void include_push(char *filename) {
 
 void include_pop() {
     extern int line_num;
-    extern string current_file;
+    extern std::string current_file;
     fclose(yyin);
     yy_delete_buffer(YY_CURRENT_BUFFER);
     yy_switch_to_buffer(includeStack.back().bufState);
@@ -107,6 +115,7 @@ void include_pop() {
     includeStack.pop_back();
 }
 
+}  // namespace pbrt
 
 %}
 %option nounput
@@ -115,10 +124,9 @@ NUMBER [-+]?([0-9]+|(([0-9]+\.[0-9]*)|(\.[0-9]+)))([eE][-+]?[0-9]+)?
 IDENT [a-zA-Z_][a-zA-Z_0-9]*
 %x STR COMMENT INCL INCL_FILE
 %%
-
-"#" { BEGIN COMMENT; }
-<COMMENT>. /* eat it up */
-<COMMENT>\n { line_num++; BEGIN INITIAL; }
+"#" { BEGIN COMMENT; if (pbrt::PbrtOptions.cat || pbrt::PbrtOptions.toPly) printf("%*s#", pbrt::catIndentCount, ""); }
+<COMMENT>. { /* eat it up */ if (pbrt::PbrtOptions.cat || pbrt::PbrtOptions.toPly) putchar(yytext[0]); }
+<COMMENT>\n { pbrt::line_num++; if (pbrt::PbrtOptions.cat || pbrt::PbrtOptions.toPly) putchar('\n'); BEGIN INITIAL; }
 Accelerator             { return ACCELERATOR; }
 ActiveTransform         { return ACTIVETRANSFORM; }
 All                     { return ALL; }
@@ -135,74 +143,74 @@ Identity                { return IDENTITY; }
 Include                 { return INCLUDE; }
 LightSource             { return LIGHTSOURCE; }
 LookAt                  { return LOOKAT; }
+MakeNamedMedium         { return MAKENAMEDMEDIUM; }
 MakeNamedMaterial       { return MAKENAMEDMATERIAL; }
 Material                { return MATERIAL; }
+MediumInterface         { return MEDIUMINTERFACE; }
 NamedMaterial           { return NAMEDMATERIAL; }
 ObjectBegin             { return OBJECTBEGIN; }
 ObjectEnd               { return OBJECTEND; }
 ObjectInstance          { return OBJECTINSTANCE; }
 PixelFilter             { return PIXELFILTER; }
-Renderer                { return RENDERER; }
 ReverseOrientation      { return REVERSEORIENTATION; }
 Rotate                  { return ROTATE; }
 Sampler                 { return SAMPLER; }
 Scale                   { return SCALE; }
 Shape                   { return SHAPE; }
 StartTime               { return STARTTIME; }
-SurfaceIntegrator       { return SURFACEINTEGRATOR; }
+Integrator              { return INTEGRATOR; }
 Texture                 { return TEXTURE; }
 TransformBegin          { return TRANSFORMBEGIN; }
 TransformEnd            { return TRANSFORMEND; }
 TransformTimes          { return TRANSFORMTIMES; }
 Transform               { return TRANSFORM; }
 Translate               { return TRANSLATE; }
-Volume                  { return VOLUME; }
-VolumeIntegrator        { return VOLUMEINTEGRATOR; }
 WorldBegin              { return WORLDBEGIN; }
 WorldEnd                { return WORLDEND; }
 {WHITESPACE} /* do nothing */
-\n { line_num++; }
+\n { pbrt::line_num++; }
 {NUMBER} {
-    yylval.num = (float) atof(yytext);
+    yylval.num = atof(yytext);
     return NUM;
 }
 
 
 {IDENT} {
-    strcpy(yylval.string, yytext);
+    yylval.string[0] = '\0';
+    strncat(yylval.string, yytext, sizeof(yylval.string) - 1);
     return ID;
 }
 
 
 "[" { return LBRACK; }
 "]" { return RBRACK; }
-\" { BEGIN STR; str_pos = 0; }
-<STR>\\n {add_string_char('\n');}
-<STR>\\t {add_string_char('\t');}
-<STR>\\r {add_string_char('\r');}
-<STR>\\b {add_string_char('\b');}
-<STR>\\f {add_string_char('\f');}
-<STR>\\\" {add_string_char('\"');}
-<STR>\\\\ {add_string_char('\\');}
+\" { BEGIN STR; pbrt::str_pos = 0; yylval.string[0] = '\0'; }
+<STR>\\n {pbrt::add_string_char('\n');}
+<STR>\\t {pbrt::add_string_char('\t');}
+<STR>\\r {pbrt::add_string_char('\r');}
+<STR>\\b {pbrt::add_string_char('\b');}
+<STR>\\f {pbrt::add_string_char('\f');}
+<STR>\\\" {pbrt::add_string_char('\"');}
+<STR>\\\\ {pbrt::add_string_char('\\');}
 <STR>\\[0-9]{3} {
   int val = atoi(yytext+1);
   while (val > 256)
     val -= 256;
-  add_string_char(val);
+  pbrt::add_string_char(val);
 }
 
 
-<STR>\\\n {line_num++;}
-<STR>\\. { add_string_char(yytext[1]);}
+<STR>\\\n {pbrt::line_num++;}
+<STR>\\. { pbrt::add_string_char(yytext[1]);}
 <STR>\" {BEGIN INITIAL; return STRING;}
-<STR>. {add_string_char(yytext[0]);}
-<STR>\n {Error("Unterminated string!");}
+<STR>. {pbrt::add_string_char(yytext[0]);}
+<STR>\n {pbrt::Error("Unterminated string!");}
 
-. { Error( "Illegal character: %c (0x%x)", yytext[0], int(yytext[0])); }
+. { pbrt::Error("Illegal character: %c (0x%x)", yytext[0], int(yytext[0])); }
 %%
 int yywrap() {
-    if (includeStack.size() == 0) return 1;
-    include_pop();
+    if (pbrt::includeStack.size() == 0) return 1;
+    pbrt::include_pop();
     return 0;
 }
 

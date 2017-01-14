@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,93 +32,48 @@
 
 
 // samplers/random.cpp*
-#include "stdafx.h"
 #include "samplers/random.h"
-#include "montecarlo.h"
-#include "camera.h"
+#include "paramset.h"
+#include "sampling.h"
+#include "stats.h"
 
-RandomSampler::RandomSampler(int xstart, int xend,
-        int ystart, int yend, int ns, float sopen, float sclose)
-    : Sampler(xstart, xend, ystart, yend, ns, sopen, sclose) {
-    xPos = xPixelStart;
-    yPos = yPixelStart;
-    nSamples = ns;
-    // Get storage for a pixel's worth of stratified samples
-    imageSamples = AllocAligned<float>(5 * nSamples);
-    lensSamples = imageSamples + 2 * nSamples;
-    timeSamples = lensSamples + 2 * nSamples;
+namespace pbrt {
 
-    RNG rng(xstart + ystart * (xend-xstart));
-    for (int i = 0; i < 5 * nSamples; ++i)
-        imageSamples[i] = rng.RandomFloat();
+RandomSampler::RandomSampler(int ns, int seed) : Sampler(ns), rng(seed) {}
 
-    // Shift image samples to pixel coordinates
-    for (int o = 0; o < 2 * nSamples; o += 2) {
-        imageSamples[o]   += xPos;
-        imageSamples[o+1] += yPos;
-    }
-    samplePos = 0;
+Float RandomSampler::Get1D() {
+    ProfilePhase _(Prof::GetSample);
+    CHECK_LT(currentPixelSampleIndex, samplesPerPixel);
+    return rng.UniformFloat();
 }
 
-
-
-Sampler *RandomSampler::GetSubSampler(int num, int count) {
-    int x0, x1, y0, y1;
-    ComputeSubWindow(num, count, &x0, &x1, &y0, &y1);
-    if (x0 == x1 || y0 == y1) return NULL;
-    return new RandomSampler(x0, x1, y0, y1, nSamples,
-       shutterOpen, shutterClose);
+Point2f RandomSampler::Get2D() {
+    ProfilePhase _(Prof::GetSample);
+    CHECK_LT(currentPixelSampleIndex, samplesPerPixel);
+    return {rng.UniformFloat(), rng.UniformFloat()};
 }
 
-
-
-int RandomSampler::GetMoreSamples(Sample *sample, RNG &rng) {
-    if (samplePos == nSamples) {
-        if (xPixelStart == xPixelEnd || yPixelStart == yPixelEnd)
-            return 0;
-        if (++xPos == xPixelEnd) {
-            xPos = xPixelStart;
-            ++yPos;
-        }
-        if (yPos == yPixelEnd)
-            return 0;
-
-        for (int i = 0; i < 5 * nSamples; ++i)
-            imageSamples[i] = rng.RandomFloat();
-
-        // Shift image samples to pixel coordinates
-        for (int o = 0; o < 2 * nSamples; o += 2) {
-            imageSamples[o]   += xPos;
-            imageSamples[o+1] += yPos;
-        }
-        samplePos = 0;
-    }
-    // Return next \mono{RandomSampler} sample point
-    sample->imageX = imageSamples[2*samplePos];
-    sample->imageY = imageSamples[2*samplePos+1];
-    sample->lensU = lensSamples[2*samplePos];
-    sample->lensV = lensSamples[2*samplePos+1];
-    sample->time = Lerp(timeSamples[samplePos], shutterOpen, shutterClose);
-    // Generate stratified samples for integrators
-    for (uint32_t i = 0; i < sample->n1D.size(); ++i)
-        for (uint32_t j = 0; j < sample->n1D[i]; ++j)
-            sample->oneD[i][j] = rng.RandomFloat();
-    for (uint32_t i = 0; i < sample->n2D.size(); ++i)
-        for (uint32_t j = 0; j < 2*sample->n2D[i]; ++j)
-            sample->twoD[i][j] = rng.RandomFloat();
-    ++samplePos;
-    return 1;
+std::unique_ptr<Sampler> RandomSampler::Clone(int seed) {
+    RandomSampler *rs = new RandomSampler(*this);
+    rs->rng.SetSequence(seed);
+    return std::unique_ptr<Sampler>(rs);
 }
 
+void RandomSampler::StartPixel(const Point2i &p) {
+    ProfilePhase _(Prof::StartPixel);
+    for (size_t i = 0; i < sampleArray1D.size(); ++i)
+        for (size_t j = 0; j < sampleArray1D[i].size(); ++j)
+            sampleArray1D[i][j] = rng.UniformFloat();
 
+    for (size_t i = 0; i < sampleArray2D.size(); ++i)
+        for (size_t j = 0; j < sampleArray2D[i].size(); ++j)
+            sampleArray2D[i][j] = {rng.UniformFloat(), rng.UniformFloat()};
+    Sampler::StartPixel(p);
+}
 
-Sampler *CreateRandomSampler(const ParamSet &params,
-                       const Film *film, const Camera *camera) {
+Sampler *CreateRandomSampler(const ParamSet &params) {
     int ns = params.FindOneInt("pixelsamples", 4);
-    int xstart, xend, ystart, yend;
-    film->GetSampleExtent(&xstart, &xend, &ystart, &yend);
-    return new RandomSampler(xstart, xend, ystart, yend, ns,
-                             camera->shutterOpen, camera->shutterClose);
+    return new RandomSampler(ns);
 }
 
-
+}  // namespace pbrt

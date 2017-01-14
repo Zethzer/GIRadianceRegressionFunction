@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,103 +42,102 @@
 #include "pbrt.h"
 #include "texture.h"
 #include "paramset.h"
-#include "montecarlo.h"
-#include "shape.h"
-#include "parallel.h"
-#include "progressreporter.h"
+
+namespace pbrt {
+
+// AAMethod Declaration
+enum class AAMethod { None, ClosedForm };
 
 // CheckerboardTexture Declarations
-template <typename T> class Checkerboard2DTexture : public Texture<T> {
-public:
+template <typename T>
+class Checkerboard2DTexture : public Texture<T> {
+  public:
     // Checkerboard2DTexture Public Methods
-    Checkerboard2DTexture(TextureMapping2D *m, Reference<Texture<T> > c1,
-                          Reference<Texture<T> > c2, const string &aa)
-        : mapping(m), tex1(c1), tex2(c2) {
-        // Select antialiasing method for _Checkerboard2DTexture_
-        if (aa == "none")             aaMethod = NONE;
-        else if (aa == "closedform")  aaMethod = CLOSEDFORM;
-        else {
-            Warning("Antialiasing mode \"%s\" not understood by "
-                    "Checkerboard2DTexture; using \"closedform\"", aa.c_str());
-            aaMethod = CLOSEDFORM;
-        }
-    }
-    ~Checkerboard2DTexture() {
-        delete mapping;
-    }
-    T Evaluate(const DifferentialGeometry &dg) const {
-        float s, t, dsdx, dtdx, dsdy, dtdy;
-        mapping->Map(dg, &s, &t, &dsdx, &dtdx, &dsdy, &dtdy);
-        if (aaMethod == NONE) {
+    Checkerboard2DTexture(std::unique_ptr<TextureMapping2D> mapping,
+                          const std::shared_ptr<Texture<T>> &tex1,
+                          const std::shared_ptr<Texture<T>> &tex2,
+                          AAMethod aaMethod)
+        : mapping(std::move(mapping)),
+          tex1(tex1),
+          tex2(tex2),
+          aaMethod(aaMethod) {}
+    T Evaluate(const SurfaceInteraction &si) const {
+        Vector2f dstdx, dstdy;
+        Point2f st = mapping->Map(si, &dstdx, &dstdy);
+        if (aaMethod == AAMethod::None) {
             // Point sample _Checkerboard2DTexture_
-            if ((Floor2Int(s) + Floor2Int(t)) % 2 == 0)
-                return tex1->Evaluate(dg);
-            return tex2->Evaluate(dg);
-        }
-        else {
+            if (((int)std::floor(st[0]) + (int)std::floor(st[1])) % 2 == 0)
+                return tex1->Evaluate(si);
+            return tex2->Evaluate(si);
+        } else {
             // Compute closed-form box-filtered _Checkerboard2DTexture_ value
 
             // Evaluate single check if filter is entirely inside one of them
-            float ds = max(fabsf(dsdx), fabsf(dsdy));
-            float dt = max(fabsf(dtdx), fabsf(dtdy));
-            float s0 = s - ds, s1 = s + ds;
-            float t0 = t - dt, t1 = t + dt;
-            if (Floor2Int(s0) == Floor2Int(s1) && Floor2Int(t0) == Floor2Int(t1)) {
+            Float ds = std::max(std::abs(dstdx[0]), std::abs(dstdy[0]));
+            Float dt = std::max(std::abs(dstdx[1]), std::abs(dstdy[1]));
+            Float s0 = st[0] - ds, s1 = st[0] + ds;
+            Float t0 = st[1] - dt, t1 = st[1] + dt;
+            if (std::floor(s0) == std::floor(s1) &&
+                std::floor(t0) == std::floor(t1)) {
                 // Point sample _Checkerboard2DTexture_
-                if ((Floor2Int(s) + Floor2Int(t)) % 2 == 0)
-                    return tex1->Evaluate(dg);
-                return tex2->Evaluate(dg);
+                if (((int)std::floor(st[0]) + (int)std::floor(st[1])) % 2 == 0)
+                    return tex1->Evaluate(si);
+                return tex2->Evaluate(si);
             }
 
             // Apply box filter to checkerboard region
-#define BUMPINT(x) \
-                (Floor2Int((x)/2) + \
-                 2.f * max((x/2)-Floor2Int(x/2) - .5f, 0.f))
-            float sint = (BUMPINT(s1) - BUMPINT(s0)) / (2.f * ds);
-            float tint = (BUMPINT(t1) - BUMPINT(t0)) / (2.f * dt);
-            float area2 = sint + tint - 2.f * sint * tint;
-            if (ds > 1.f || dt > 1.f)
-                area2 = .5f;
-            return (1.f - area2) * tex1->Evaluate(dg) +
-                   area2         * tex2->Evaluate(dg);
+            auto bumpInt = [](Float x) {
+                return (int)std::floor(x / 2) +
+                       2 * std::max(x / 2 - (int)std::floor(x / 2) - (Float)0.5,
+                                    (Float)0);
+            };
+            Float sint = (bumpInt(s1) - bumpInt(s0)) / (2 * ds);
+            Float tint = (bumpInt(t1) - bumpInt(t0)) / (2 * dt);
+            Float area2 = sint + tint - 2 * sint * tint;
+            if (ds > 1 || dt > 1) area2 = .5f;
+            return (1 - area2) * tex1->Evaluate(si) +
+                   area2 * tex2->Evaluate(si);
         }
     }
-private:
+
+  private:
     // Checkerboard2DTexture Private Data
-    TextureMapping2D *mapping;
-    Reference<Texture<T> > tex1, tex2;
-    enum { NONE, CLOSEDFORM } aaMethod;
+    std::unique_ptr<TextureMapping2D> mapping;
+    const std::shared_ptr<Texture<T>> tex1, tex2;
+    const AAMethod aaMethod;
 };
 
-
-template <typename T> class Checkerboard3DTexture : public Texture<T> {
-public:
+template <typename T>
+class Checkerboard3DTexture : public Texture<T> {
+  public:
     // Checkerboard3DTexture Public Methods
-    Checkerboard3DTexture(TextureMapping3D *m, Reference<Texture<T> > c1,
-                          Reference<Texture<T> > c2)
-        : mapping(m), tex1(c1), tex2(c2) {
-    }
-    ~Checkerboard3DTexture() {
-        delete mapping;
-    }
-    T Evaluate(const DifferentialGeometry &dg) const {
-        Vector dpdx, dpdy;
-        Point p = mapping->Map(dg, &dpdx, &dpdy);
-        if ((Floor2Int(p.x) + Floor2Int(p.y) + Floor2Int(p.z)) % 2 == 0)
-            return tex1->Evaluate(dg);
+    Checkerboard3DTexture(std::unique_ptr<TextureMapping3D> mapping,
+                          const std::shared_ptr<Texture<T>> &tex1,
+                          const std::shared_ptr<Texture<T>> &tex2)
+        : mapping(std::move(mapping)), tex1(tex1), tex2(tex2) {}
+    T Evaluate(const SurfaceInteraction &si) const {
+        Vector3f dpdx, dpdy;
+        Point3f p = mapping->Map(si, &dpdx, &dpdy);
+        if (((int)std::floor(p.x) + (int)std::floor(p.y) +
+             (int)std::floor(p.z)) %
+                2 ==
+            0)
+            return tex1->Evaluate(si);
         else
-            return tex2->Evaluate(dg);
+            return tex2->Evaluate(si);
     }
-private:
+
+  private:
     // Checkerboard3DTexture Private Data
-    TextureMapping3D *mapping;
-    Reference<Texture<T> > tex1, tex2;
+    std::unique_ptr<TextureMapping3D> mapping;
+    std::shared_ptr<Texture<T>> tex1, tex2;
 };
 
-
-Texture<float> *CreateCheckerboardFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
+Texture<Float> *CreateCheckerboardFloatTexture(const Transform &tex2world,
+                                               const TextureParams &tp);
 Texture<Spectrum> *CreateCheckerboardSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+                                                     const TextureParams &tp);
 
-#endif // PBRT_TEXTURES_CHECKERBOARD_H
+}  // namespace pbrt
+
+#endif  // PBRT_TEXTURES_CHECKERBOARD_H

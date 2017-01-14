@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,20 +32,23 @@
 
 
 // core/parser.cpp*
-#include "stdafx.h"
 #include "parser.h"
 #include "fileutil.h"
 
-// Parsing Global Interface
-bool ParseFile(const string &filename) {
-    extern FILE *yyin;
-    extern int yyparse(void);
-    extern string current_file;
-    extern int line_num;
-    extern int yydebug;
+extern FILE *yyin;
+extern int yyparse(void);
+extern int yydebug;
 
-    if (getenv("PBRT_YYDEBUG") != NULL)
-        yydebug = 1;
+namespace pbrt {
+
+// Parsing Global Interface
+bool ParseFile(const std::string &filename) {
+    extern std::string current_file;
+    extern int line_num;
+
+    LOG(INFO) << "Starting to parse input file " << filename;
+
+    if (getenv("PBRT_YYDEBUG") != nullptr) yydebug = 1;
 
     if (filename == "-")
         yyin = stdin;
@@ -52,8 +56,7 @@ bool ParseFile(const string &filename) {
         yyin = fopen(filename.c_str(), "r");
         SetSearchDirectory(DirectoryContaining(filename));
     }
-
-    if (yyin != NULL) {
+    if (yyin != nullptr) {
         current_file = filename;
         if (yyin == stdin) current_file = "<standard input>";
         line_num = 1;
@@ -62,7 +65,8 @@ bool ParseFile(const string &filename) {
     }
     current_file = "";
     line_num = 0;
-    return (yyin != NULL);
+    LOG(INFO) << "Done parsing input file " << filename;
+    return (yyin != nullptr);
 }
 
-
+}  // namespace pbrt

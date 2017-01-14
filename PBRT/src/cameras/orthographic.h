@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,21 +43,36 @@
 #include "camera.h"
 #include "film.h"
 
+namespace pbrt {
+
 // OrthographicCamera Declarations
-class OrthoCamera : public ProjectiveCamera {
-public:
-    // OrthoCamera Public Methods
-    OrthoCamera(const AnimatedTransform &cam2world, const float screenWindow[4],
-        float sopen, float sclose, float lensr, float focald, Film *film);
-    float GenerateRay(const CameraSample &sample, Ray *) const;
-    float GenerateRayDifferential(const CameraSample &sample, RayDifferential *) const;
-private:
-    // OrthoCamera Private Data
-    Vector dxCamera, dyCamera;
+class OrthographicCamera : public ProjectiveCamera {
+  public:
+    // OrthographicCamera Public Methods
+    OrthographicCamera(const AnimatedTransform &CameraToWorld,
+                       const Bounds2f &screenWindow, Float shutterOpen,
+                       Float shutterClose, Float lensRadius,
+                       Float focalDistance, Film *film, const Medium *medium)
+        : ProjectiveCamera(CameraToWorld, Orthographic(0, 1), screenWindow,
+                           shutterOpen, shutterClose, lensRadius, focalDistance,
+                           film, medium) {
+        // Compute differential changes in origin for orthographic camera rays
+        dxCamera = RasterToCamera(Vector3f(1, 0, 0));
+        dyCamera = RasterToCamera(Vector3f(0, 1, 0));
+    }
+    Float GenerateRay(const CameraSample &sample, Ray *) const;
+    Float GenerateRayDifferential(const CameraSample &sample,
+                                  RayDifferential *) const;
+
+  private:
+    // OrthographicCamera Private Data
+    Vector3f dxCamera, dyCamera;
 };
 
+OrthographicCamera *CreateOrthographicCamera(const ParamSet &params,
+                                             const AnimatedTransform &cam2world,
+                                             Film *film, const Medium *medium);
 
-OrthoCamera *CreateOrthographicCamera(const ParamSet &params,
-        const AnimatedTransform &cam2world, Film *film);
+}  // namespace pbrt
 
-#endif // PBRT_CAMERAS_ORTHOGRAPHIC_H
+#endif  // PBRT_CAMERAS_ORTHOGRAPHIC_H

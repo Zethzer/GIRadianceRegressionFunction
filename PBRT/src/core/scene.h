@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,33 +43,41 @@
 #include "primitive.h"
 #include "integrator.h"
 
+namespace pbrt {
+
 // Scene Declarations
 class Scene {
-public:
+  public:
     // Scene Public Methods
-    Scene(Primitive *accel, const vector<Light *> &lts, VolumeRegion *vr);
-    ~Scene();
-    bool Intersect(const Ray &ray, Intersection *isect) const {
-        PBRT_STARTED_RAY_INTERSECTION(const_cast<Ray *>(&ray));
-        bool hit = aggregate->Intersect(ray, isect);
-        PBRT_FINISHED_RAY_INTERSECTION(const_cast<Ray *>(&ray), isect, int(hit));
-        return hit;
+    Scene(std::shared_ptr<Primitive> aggregate,
+          const std::vector<std::shared_ptr<Light>> &lights)
+        : lights(lights), aggregate(aggregate) {
+        // Scene Constructor Implementation
+        worldBound = aggregate->WorldBound();
+        for (const auto &light : lights) {
+            light->Preprocess(*this);
+            if (light->flags & (int)LightFlags::Infinite)
+                infiniteLights.push_back(light);
+        }
     }
-    bool IntersectP(const Ray &ray) const {
-        PBRT_STARTED_RAY_INTERSECTIONP(const_cast<Ray *>(&ray));
-        bool hit = aggregate->IntersectP(ray);
-        PBRT_FINISHED_RAY_INTERSECTIONP(const_cast<Ray *>(&ray), int(hit));
-        return hit;
-    }
-    const BBox &WorldBound() const;
+    const Bounds3f &WorldBound() const { return worldBound; }
+    bool Intersect(const Ray &ray, SurfaceInteraction *isect) const;
+    bool IntersectP(const Ray &ray) const;
+    bool IntersectTr(Ray ray, Sampler &sampler, SurfaceInteraction *isect,
+                     Spectrum *transmittance) const;
 
     // Scene Public Data
-    Primitive *aggregate;
-    vector<Light *> lights;
-    VolumeRegion *volumeRegion;
-    BBox bound;
+    std::vector<std::shared_ptr<Light>> lights;
+    // Store infinite light sources separately for cases where we only want
+    // to loop over them.
+    std::vector<std::shared_ptr<Light>> infiniteLights;
+
+  private:
+    // Scene Private Data
+    std::shared_ptr<Primitive> aggregate;
+    Bounds3f worldBound;
 };
 
+}  // namespace pbrt
 
-
-#endif // PBRT_CORE_SCENE_H
+#endif  // PBRT_CORE_SCENE_H

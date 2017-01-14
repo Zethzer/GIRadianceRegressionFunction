@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,882 +32,324 @@
 
 
 // core/parallel.cpp*
-#include "stdafx.h"
 #include "parallel.h"
 #include "memory.h"
-#ifdef PBRT_USE_GRAND_CENTRAL_DISPATCH
-#include <dispatch/dispatch.h>
-#endif // PBRT_USE_GRAND_CENTRAL_DISPATCH
-#if !defined(PBRT_IS_WINDOWS)
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <errno.h>
-#endif 
+#include "stats.h"
 #include <list>
+#include <thread>
+#include <condition_variable>
 
-// Parallel Local Declarations
-#if defined(PBRT_IS_WINDOWS)
-static HANDLE *threads;
-#elif !defined(PBRT_USE_GRAND_CENTRAL_DISPATCH)
-static pthread_t *threads;
-#endif 
-#ifdef PBRT_USE_GRAND_CENTRAL_DISPATCH
-static dispatch_queue_t gcdQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-static dispatch_group_t gcdGroup = dispatch_group_create();
-#else
-static Mutex *taskQueueMutex = Mutex::Create();
-static std::vector<Task *> taskQueue;
-#endif // PBRT_USE_GRAND_CENTRAL_DISPATCH
-#ifndef PBRT_USE_GRAND_CENTRAL_DISPATCH
-static Semaphore *workerSemaphore;
-static uint32_t numUnfinishedTasks;
-static ConditionVariable *tasksRunningCondition;
-#endif // PBRT_USE_GRAND_CENTRAL_DISPATCH
-#ifndef PBRT_USE_GRAND_CENTRAL_DISPATCH
-static
-#if defined(PBRT_IS_WINDOWS)
-DWORD WINAPI taskEntry(LPVOID arg);
-#else
-void *taskEntry(void *arg);
-#endif
-#endif // !PBRT_USE_GRAND_CENTRAL_DISPATCH
+namespace pbrt {
+
+// Parallel Local Definitions
+static std::vector<std::thread> threads;
+static bool shutdownThreads = false;
+class ParallelForLoop;
+static ParallelForLoop *workList = nullptr;
+static std::mutex workListMutex;
+
+// Bookkeeping variables to help with the implementation of
+// MergeWorkerThreadStats().
+static std::atomic<bool> reportWorkerStats{false};
+// Number of workers that still need to report their stats.
+static std::atomic<int> reporterCount;
+// After kicking the workers to report their stats, the main thread waits
+// on this condition variable until they've all done so.
+static std::condition_variable reportDoneCondition;
+static std::mutex reportDoneMutex;
+
+class ParallelForLoop {
+  public:
+    // ParallelForLoop Public Methods
+    ParallelForLoop(std::function<void(int64_t)> func1D, int64_t maxIndex,
+                    int chunkSize, uint64_t profilerState)
+        : func1D(std::move(func1D)),
+          maxIndex(maxIndex),
+          chunkSize(chunkSize),
+          profilerState(profilerState) {}
+    ParallelForLoop(const std::function<void(Point2i)> &f, const Point2i &count,
+                    uint64_t profilerState)
+        : func2D(f),
+          maxIndex(count.x * count.y),
+          chunkSize(1),
+          profilerState(profilerState) {
+        nX = count.x;
+    }
+
+  public:
+    // ParallelForLoop Private Data
+    std::function<void(int64_t)> func1D;
+    std::function<void(Point2i)> func2D;
+    const int64_t maxIndex;
+    const int chunkSize;
+    uint64_t profilerState;
+    int64_t nextIndex = 0;
+    int activeWorkers = 0;
+    ParallelForLoop *next = nullptr;
+    int nX = -1;
+
+    // ParallelForLoop Private Methods
+    bool Finished() const {
+        return nextIndex >= maxIndex && activeWorkers == 0;
+    }
+};
+
+void Barrier::Wait() {
+    std::unique_lock<std::mutex> lock(mutex);
+    CHECK_GT(count, 0);
+    if (--count == 0)
+        // This is the last thread to reach the barrier; wake up all of the
+        // other ones before exiting.
+        cv.notify_all();
+    else
+        // Otherwise there are still threads that haven't reached it. Give
+        // up the lock and wait to be notified.
+        cv.wait(lock, [this] { return count == 0; });
+}
+
+static std::condition_variable workListCondition;
+
+static void workerThreadFunc(int tIndex, std::shared_ptr<Barrier> barrier) {
+    LOG(INFO) << "Started execution in worker thread " << tIndex;
+    ThreadIndex = tIndex;
+
+    // Give the profiler a chance to do per-thread initialization for
+    // the worker thread before the profiling system actually stops running.
+    ProfilerWorkerThreadInit();
+
+    // The main thread sets up a barrier so that it can be sure that all
+    // workers have called ProfilerWorkerThreadInit() before it continues
+    // (and actually starts the profiling system).
+    barrier->Wait();
+
+    // Release our reference to the Barrier so that it's freed once all of
+    // the threads have cleared it.
+    barrier.reset();
+
+    std::unique_lock<std::mutex> lock(workListMutex);
+    while (!shutdownThreads) {
+        if (reportWorkerStats) {
+            ReportThreadStats();
+            if (--reporterCount == 0)
+                // Once all worker threads have merged their stats, wake up
+                // the main thread.
+                reportDoneCondition.notify_one();
+            // Now sleep again.
+            workListCondition.wait(lock);
+        } else if (!workList) {
+            // Sleep until there are more tasks to run
+            workListCondition.wait(lock);
+        } else {
+            // Get work from _workList_ and run loop iterations
+            ParallelForLoop &loop = *workList;
+
+            // Run a chunk of loop iterations for _loop_
+
+            // Find the set of loop iterations to run next
+            int64_t indexStart = loop.nextIndex;
+            int64_t indexEnd =
+                std::min(indexStart + loop.chunkSize, loop.maxIndex);
+
+            // Update _loop_ to reflect iterations this thread will run
+            loop.nextIndex = indexEnd;
+            if (loop.nextIndex == loop.maxIndex) workList = loop.next;
+            loop.activeWorkers++;
+
+            // Run loop indices in _[indexStart, indexEnd)_
+            lock.unlock();
+            for (int64_t index = indexStart; index < indexEnd; ++index) {
+                uint64_t oldState = ProfilerState;
+                ProfilerState = loop.profilerState;
+                if (loop.func1D) {
+                    loop.func1D(index);
+                }
+                // Handle other types of loops
+                else {
+                    CHECK(loop.func2D);
+                    loop.func2D(Point2i(index % loop.nX, index / loop.nX));
+                }
+                ProfilerState = oldState;
+            }
+            lock.lock();
+
+            // Update _loop_ to reflect completion of iterations
+            loop.activeWorkers--;
+            if (loop.Finished()) workListCondition.notify_all();
+        }
+    }
+    LOG(INFO) << "Exiting worker thread " << tIndex;
+}
 
 // Parallel Definitions
-#if !defined(PBRT_IS_WINDOWS)
-
-Mutex *Mutex::Create() {
-    int sz = sizeof(Mutex);
-    sz = (sz + (PBRT_L1_CACHE_LINE_SIZE-1)) & ~(PBRT_L1_CACHE_LINE_SIZE-1);
-    return new (AllocAligned(sz)) Mutex;
-}
-
-
-
-void Mutex::Destroy(Mutex *m) {
-    m->~Mutex();
-    FreeAligned(m);
-}
-
-
-
-Mutex::Mutex() {
-    int err;
-    if ((err = pthread_mutex_init(&mutex, NULL)) != 0)
-        Severe("Error from pthread_mutex_init: %s", strerror(err));
-}
-
-
-
-Mutex::~Mutex() {
-    int err;
-    if ((err = pthread_mutex_destroy(&mutex)) != 0)
-        Severe("Error from pthread_mutex_destroy: %s", strerror(err));
-}
-
-
-
-
-MutexLock::MutexLock(Mutex &m) : mutex(m) {
-    int err;
-    if ((err = pthread_mutex_lock(&m.mutex)) != 0)
-        Severe("Error from pthread_mutex_lock: %s", strerror(err));
-}
-
-
-
-MutexLock::~MutexLock() {
-    int err;
-    if ((err = pthread_mutex_unlock(&mutex.mutex)) != 0)
-        Severe("Error from pthread_mutex_unlock: %s", strerror(err));
-}
-
-
-
-
-RWMutex *RWMutex::Create() {
-    int sz = sizeof(RWMutex);
-    sz = (sz + (PBRT_L1_CACHE_LINE_SIZE-1)) & ~(PBRT_L1_CACHE_LINE_SIZE-1);
-    return new (AllocAligned(sz)) RWMutex;
-}
-
-
-
-void RWMutex::Destroy(RWMutex *m) {
-    m->~RWMutex();
-    FreeAligned(m);
-}
-
-
-
-RWMutex::RWMutex() {
-    int err;
-    if ((err = pthread_rwlock_init(&mutex, NULL)) != 0)
-        Severe("Error from pthread_rwlock_init: %s", strerror(err));
-}
-
-
-
-RWMutex::~RWMutex() {
-    int err;
-    if ((err = pthread_rwlock_destroy(&mutex)) != 0)
-        Severe("Error from pthread_rwlock_destroy: %s", strerror(err));
-}
-
-
-
-
-RWMutexLock::RWMutexLock(RWMutex &m, RWMutexLockType t) : type(t), mutex(m) {
-    int err;
-    if (t == READ) err = pthread_rwlock_rdlock(&m.mutex);
-    else           err = pthread_rwlock_wrlock(&m.mutex);
-}
-
-
-
-RWMutexLock::~RWMutexLock() {
-    int err;
-    if ((err = pthread_rwlock_unlock(&mutex.mutex)) != 0)
-       Severe("Error from pthread_rwlock_unlock: %s", strerror(err));
-}
-
-
-
-void RWMutexLock::UpgradeToWrite() {
-    Assert(type == READ);
-    int err;
-    if ((err = pthread_rwlock_unlock(&mutex.mutex)) != 0)
-        Severe("Error from pthread_rwlock_unlock: %s", strerror(err));
-    if ((err = pthread_rwlock_wrlock(&mutex.mutex)) != 0)
-        Severe("Error from pthread_rwlock_wrlock: %s", strerror(err));
-    type = WRITE;
-}
-
-
-
-void RWMutexLock::DowngradeToRead() {
-    Assert(type == WRITE);
-    int err;
-    if ((err = pthread_rwlock_unlock(&mutex.mutex)) != 0)
-        Severe("Error from pthread_rwlock_unlock: %s", strerror(err));
-    if ((err = pthread_rwlock_rdlock(&mutex.mutex)) != 0)
-        Severe("Error from pthread_rwlock_rdlock: %s", strerror(err));
-    type = READ;
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-
-Mutex *Mutex::Create() {
-    return new Mutex;
-}
-
-
-
-void Mutex::Destroy(Mutex *m) {
-    delete m;
-}
-
-
-
-Mutex::Mutex() {
-    InitializeCriticalSection(&criticalSection);
-}
-
-
-
-Mutex::~Mutex() {
-    DeleteCriticalSection(&criticalSection);
-}
-
-
-
-MutexLock::MutexLock(Mutex &m) : mutex(m) {
-    EnterCriticalSection(&mutex.criticalSection);
-}
-
-
-
-MutexLock::~MutexLock() {
-    LeaveCriticalSection(&mutex.criticalSection);
-}
-
-
-
-RWMutex *RWMutex::Create() {
-    return new RWMutex;
-}
-
-
-
-void RWMutex::Destroy(RWMutex *m) {
-    delete m;
-}
-
-
-
-// vista has 'slim reader/writer (SRW)' locks... sigh.
-
-RWMutex::RWMutex() {
-    numWritersWaiting = numReadersWaiting = activeWriterReaders = 0;
-    InitializeCriticalSection(&cs);
-
-    hReadyToRead = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (hReadyToRead == NULL) {
-        Severe("Error creating event for RWMutex: %d", GetLastError());
-    }
-
-    hReadyToWrite = CreateSemaphore(NULL, 0, 1, NULL);
-    if (hReadyToWrite == NULL) {
-        DWORD lastError = GetLastError();
-        CloseHandle(hReadyToRead);
-        Severe("Error creating semaphore for RWMutex: %d", lastError);
-    }
-}
-
-
-
-RWMutex::~RWMutex() {
-    if (hReadyToRead)
-        CloseHandle(hReadyToRead);
-    if (hReadyToWrite != NULL)
-        CloseHandle(hReadyToWrite);
-    DeleteCriticalSection(&cs);
-}
-
-
-
-
-RWMutexLock::RWMutexLock(RWMutex &m, RWMutexLockType t)
-    : type(t), mutex(m) {
-    if (type == READ) mutex.AcquireRead();
-    else              mutex.AcquireWrite();
-}
-
-
-
-void
-RWMutex::AcquireRead() {
-    bool fNotifyReaders = false;
-
-    EnterCriticalSection(&cs);
-
-    if ((numWritersWaiting > 0) || (HIWORD(activeWriterReaders) > 0)) {
-        ++numReadersWaiting;
-
-        while (true) {
-            ResetEvent(hReadyToRead);
-            LeaveCriticalSection(&cs);
-            WaitForSingleObject(hReadyToRead, INFINITE);
-            EnterCriticalSection(&cs);
-
-            // The reader is only allowed to read if there aren't
-            // any writers waiting and if a writer doesn't own the
-            // lock.
-            if ((numWritersWaiting == 0) && (HIWORD(activeWriterReaders) == 0))
-                break;
-        }
-
-        // Reader is done waiting.
-        --numReadersWaiting;
-
-        // Reader can read.
-        ++activeWriterReaders;
-    }
-    else {
-        // Reader can read.
-        if ((++activeWriterReaders == 1) && (numReadersWaiting != 0)) {
-            // Set flag to notify other waiting readers
-            // outside of the critical section
-            // so that they don't when the threads
-            // are dispatched by the scheduler they
-            // don't immediately block on the critical
-            // section that this thread is holding.
-            fNotifyReaders = true;
-        }
-    }
-
-    Assert(HIWORD(activeWriterReaders) == 0);
-    LeaveCriticalSection(&cs);
-
-    if (fNotifyReaders)
-        SetEvent(hReadyToRead);
-}
-
-
-
-
-void
-RWMutex::AcquireWrite() {
-    EnterCriticalSection(&cs);
-
-    // Are there active readers?
-    if (activeWriterReaders != 0) {
-        ++numWritersWaiting;
-
-        LeaveCriticalSection(&cs);
-        WaitForSingleObject(hReadyToWrite, INFINITE);
-
-        // Upon wakeup theirs no need for the writer
-        // to acquire the critical section.  It
-        // already has been transfered ownership of the
-        // lock by the signaler.
-    }
-    else {
-        Assert(activeWriterReaders == 0);
-
-        // Set that the writer owns the lock.
-        activeWriterReaders = MAKELONG(0, 1);
-
-        LeaveCriticalSection(&cs);
-    }
-}
-
-
-
-void
-RWMutex::ReleaseRead() {
-    EnterCriticalSection(&cs);
-
-    // Assert that the lock isn't held by a writer.
-    Assert(HIWORD(activeWriterReaders) == 0);
-
-    // Assert that the lock is held by readers.
-    Assert(LOWORD(activeWriterReaders > 0));
-
-    // Decrement the number of active readers.
-    if (--activeWriterReaders == 0)
-        ResetEvent(hReadyToRead);
-
-    // if writers are waiting and this is the last reader
-    // hand owneership over to a writer.
-    if ((numWritersWaiting != 0) && (activeWriterReaders == 0)) {
-        // Decrement the number of waiting writers
-        --numWritersWaiting;
-
-        // Pass ownership to a writer thread.
-        activeWriterReaders = MAKELONG(0, 1);
-        ReleaseSemaphore(hReadyToWrite, 1, NULL);
-    }
-
-    LeaveCriticalSection(&cs);
-}
-
-
-
-void
-RWMutex::ReleaseWrite() {
-    bool fNotifyWriter = false;
-    bool fNotifyReaders = false;
-
-    EnterCriticalSection(&cs);
-
-    // Assert that the lock is owned by a writer.
-    Assert(HIWORD(activeWriterReaders) == 1);
-
-    // Assert that the lock isn't owned by one or more readers
-    Assert(LOWORD(activeWriterReaders) == 0);
-
-    if (numWritersWaiting != 0) {
-        // Writers waiting, decrement the number of
-        // waiting writers and release the semaphore
-        // which means ownership is passed to the thread
-        // that has been released.
-        --numWritersWaiting;
-        fNotifyWriter = true;
-    }
-    else {
-        // There aren't any writers waiting
-        // Release the exclusive hold on the lock.
-        activeWriterReaders = 0;
-
-        // if readers are waiting set the flag
-        // that will cause the readers to be notified
-        // once the critical section is released.  This
-        // is done so that an awakened reader won't immediately
-        // block on the critical section which is still being
-        // held by this thread.
-        if (numReadersWaiting != 0)
-            fNotifyReaders = true;
-    }
-
-    LeaveCriticalSection(&cs);
-
-    if (fNotifyWriter)
-        ReleaseSemaphore(hReadyToWrite, 1, NULL);
-    else if (fNotifyReaders)
-        SetEvent(hReadyToRead);
-}
-
-
-
-RWMutexLock::~RWMutexLock() {
-    if (type == READ) mutex.ReleaseRead();
-    else              mutex.ReleaseWrite();
-}
-
-
-
-void RWMutexLock::UpgradeToWrite() {
-    Assert(type == READ);
-    mutex.ReleaseRead();
-    mutex.AcquireWrite();
-    type = WRITE;
-}
-
-
-
-void RWMutexLock::DowngradeToRead() {
-    Assert(type == WRITE);
-    mutex.ReleaseWrite();
-    mutex.AcquireRead();
-    type = READ;
-}
-
-
-#endif 
-#if !defined(PBRT_IS_WINDOWS)
-Semaphore::Semaphore() {
-#ifdef PBRT_IS_OPENBSD
-    sem = (sem_t *)malloc(sizeof(sem_t));
-    if (!sem)
-        Severe("Error from sem_open");
-    int err = sem_init(sem, 0, 0);
-    if (err == -1)
-        Severe("Error from sem_init: %s", strerror(err));
-#else
-    char name[32];
-    sprintf(name, "pbrt.%d-%d", (int)getpid(), count++);
-    sem = sem_open(name, O_CREAT, S_IRUSR|S_IWUSR, 0);
-    if (!sem)
-        Severe("Error from sem_open: %s", strerror(errno));
-#endif // !PBRT_IS_OPENBSD
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-Semaphore::Semaphore() {
-    handle = CreateSemaphore(NULL, 0, LONG_MAX,  NULL);
-    if (!handle)
-        Severe("Error from CreateSemaphore: %d", GetLastError());
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-int Semaphore::count = 0;
-#endif // !PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-Semaphore::~Semaphore() {
-#ifdef PBRT_IS_OPENBSD
-    int err = sem_destroy(sem);
-    free((void *)sem);
-    sem = NULL;
-    if (err != 0)
-        Severe("Error from sem_destroy: %s", strerror(err));
-#else
-    int err;
-    if ((err = sem_close(sem)) != 0)
-        Severe("Error from sem_close: %s", strerror(err));
-#endif // !PBRT_IS_OPENBSD
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-Semaphore::~Semaphore() {
-    CloseHandle(handle);
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-void Semaphore::Wait() {
-    int err;
-    if ((err = sem_wait(sem)) != 0)
-        Severe("Error from sem_wait: %s", strerror(err));
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-bool Semaphore::TryWait() {
-    return (sem_trywait(sem) == 0);
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-void Semaphore::Post(int count) {
-    int err;
-    while (count-- > 0)
-        if ((err = sem_post(sem)) != 0)
-            Severe("Error from sem_post: %s", strerror(err));
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-void Semaphore::Wait() {
-    if (WaitForSingleObject(handle, INFINITE) == WAIT_FAILED)
-        Severe("Error from WaitForSingleObject: %d", GetLastError());
-
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-bool Semaphore::TryWait() {
-    return (WaitForSingleObject(handle, 0L) == WAIT_OBJECT_0);
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-void Semaphore::Post(int count) {
-    if (!ReleaseSemaphore(handle, count, NULL))
-        Severe("Error from ReleaseSemaphore: %d", GetLastError());
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-ConditionVariable::ConditionVariable() {
-   int err;
-   if ((err = pthread_cond_init(&cond, NULL)) != 0)
-        Severe("Error from pthread_cond_init: %s", strerror(err));
-   if ((err = pthread_mutex_init(&mutex, NULL)) != 0)
-        Severe("Error from pthread_mutex_init: %s", strerror(err));
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-ConditionVariable::~ConditionVariable() {
-    pthread_cond_destroy(&cond);
-    pthread_mutex_destroy(&mutex);
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-void ConditionVariable::Lock() {
-    int err;
-    if ((err = pthread_mutex_lock(&mutex)) != 0)
-        Severe("Error from pthread_mutex_lock: %s", strerror(err));
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if !(defined(PBRT_IS_WINDOWS))
-void ConditionVariable::Unlock() {
-    int err;
-    if ((err = pthread_mutex_unlock(&mutex)) != 0)
-        Severe("Error from pthread_mutex_unlock: %s", strerror(err));
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-void ConditionVariable::Wait() {
-    int err;
-    if ((err = pthread_cond_wait(&cond, &mutex)) != 0)
-        Severe("Error from pthread_cond_wait: %s", strerror(err));
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if !defined(PBRT_IS_WINDOWS)
-void ConditionVariable::Signal() {
-    int err;
-    if ((err = pthread_cond_signal(&cond)) != 0)
-        Severe("Error from pthread_cond_signal: %s", strerror(err));
-}
-
-
-#endif // !PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-
-// http://www.cs.wustl.edu/\~schmidt/win32-cv-1.html
-
-ConditionVariable::ConditionVariable() {
-    waitersCount = 0;
-    InitializeCriticalSection(&waitersCountMutex);
-    InitializeCriticalSection(&conditionMutex);
-
-    events[SIGNAL] = CreateEvent (NULL,  // no security
-                               FALSE, // auto-reset event
-                               FALSE, // non-signaled initially
-                               NULL); // unnamed
-    events[BROADCAST] = CreateEvent (NULL,  // no security
-                                  TRUE,  // manual-reset
-                                  FALSE, // non-signaled initially
-                                  NULL); // unnamed
-
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-ConditionVariable::~ConditionVariable() {
-    CloseHandle(events[SIGNAL]);
-    CloseHandle(events[BROADCAST]);
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-void ConditionVariable::Lock() {
-    EnterCriticalSection(&conditionMutex);
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-void ConditionVariable::Unlock() {
-    LeaveCriticalSection(&conditionMutex);
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-void ConditionVariable::Wait() {
-    // Avoid race conditions.
-    EnterCriticalSection(&waitersCountMutex);
-    waitersCount++;
-    LeaveCriticalSection(&waitersCountMutex);
-
-    // It's ok to release the <external_mutex> here since Win32
-    // manual-reset events maintain state when used with
-    // <SetEvent>.  This avoids the "lost wakeup" bug...
-    LeaveCriticalSection(&conditionMutex);
-
-    // Wait for either event to become signaled due to <pthread_cond_signal>
-    // being called or <pthread_cond_broadcast> being called.
-    int result = WaitForMultipleObjects(2, events, FALSE, INFINITE);
-
-    EnterCriticalSection(&waitersCountMutex);
-    waitersCount--;
-    int last_waiter = (result == WAIT_OBJECT_0 + BROADCAST) &&
-        (waitersCount == 0);
-    LeaveCriticalSection(&waitersCountMutex);
-
-    // Some thread called <pthread_cond_broadcast>.
-    if (last_waiter)
-        // We're the last waiter to be notified or to stop waiting, so
-        // reset the manual event.
-        ResetEvent(events[BROADCAST]);
-
-    EnterCriticalSection(&conditionMutex);
-}
-
-
-#endif // PBRT_IS_WINDOWS
-#if defined(PBRT_IS_WINDOWS)
-void ConditionVariable::Signal() {
-    EnterCriticalSection(&waitersCountMutex);
-    int haveWaiters = (waitersCount > 0);
-    LeaveCriticalSection(&waitersCountMutex);
-
-    if (haveWaiters)
-        SetEvent(events[SIGNAL]);
-}
-
-
-#endif // PBRT_IS_WINDOWS
-void TasksInit() {
-    if (PbrtOptions.nCores == 1)
-        return;
-#ifdef PBRT_USE_GRAND_CENTRAL_DISPATCH
-    return;
-#else // PBRT_USE_GRAND_CENTRAL_DISPATCH
-    static const int nThreads = NumSystemCores();
-    workerSemaphore = new Semaphore;
-    tasksRunningCondition = new ConditionVariable;
-#if !defined(PBRT_IS_WINDOWS)
-    threads = new pthread_t[nThreads];
-    for (int i = 0; i < nThreads; ++i) {
-        int err = pthread_create(&threads[i], NULL, &taskEntry, reinterpret_cast<void *>(i));
-        if (err != 0)
-            Severe("Error from pthread_create: %s", strerror(err));
-    }
-#else
-    threads = new HANDLE[nThreads];
-    for (int i = 0; i < nThreads; ++i) {
-        threads[i] = CreateThread(NULL, 0, taskEntry, reinterpret_cast<void *>(i), 0, NULL);
-        if (threads[i] == NULL)
-            Severe("Error from CreateThread");
-    }
-#endif // PBRT_IS_WINDOWS
-#endif // PBRT_USE_GRAND_CENTRAL_DISPATCH
-}
-
-
-void TasksCleanup() {
-    if (PbrtOptions.nCores == 1)
-        return;
-#ifdef PBRT_USE_GRAND_CENTRAL_DISPATCH
-    return;
-#else // // PBRT_USE_GRAND_CENTRAL_DISPATCH
-    if (!taskQueueMutex || !workerSemaphore)
-        return;
-    { MutexLock lock(*taskQueueMutex);
-    Assert(taskQueue.size() == 0);
-    }
-
-    static const int nThreads = NumSystemCores();
-    if (workerSemaphore != NULL)
-        workerSemaphore->Post(nThreads);
-
-    if (threads != NULL) {
-#if !defined(PBRT_IS_WINDOWS)
-        for (int i = 0; i < nThreads; ++i) {
-            int err = pthread_join(threads[i], NULL);
-            if (err != 0)
-                Severe("Error from pthread_join: %s", strerror(err));
-        }
-#else
-        WaitForMultipleObjects(nThreads, threads, TRUE, INFINITE);
-        for (int i = 0; i < nThreads; ++i) {
-            CloseHandle(threads[i]);
-        }
-#endif // PBRT_IS_WINDOWS
-        delete[] threads;
-        threads = NULL;
-    }
-#endif // PBRT_USE_GRAND_CENTRAL_DISPATCH
-}
-
-
-Task::~Task() {
-}
-
-
-#ifdef PBRT_USE_GRAND_CENTRAL_DISPATCH
-static void lRunTask(void *t) {
-    Task *task = (Task *)t;
-    PBRT_STARTED_TASK(task);
-    task->Run();
-    PBRT_FINISHED_TASK(task);
-}
-
-
-#endif
-void EnqueueTasks(const vector<Task *> &tasks) {
-    if (PbrtOptions.nCores == 1) {
-        for (unsigned int i = 0; i < tasks.size(); ++i)
-            tasks[i]->Run();
+void ParallelFor(std::function<void(int64_t)> func, int64_t count,
+                 int chunkSize) {
+    CHECK(threads.size() > 0 || MaxThreadIndex() == 1);
+
+    // Run iterations immediately if not using threads or if _count_ is small
+    if (threads.empty() || count < chunkSize) {
+        for (int64_t i = 0; i < count; ++i) func(i);
         return;
     }
-#ifdef PBRT_USE_GRAND_CENTRAL_DISPATCH
-    for (uint32_t i = 0; i < tasks.size(); ++i)
-        dispatch_group_async_f(gcdGroup, gcdQueue, tasks[i], lRunTask);
-#else
-    if (!threads)
-        TasksInit();
 
-    { MutexLock lock(*taskQueueMutex);
-    for (unsigned int i = 0; i < tasks.size(); ++i)
-        taskQueue.push_back(tasks[i]);
-    }
-    tasksRunningCondition->Lock();
-    numUnfinishedTasks += tasks.size();
-    tasksRunningCondition->Unlock();
+    // Create and enqueue _ParallelForLoop_ for this loop
+    ParallelForLoop loop(std::move(func), count, chunkSize,
+                         CurrentProfilerState());
+    workListMutex.lock();
+    loop.next = workList;
+    workList = &loop;
+    workListMutex.unlock();
 
-    workerSemaphore->Post(tasks.size());
-#endif
-}
+    // Notify worker threads of work to be done
+    std::unique_lock<std::mutex> lock(workListMutex);
+    workListCondition.notify_all();
 
+    // Help out with parallel loop iterations in the current thread
+    while (!loop.Finished()) {
+        // Run a chunk of loop iterations for _loop_
 
-#ifndef PBRT_USE_GRAND_CENTRAL_DISPATCH
-#if defined(PBRT_IS_WINDOWS)
-static DWORD WINAPI taskEntry(LPVOID arg) {
-#else
-static void *taskEntry(void *arg) {
-#endif
-    while (true) {
-        workerSemaphore->Wait();
-        // Try to get task from task queue
-        Task *myTask = NULL;
-        { MutexLock lock(*taskQueueMutex);
-        if (taskQueue.size() == 0)
-            break;
-        myTask = taskQueue.back();
-        taskQueue.pop_back();
+        // Find the set of loop iterations to run next
+        int64_t indexStart = loop.nextIndex;
+        int64_t indexEnd = std::min(indexStart + loop.chunkSize, loop.maxIndex);
+
+        // Update _loop_ to reflect iterations this thread will run
+        loop.nextIndex = indexEnd;
+        if (loop.nextIndex == loop.maxIndex) workList = loop.next;
+        loop.activeWorkers++;
+
+        // Run loop indices in _[indexStart, indexEnd)_
+        lock.unlock();
+        for (int64_t index = indexStart; index < indexEnd; ++index) {
+            uint64_t oldState = ProfilerState;
+            ProfilerState = loop.profilerState;
+            if (loop.func1D) {
+                loop.func1D(index);
+            }
+            // Handle other types of loops
+            else {
+                CHECK(loop.func2D);
+                loop.func2D(Point2i(index % loop.nX, index / loop.nX));
+            }
+            ProfilerState = oldState;
         }
+        lock.lock();
 
-        // Do work for _myTask_
-        PBRT_STARTED_TASK(myTask);
-        myTask->Run();
-        PBRT_FINISHED_TASK(myTask);
-        tasksRunningCondition->Lock();
-        int unfinished = --numUnfinishedTasks;
-        if (unfinished == 0)
-            tasksRunningCondition->Signal();
-        tasksRunningCondition->Unlock();
+        // Update _loop_ to reflect completion of iterations
+        loop.activeWorkers--;
     }
-    // Cleanup from task thread and exit
-#if !defined(PBRT_IS_WINDOWS)
-    pthread_exit(NULL);
-#endif // !PBRT_IS_WINDOWS
-    return 0;
 }
 
+PBRT_THREAD_LOCAL int ThreadIndex;
 
-#endif // !PBRT_USE_GRAND_CENTRAL_DISPATCH
-void WaitForAllTasks() {
-    if (PbrtOptions.nCores == 1)
-        return; // enqueue just runs them immediately in this case
-#ifdef PBRT_USE_GRAND_CENTRAL_DISPATCH
-    dispatch_group_wait(gcdGroup, DISPATCH_TIME_FOREVER);
-#else
-    if (!tasksRunningCondition)
-        return;  // no tasks have been enqueued, so TasksInit() never called
-    tasksRunningCondition->Lock();
-    while (numUnfinishedTasks > 0)
-        tasksRunningCondition->Wait();
-    tasksRunningCondition->Unlock();
-#endif
+int MaxThreadIndex() {
+    return PbrtOptions.nThreads == 0 ? NumSystemCores() : PbrtOptions.nThreads;
 }
 
+void ParallelFor2D(std::function<void(Point2i)> func, const Point2i &count) {
+    CHECK(threads.size() > 0 || MaxThreadIndex() == 1);
+
+    if (threads.empty()) {
+        for (int y = 0; y < count.y; ++y)
+            for (int x = 0; x < count.x; ++x) func(Point2i(x, y));
+        return;
+    }
+
+    ParallelForLoop loop(std::move(func), count, CurrentProfilerState());
+    {
+        std::lock_guard<std::mutex> lock(workListMutex);
+        loop.next = workList;
+        workList = &loop;
+    }
+
+    std::unique_lock<std::mutex> lock(workListMutex);
+    workListCondition.notify_all();
+
+    // Help out with parallel loop iterations in the current thread
+    while (!loop.Finished()) {
+        // Run a chunk of loop iterations for _loop_
+
+        // Find the set of loop iterations to run next
+        int64_t indexStart = loop.nextIndex;
+        int64_t indexEnd = std::min(indexStart + loop.chunkSize, loop.maxIndex);
+
+        // Update _loop_ to reflect iterations this thread will run
+        loop.nextIndex = indexEnd;
+        if (loop.nextIndex == loop.maxIndex) workList = loop.next;
+        loop.activeWorkers++;
+
+        // Run loop indices in _[indexStart, indexEnd)_
+        lock.unlock();
+        for (int64_t index = indexStart; index < indexEnd; ++index) {
+            uint64_t oldState = ProfilerState;
+            ProfilerState = loop.profilerState;
+            if (loop.func1D) {
+                loop.func1D(index);
+            }
+            // Handle other types of loops
+            else {
+                CHECK(loop.func2D);
+                loop.func2D(Point2i(index % loop.nX, index / loop.nX));
+            }
+            ProfilerState = oldState;
+        }
+        lock.lock();
+
+        // Update _loop_ to reflect completion of iterations
+        loop.activeWorkers--;
+    }
+}
 
 int NumSystemCores() {
-    if (PbrtOptions.nCores > 0) return PbrtOptions.nCores;
-#if defined(PBRT_IS_WINDOWS)
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-    return sysinfo.dwNumberOfProcessors;
-#elif defined(PBRT_IS_LINUX)
-    return sysconf(_SC_NPROCESSORS_ONLN);
-#else
-    // mac/bsds
-#ifdef PBRT_IS_OPENBSD
-    int mib[2] = { CTL_HW, HW_NCPU };
-#else
-    int mib[2];
-    mib[0] = CTL_HW;
-    size_t length = 2;
-    if (sysctlnametomib("hw.logicalcpu", mib, &length) == -1) {
-        Error("sysctlnametomib() filed.  Guessing 2 CPU cores.");
-        return 2;
-    }
-    Assert(length == 2);
-#endif
-    int nCores = 0;
-    size_t size = sizeof(nCores);
-
-    /* get the number of CPUs from the system */
-    if (sysctl(mib, 2, &nCores, &size, NULL, 0) == -1) {
-        Error("sysctl() to find number of cores present failed");
-        return 2;
-    }
-    return nCores;
-#endif
+    return std::max(1u, std::thread::hardware_concurrency());
 }
 
+void ParallelInit() {
+    CHECK_EQ(threads.size(), 0);
+    int nThreads = MaxThreadIndex();
+    ThreadIndex = 0;
 
+    // Create a barrier so that we can be sure all worker threads get past
+    // their call to ProfilerWorkerThreadInit() before we return from this
+    // function.  In turn, we can be sure that the profiling system isn't
+    // started until after all worker threads have done that.
+    std::shared_ptr<Barrier> barrier = std::make_shared<Barrier>(nThreads);
+
+    // Launch one fewer worker thread than the total number we want doing
+    // work, since the main thread helps out, too.
+    for (int i = 0; i < nThreads - 1; ++i)
+        threads.push_back(std::thread(workerThreadFunc, i + 1, barrier));
+
+    barrier->Wait();
+}
+
+void ParallelCleanup() {
+    if (threads.empty()) return;
+
+    {
+        std::lock_guard<std::mutex> lock(workListMutex);
+        shutdownThreads = true;
+        workListCondition.notify_all();
+    }
+
+    for (std::thread &thread : threads) thread.join();
+    threads.erase(threads.begin(), threads.end());
+    shutdownThreads = false;
+}
+
+void MergeWorkerThreadStats() {
+    std::unique_lock<std::mutex> lock(workListMutex);
+    std::unique_lock<std::mutex> doneLock(reportDoneMutex);
+    // Set up state so that the worker threads will know that we would like
+    // them to report their thread-specific stats when they wake up.
+    reportWorkerStats = true;
+    reporterCount = threads.size();
+
+    // Wake up the worker threads.
+    workListCondition.notify_all();
+
+    // Wait for all of them to merge their stats.
+    reportDoneCondition.wait(lock, []() { return reporterCount == 0; });
+
+    reportWorkerStats = false;
+}
+
+}  // namespace pbrt

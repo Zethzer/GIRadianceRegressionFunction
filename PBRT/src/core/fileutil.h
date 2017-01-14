@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,22 +31,35 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
 #ifndef PBRT_CORE_FILEUTIL_H
 #define PBRT_CORE_FILEUTIL_H
 
+// core/fileutil.h*
+#include "pbrt.h"
 #include <string>
-using std::string;
+#include <cctype>
+#include <string.h>
+
+namespace pbrt {
 
 // Platform independent filename-handling functions.
+bool IsAbsolutePath(const std::string &filename);
+std::string AbsolutePath(const std::string &filename);
+std::string ResolveFilename(const std::string &filename);
+std::string DirectoryContaining(const std::string &filename);
+void SetSearchDirectory(const std::string &dirname);
 
-bool IsAbsolutePath(const string &filename);
-string AbsolutePath(const string &filename);
-string ResolveFilename(const string &filename);
-string DirectoryContaining(const string &filename);
-void SetSearchDirectory(const string &dirname);
+inline bool HasExtension(const std::string &value, const std::string &ending) {
+    if (ending.size() > value.size()) return false;
+    return std::equal(
+        ending.rbegin(), ending.rend(), value.rbegin(),
+        [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+}
 
-#endif // PBRT_CORE_FILEUTIL_H
+}  // namespace pbrt
 
+#endif  // PBRT_CORE_FILEUTIL_H

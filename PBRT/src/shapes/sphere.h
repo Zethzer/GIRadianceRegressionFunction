@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,30 +41,45 @@
 // shapes/sphere.h*
 #include "shape.h"
 
+namespace pbrt {
+
 // Sphere Declarations
 class Sphere : public Shape {
-public:
+  public:
     // Sphere Public Methods
-    Sphere(const Transform *o2w, const Transform *w2o, bool ro, float rad,
-           float zmin, float zmax, float phiMax);
-    BBox ObjectBound() const;
-    bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
-                   DifferentialGeometry *dg) const;
-    bool IntersectP(const Ray &ray) const;
-    float Area() const;
-    Point Sample(float u1, float u2, Normal *ns) const;
-    Point Sample(const Point &p, float u1, float u2, Normal *ns) const;
-    float Pdf(const Point &p, const Vector &wi) const;
-private:
+    Sphere(const Transform *ObjectToWorld, const Transform *WorldToObject,
+           bool reverseOrientation, Float radius, Float zMin, Float zMax,
+           Float phiMax)
+        : Shape(ObjectToWorld, WorldToObject, reverseOrientation),
+          radius(radius),
+          zMin(Clamp(std::min(zMin, zMax), -radius, radius)),
+          zMax(Clamp(std::max(zMin, zMax), -radius, radius)),
+          thetaMin(std::acos(Clamp(std::min(zMin, zMax) / radius, -1, 1))),
+          thetaMax(std::acos(Clamp(std::max(zMin, zMax) / radius, -1, 1))),
+          phiMax(Radians(Clamp(phiMax, 0, 360))) {}
+    Bounds3f ObjectBound() const;
+    bool Intersect(const Ray &ray, Float *tHit, SurfaceInteraction *isect,
+                   bool testAlphaTexture) const;
+    bool IntersectP(const Ray &ray, bool testAlphaTexture) const;
+    Float Area() const;
+    Interaction Sample(const Point2f &u, Float *pdf) const;
+    Interaction Sample(const Interaction &ref, const Point2f &u,
+                       Float *pdf) const;
+    Float Pdf(const Interaction &ref, const Vector3f &wi) const;
+    Float SolidAngle(const Point3f &p, int nSamples) const;
+
+  private:
     // Sphere Private Data
-    float radius;
-    float phiMax;
-    float zmin, zmax;
-    float thetaMin, thetaMax;
+    const Float radius;
+    const Float zMin, zMax;
+    const Float thetaMin, thetaMax, phiMax;
 };
 
+std::shared_ptr<Shape> CreateSphereShape(const Transform *o2w,
+                                         const Transform *w2o,
+                                         bool reverseOrientation,
+                                         const ParamSet &params);
 
-Sphere *CreateSphereShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_SHAPES_SPHERE_H
+#endif  // PBRT_SHAPES_SPHERE_H

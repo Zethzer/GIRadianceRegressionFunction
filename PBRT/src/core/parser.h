@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,6 +40,11 @@
 
 // core/parser.h*
 #include "pbrt.h"
-bool ParseFile(const string &filename);
 
-#endif // PBRT_CORE_PARSER_H
+namespace pbrt {
+
+bool ParseFile(const std::string &filename);
+
+}  // namespace pbrt
+
+#endif  // PBRT_CORE_PARSER_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,125 +40,77 @@
 
 // core/light.h*
 #include "pbrt.h"
-#include "geometry.h"
-#include "transform.h"
-#include "spectrum.h"
-#include "rng.h"
 #include "memory.h"
+#include "interaction.h"
+
+namespace pbrt {
+
+// LightFlags Declarations
+enum class LightFlags : int {
+    DeltaPosition = 1,
+    DeltaDirection = 2,
+    Area = 4,
+    Infinite = 8
+};
+
+inline bool IsDeltaLight(int flags) {
+    return flags & (int)LightFlags::DeltaPosition ||
+           flags & (int)LightFlags::DeltaDirection;
+}
 
 // Light Declarations
 class Light {
-public:
+  public:
     // Light Interface
     virtual ~Light();
-    Light(const Transform &l2w, int ns = 1)
-        : nSamples(max(1, ns)), LightToWorld(l2w),
-          WorldToLight(Inverse(l2w)) {
-        // Warn if light has transformation with scale
-        if (WorldToLight.HasScale())
-            Warning("Scaling detected in world to light transformation!\n"
-                    "The system has numerous assumptions, implicit and explicit,\n"
-                    "that this transform will have no scale factors in it.\n"
-                    "Proceed at your own risk; your image may have errors or\n"
-                    "the system may crash as a result of this.");
-    }
-    virtual Spectrum Sample_L(const Point &p, float pEpsilon,
-        const LightSample &ls, float time, Vector *wi, float *pdf,
-        VisibilityTester *vis) const = 0;
-    virtual Spectrum Power(const Scene *) const = 0;
-    virtual bool IsDeltaLight() const = 0;
+    Light(int flags, const Transform &LightToWorld,
+          const MediumInterface &mediumInterface, int nSamples = 1);
+    virtual Spectrum Sample_Li(const Interaction &ref, const Point2f &u,
+                               Vector3f *wi, Float *pdf,
+                               VisibilityTester *vis) const = 0;
+    virtual Spectrum Power() const = 0;
+    virtual void Preprocess(const Scene &scene) {}
     virtual Spectrum Le(const RayDifferential &r) const;
-    virtual float Pdf(const Point &p, const Vector &wi) const = 0;
-    virtual Spectrum Sample_L(const Scene *scene, const LightSample &ls,
-                              float u1, float u2, float time, Ray *ray,
-                              Normal *Ns, float *pdf) const = 0;
-    virtual void SHProject(const Point &p, float pEpsilon, int lmax,
-        const Scene *scene, bool computeLightVisibility, float time,
-        RNG &rng, Spectrum *coeffs) const;
+    virtual Float Pdf_Li(const Interaction &ref, const Vector3f &wi) const = 0;
+    virtual Spectrum Sample_Le(const Point2f &u1, const Point2f &u2, Float time,
+                               Ray *ray, Normal3f *nLight, Float *pdfPos,
+                               Float *pdfDir) const = 0;
+    virtual void Pdf_Le(const Ray &ray, const Normal3f &nLight, Float *pdfPos,
+                        Float *pdfDir) const = 0;
 
     // Light Public Data
+    const int flags;
     const int nSamples;
-protected:
+    const MediumInterface mediumInterface;
+
+  protected:
     // Light Protected Data
     const Transform LightToWorld, WorldToLight;
 };
 
-
-struct VisibilityTester {
+class VisibilityTester {
+  public:
+    VisibilityTester() {}
     // VisibilityTester Public Methods
-    void SetSegment(const Point &p1, float eps1,
-                    const Point &p2, float eps2, float time) {
-        float dist = Distance(p1, p2);
-        r = Ray(p1, (p2-p1) / dist, eps1, dist * (1.f - eps2), time);
-        Assert(!r.HasNaNs());
-    }
-    void SetRay(const Point &p, float eps, const Vector &w, float time) {
-        r = Ray(p, w, eps, INFINITY, time);
-        Assert(!r.HasNaNs());
-    }
-    bool Unoccluded(const Scene *scene) const;
-    Spectrum Transmittance(const Scene *scene, const Renderer *renderer,
-        const Sample *sample, RNG &rng, MemoryArena &arena) const;
-    Ray r;
-};
+    VisibilityTester(const Interaction &p0, const Interaction &p1)
+        : p0(p0), p1(p1) {}
+    const Interaction &P0() const { return p0; }
+    const Interaction &P1() const { return p1; }
+    bool Unoccluded(const Scene &scene) const;
+    Spectrum Tr(const Scene &scene, Sampler &sampler) const;
 
+  private:
+    Interaction p0, p1;
+};
 
 class AreaLight : public Light {
-public:
+  public:
     // AreaLight Interface
-    AreaLight(const Transform &l2w, int ns) : Light(l2w, ns) { }
-    virtual Spectrum L(const Point &p, const Normal &n,
-                       const Vector &w) const = 0;
+    AreaLight(const Transform &LightToWorld, const MediumInterface &medium,
+              int nSamples);
+    virtual Spectrum L(const Interaction &intr, const Vector3f &w) const = 0;
 };
 
+}  // namespace pbrt
 
-struct LightSample {
-   // LightSample Public Methods
-   LightSample() { }
-   LightSample(const Sample *sample, const LightSampleOffsets &offsets, uint32_t num);
-   LightSample(RNG &rng) {
-       uPos[0] = rng.RandomFloat();
-       uPos[1] = rng.RandomFloat();
-       uComponent = rng.RandomFloat();
-   }
-   LightSample(float up0, float up1, float ucomp) {
-       Assert(up0 >= 0.f && up0 < 1.f);
-       Assert(up1 >= 0.f && up1 < 1.f);
-       Assert(ucomp >= 0.f && ucomp < 1.f);
-       uPos[0] = up0; uPos[1] = up1;
-       uComponent = ucomp;
-   }
-   float uPos[2], uComponent;
-};
-
-
-struct LightSampleOffsets {
-    LightSampleOffsets() { }
-    LightSampleOffsets(int count, Sample *sample);
-    int nSamples, componentOffset, posOffset;
-};
-
-
-
-// ShapeSet Declarations
-class ShapeSet {
-public:
-    // ShapeSet Public Methods
-    ShapeSet(const Reference<Shape> &s);
-    float Area() const { return sumArea; }
-    ~ShapeSet();
-    Point Sample(const Point &p, const LightSample &ls, Normal *Ns) const;
-    Point Sample(const LightSample &ls, Normal *Ns) const;
-    float Pdf(const Point &p, const Vector &wi) const;
-    float Pdf(const Point &p) const;
-private:
-    // ShapeSet Private Data
-    vector<Reference<Shape> > shapes;
-    float sumArea;
-    vector<float> areas;
-    Distribution1D *areaDistribution;
-};
-
-
-
-#endif // PBRT_CORE_LIGHT_H
+#endif  // PBRT_CORE_LIGHT_H

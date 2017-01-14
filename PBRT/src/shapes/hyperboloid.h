@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,29 +41,35 @@
 // shapes/hyperboloid.h*
 #include "shape.h"
 
+namespace pbrt {
+
 // Hyperboloid Declarations
 class Hyperboloid : public Shape {
-public:
+  public:
     // Hyperboloid Public Methods
     Hyperboloid(const Transform *o2w, const Transform *w2o, bool ro,
-                const Point &point1, const Point &point2,
-                float tm);
-    BBox ObjectBound() const;
-    bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
-                   DifferentialGeometry *dg) const;
-    bool IntersectP(const Ray &ray) const;
-    float Area() const;
-protected:
+                const Point3f &point1, const Point3f &point2, Float tm);
+    Bounds3f ObjectBound() const;
+    bool Intersect(const Ray &ray, Float *tHit, SurfaceInteraction *isect,
+                   bool testAlphaTexture) const;
+    bool IntersectP(const Ray &ray, bool testAlphaTexture) const;
+    Float Area() const;
+    Interaction Sample(const Point2f &u, Float *pdf) const;
+
+  protected:
     // Hyperboloid Private Data
-    Point p1, p2;
-    float zmin, zmax;
-    float phiMax;
-    float rmax;
-    float a, c;
+    Point3f p1, p2;
+    Float zMin, zMax;
+    Float phiMax;
+    Float rMax;
+    Float ah, ch;
 };
 
+std::shared_ptr<Shape> CreateHyperboloidShape(const Transform *o2w,
+                                              const Transform *w2o,
+                                              bool reverseOrientation,
+                                              const ParamSet &params);
 
-Shape *CreateHyperboloidShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_SHAPES_HYPERBOLOID_H
+#endif  // PBRT_SHAPES_HYPERBOLOID_H

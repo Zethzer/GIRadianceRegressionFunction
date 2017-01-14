@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -44,54 +46,65 @@
 #include "reflection.h"
 #include "sampler.h"
 #include "material.h"
-#include "probes.h"
-#include "renderer.h"
+
+namespace pbrt {
 
 // Integrator Declarations
 class Integrator {
-public:
+  public:
     // Integrator Interface
     virtual ~Integrator();
-    virtual void Preprocess(const Scene *scene, const Camera *camera,
-                            const Renderer *renderer) {
-    }
-    virtual void RequestSamples(Sampler *sampler, Sample *sample,
-                                const Scene *scene) {
-    }
+    virtual void Render(const Scene &scene) = 0;
 };
 
+Spectrum UniformSampleAllLights(const Interaction &it, const Scene &scene,
+                                MemoryArena &arena, Sampler &sampler,
+                                const std::vector<int> &nLightSamples,
+                                bool handleMedia = false);
+Spectrum UniformSampleOneLight(const Interaction &it, const Scene &scene,
+                               MemoryArena &arena, Sampler &sampler,
+                               bool handleMedia = false,
+                               const Distribution1D *lightDistrib = nullptr);
+Spectrum EstimateDirect(const Interaction &it, const Point2f &uShading,
+                        const Light &light, const Point2f &uLight,
+                        const Scene &scene, Sampler &sampler,
+                        MemoryArena &arena, bool handleMedia = false,
+                        bool specular = false);
+std::unique_ptr<Distribution1D> ComputeLightPowerDistribution(
+    const Scene &scene);
 
-class SurfaceIntegrator : public Integrator {
-public:
-    // SurfaceIntegrator Interface
-    virtual Spectrum Li(const Scene *scene, const Renderer *renderer,
-        const RayDifferential &ray, const Intersection &isect,
-        const Sample *sample, RNG &rng, MemoryArena &arena) const = 0;
+// SamplerIntegrator Declarations
+class SamplerIntegrator : public Integrator {
+  public:
+    // SamplerIntegrator Public Methods
+    SamplerIntegrator(std::shared_ptr<const Camera> camera,
+                      std::shared_ptr<Sampler> sampler,
+                      const Bounds2i &pixelBounds)
+        : camera(camera), sampler(sampler), pixelBounds(pixelBounds) {}
+    virtual void Preprocess(const Scene &scene, Sampler &sampler) {}
+    void Render(const Scene &scene);
+    virtual Spectrum Li(const RayDifferential &ray, const Scene &scene,
+                        Sampler &sampler, MemoryArena &arena,
+                        int depth = 0) const = 0;
+    Spectrum SpecularReflect(const RayDifferential &ray,
+                             const SurfaceInteraction &isect,
+                             const Scene &scene, Sampler &sampler,
+                             MemoryArena &arena, int depth) const;
+    Spectrum SpecularTransmit(const RayDifferential &ray,
+                              const SurfaceInteraction &isect,
+                              const Scene &scene, Sampler &sampler,
+                              MemoryArena &arena, int depth) const;
+
+  protected:
+    // SamplerIntegrator Protected Data
+    std::shared_ptr<const Camera> camera;
+
+  private:
+    // SamplerIntegrator Private Data
+    std::shared_ptr<Sampler> sampler;
+    const Bounds2i pixelBounds;
 };
 
+}  // namespace pbrt
 
-Spectrum UniformSampleAllLights(const Scene *scene, const Renderer *renderer,
-    MemoryArena &arena, const Point &p, const Normal &n, const Vector &wo,
-    float rayEpsilon, float time, BSDF *bsdf, const Sample *sample, RNG &rng,
-    const LightSampleOffsets *lightSampleOffsets,
-    const BSDFSampleOffsets *bsdfSampleOffsets);
-Spectrum UniformSampleOneLight(const Scene *scene, const Renderer *renderer,
-    MemoryArena &arena, const Point &p, const Normal &n, const Vector &wo,
-    float rayEpsilon, float time, BSDF *bsdf,
-    const Sample *sample, RNG &rng, int lightNumOffset = -1,
-    const LightSampleOffsets *lightSampleOffset = NULL,
-    const BSDFSampleOffsets *bsdfSampleOffset = NULL);
-Spectrum EstimateDirect(const Scene *scene, const Renderer *renderer,
-    MemoryArena &arena, const Light *light, const Point &p,
-    const Normal &n, const Vector &wo, float rayEpsilon, float time, const BSDF *bsdf,
-    RNG &rng, const LightSample &lightSample, const BSDFSample &bsdfSample,
-    BxDFType flags);
-Spectrum SpecularReflect(const RayDifferential &ray, BSDF *bsdf, RNG &rng,
-    const Intersection &isect, const Renderer *renderer, const Scene *scene,
-    const Sample *sample, MemoryArena &arena);
-Spectrum SpecularTransmit(const RayDifferential &ray, BSDF *bsdf, RNG &rng,
-    const Intersection &isect, const Renderer *renderer, const Scene *scene,
-    const Sample *sample, MemoryArena &arena);
-Distribution1D *ComputeLightSamplingCDF(const Scene *scene);
-
-#endif // PBRT_CORE_INTEGRATOR_H
+#endif  // PBRT_CORE_INTEGRATOR_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,74 +32,73 @@
 
 
 // lights/distant.cpp*
-#include "stdafx.h"
 #include "lights/distant.h"
 #include "paramset.h"
-#include "montecarlo.h"
+#include "sampling.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // DistantLight Method Definitions
-DistantLight::DistantLight(const Transform &light2world,
-        const Spectrum &radiance, const Vector &dir)
-    : Light(light2world) {
-    lightDir = Normalize(LightToWorld(dir));
-    L = radiance;
-}
+DistantLight::DistantLight(const Transform &LightToWorld, const Spectrum &L,
+                           const Vector3f &wLight)
+    : Light((int)LightFlags::DeltaDirection, LightToWorld, MediumInterface()),
+      L(L),
+      wLight(Normalize(LightToWorld(wLight))) {}
 
-
-Spectrum DistantLight::Sample_L(const Point &p, float pEpsilon,
-        const LightSample &ls, float time, Vector *wi, float *pdf,
-        VisibilityTester *visibility) const {
-    *wi = lightDir;
-    *pdf = 1.f;
-    visibility->SetRay(p, pEpsilon, *wi, time);
+Spectrum DistantLight::Sample_Li(const Interaction &ref, const Point2f &u,
+                                 Vector3f *wi, Float *pdf,
+                                 VisibilityTester *vis) const {
+    ProfilePhase _(Prof::LightSample);
+    *wi = wLight;
+    *pdf = 1;
+    Point3f pOutside = ref.p + wLight * (2 * worldRadius);
+    *vis =
+        VisibilityTester(ref, Interaction(pOutside, ref.time, mediumInterface));
     return L;
 }
 
-
-Spectrum DistantLight::Power(const Scene *scene) const {
-    Point worldCenter;
-    float worldRadius;
-    scene->WorldBound().BoundingSphere(&worldCenter, &worldRadius);
-    return L * M_PI * worldRadius * worldRadius;
+Spectrum DistantLight::Power() const {
+    return L * Pi * worldRadius * worldRadius;
 }
 
-
-DistantLight *CreateDistantLight(const Transform &light2world,
-        const ParamSet &paramSet) {
-    Spectrum L = paramSet.FindOneSpectrum("L", Spectrum(1.0));
-    Spectrum sc = paramSet.FindOneSpectrum("scale", Spectrum(1.0));
-    Point from = paramSet.FindOnePoint("from", Point(0,0,0));
-    Point to = paramSet.FindOnePoint("to", Point(0,0,1));
-    Vector dir = from-to;
-    return new DistantLight(light2world, L * sc, dir);
+Float DistantLight::Pdf_Li(const Interaction &, const Vector3f &) const {
+    return 0.f;
 }
 
-
-float DistantLight::Pdf(const Point &, const Vector &) const {
-    return 0.;
-}
-
-
-Spectrum DistantLight::Sample_L(const Scene *scene,
-        const LightSample &ls, float u1, float u2, float time,
-        Ray *ray, Normal *Ns, float *pdf) const {
+Spectrum DistantLight::Sample_Le(const Point2f &u1, const Point2f &u2,
+                                 Float time, Ray *ray, Normal3f *nLight,
+                                 Float *pdfPos, Float *pdfDir) const {
+    ProfilePhase _(Prof::LightSample);
     // Choose point on disk oriented toward infinite light direction
-    Point worldCenter;
-    float worldRadius;
-    scene->WorldBound().BoundingSphere(&worldCenter, &worldRadius);
-    Vector v1, v2;
-    CoordinateSystem(lightDir, &v1, &v2);
-    float d1, d2;
-    ConcentricSampleDisk(ls.uPos[0], ls.uPos[1], &d1, &d2);
-    Point Pdisk = worldCenter + worldRadius * (d1 * v1 + d2 * v2);
+    Vector3f v1, v2;
+    CoordinateSystem(wLight, &v1, &v2);
+    Point2f cd = ConcentricSampleDisk(u1);
+    Point3f pDisk = worldCenter + worldRadius * (cd.x * v1 + cd.y * v2);
 
     // Set ray origin and direction for infinite light ray
-    *ray = Ray(Pdisk + worldRadius * lightDir, -lightDir, 0.f, INFINITY,
-               time);
-    *Ns = (Normal)ray->d;
-
-    *pdf = 1.f / (M_PI * worldRadius * worldRadius);
+    *ray = Ray(pDisk + worldRadius * wLight, -wLight, Infinity, time);
+    *nLight = (Normal3f)ray->d;
+    *pdfPos = 1 / (Pi * worldRadius * worldRadius);
+    *pdfDir = 1;
     return L;
 }
 
+void DistantLight::Pdf_Le(const Ray &, const Normal3f &, Float *pdfPos,
+                          Float *pdfDir) const {
+    ProfilePhase _(Prof::LightPdf);
+    *pdfPos = 1 / (Pi * worldRadius * worldRadius);
+    *pdfDir = 0;
+}
 
+std::shared_ptr<DistantLight> CreateDistantLight(const Transform &light2world,
+                                                 const ParamSet &paramSet) {
+    Spectrum L = paramSet.FindOneSpectrum("L", Spectrum(1.0));
+    Spectrum sc = paramSet.FindOneSpectrum("scale", Spectrum(1.0));
+    Point3f from = paramSet.FindOnePoint3f("from", Point3f(0, 0, 0));
+    Point3f to = paramSet.FindOnePoint3f("to", Point3f(0, 0, 1));
+    Vector3f dir = from - to;
+    return std::make_shared<DistantLight>(light2world, L * sc, dir);
+}
+
+}  // namespace pbrt

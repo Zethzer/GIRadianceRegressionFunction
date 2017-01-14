@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,26 +42,28 @@
 #include "pbrt.h"
 #include "material.h"
 
+namespace pbrt {
+
 // MatteMaterial Declarations
 class MatteMaterial : public Material {
-public:
+  public:
     // MatteMaterial Public Methods
-    MatteMaterial(Reference<Texture<Spectrum> > kd,
-                  Reference<Texture<float> > sig,
-                  Reference<Texture<float> > bump)
-        : Kd(kd), sigma(sig), bumpMap(bump) {
-    }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom,
-                  const DifferentialGeometry &dgShading,
-                  MemoryArena &arena) const;
-private:
+    MatteMaterial(const std::shared_ptr<Texture<Spectrum>> &Kd,
+                  const std::shared_ptr<Texture<Float>> &sigma,
+                  const std::shared_ptr<Texture<Float>> &bumpMap)
+        : Kd(Kd), sigma(sigma), bumpMap(bumpMap) {}
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // MatteMaterial Private Data
-    Reference<Texture<Spectrum> > Kd;
-    Reference<Texture<float> > sigma, bumpMap;
+    std::shared_ptr<Texture<Spectrum>> Kd;
+    std::shared_ptr<Texture<Float>> sigma, bumpMap;
 };
 
+MatteMaterial *CreateMatteMaterial(const TextureParams &mp);
 
-MatteMaterial *CreateMatteMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_MATTE_H
+#endif  // PBRT_MATERIALS_MATTE_H

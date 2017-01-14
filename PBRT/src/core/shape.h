@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,49 +41,53 @@
 // core/shape.h*
 #include "pbrt.h"
 #include "geometry.h"
-#include "transform.h"
-#include "diffgeom.h"
+#include "interaction.h"
 #include "memory.h"
+#include "transform.h"
+
+namespace pbrt {
 
 // Shape Declarations
-class Shape : public ReferenceCounted {
-public:
+class Shape {
+  public:
     // Shape Interface
-    Shape(const Transform *o2w, const Transform *w2o, bool ro);
+    Shape(const Transform *ObjectToWorld, const Transform *WorldToObject,
+          bool reverseOrientation);
     virtual ~Shape();
-    virtual BBox ObjectBound() const = 0;
-    virtual BBox WorldBound() const;
-    virtual bool CanIntersect() const;
-    virtual void Refine(vector<Reference<Shape> > &refined) const;
-    virtual bool Intersect(const Ray &ray, float *tHit,
-                           float *rayEpsilon, DifferentialGeometry *dg) const;
-    virtual bool IntersectP(const Ray &ray) const;
-    virtual void GetShadingGeometry(const Transform &obj2world,
-            const DifferentialGeometry &dg,
-            DifferentialGeometry *dgShading) const {
-        *dgShading = dg;
+    virtual Bounds3f ObjectBound() const = 0;
+    virtual Bounds3f WorldBound() const;
+    virtual bool Intersect(const Ray &ray, Float *tHit,
+                           SurfaceInteraction *isect,
+                           bool testAlphaTexture = true) const = 0;
+    virtual bool IntersectP(const Ray &ray,
+                            bool testAlphaTexture = true) const {
+        return Intersect(ray, nullptr, nullptr, testAlphaTexture);
     }
-    virtual float Area() const;
-    virtual Point Sample(float u1, float u2, Normal *Ns) const {
-        Severe("Unimplemented Shape::Sample() method called");
-        return Point();
-    }
-    virtual float Pdf(const Point &Pshape) const {
-        return 1.f / Area();
-    }
-    virtual Point Sample(const Point &P, float u1, float u2,
-                         Normal *Ns) const {
-        return Sample(u1, u2, Ns);
-    }
-    virtual float Pdf(const Point &p, const Vector &wi) const;
+    virtual Float Area() const = 0;
+    // Sample a point on the surface of the shape and return the PDF with
+    // respect to area on the surface.
+    virtual Interaction Sample(const Point2f &u, Float *pdf) const = 0;
+    virtual Float Pdf(const Interaction &) const { return 1 / Area(); }
+
+    // Sample a point on the shape given a reference point |ref| and
+    // return the PDF with respect to solid angle from |ref|.
+    virtual Interaction Sample(const Interaction &ref, const Point2f &u,
+                               Float *pdf) const;
+    virtual Float Pdf(const Interaction &ref, const Vector3f &wi) const;
+
+    // Returns the solid angle subtended by the shape w.r.t. the reference
+    // point p, given in world space. Some shapes compute this value in
+    // closed-form, while the default implementation uses Monte Carlo
+    // integration; the nSamples parameter determines how many samples are
+    // used in this case.
+    virtual Float SolidAngle(const Point3f &p, int nSamples = 512) const;
 
     // Shape Public Data
     const Transform *ObjectToWorld, *WorldToObject;
-    const bool ReverseOrientation, TransformSwapsHandedness;
-    const uint32_t shapeId;
-    static uint32_t nextshapeId;
+    const bool reverseOrientation;
+    const bool transformSwapsHandedness;
 };
 
+}  // namespace pbrt
 
-
-#endif // PBRT_CORE_SHAPE_H
+#endif  // PBRT_CORE_SHAPE_H

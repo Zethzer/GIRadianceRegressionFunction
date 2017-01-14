@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,26 +32,26 @@
 
 
 // textures/wrinkled.cpp*
-#include "stdafx.h"
 #include "textures/wrinkled.h"
 
+namespace pbrt {
+
 // WrinkledTexture Method Definitions
-WrinkledTexture<float> *CreateWrinkledFloatTexture(const Transform &tex2world,
-        const TextureParams &tp) {
+WrinkledTexture<Float> *CreateWrinkledFloatTexture(const Transform &tex2world,
+                                                   const TextureParams &tp) {
     // Initialize 3D texture mapping _map_ from _tp_
-    TextureMapping3D *map = new IdentityMapping3D(tex2world);
-    return new WrinkledTexture<float>(tp.FindInt("octaves", 8),
-        tp.FindFloat("roughness", .5f), map);
+    std::unique_ptr<TextureMapping3D> map(new IdentityMapping3D(tex2world));
+    return new WrinkledTexture<Float>(std::move(map), tp.FindInt("octaves", 8),
+                                      tp.FindFloat("roughness", .5f));
 }
 
-
-
-WrinkledTexture<Spectrum> *CreateWrinkledSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp) {
+WrinkledTexture<Spectrum> *CreateWrinkledSpectrumTexture(
+    const Transform &tex2world, const TextureParams &tp) {
     // Initialize 3D texture mapping _map_ from _tp_
-    TextureMapping3D *map = new IdentityMapping3D(tex2world);
-    return new WrinkledTexture<Spectrum>(tp.FindInt("octaves", 8),
-        tp.FindFloat("roughness", .5f), map);
+    std::unique_ptr<TextureMapping3D> map(new IdentityMapping3D(tex2world));
+    return new WrinkledTexture<Spectrum>(std::move(map),
+                                         tp.FindInt("octaves", 8),
+                                         tp.FindFloat("roughness", .5f));
 }
 
-
+}  // namespace pbrt

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -29,103 +30,186 @@
 
  */
 
-
 // integrators/path.cpp*
-#include "stdafx.h"
 #include "integrators/path.h"
-#include "scene.h"
-#include "intersection.h"
+#include "bssrdf.h"
+#include "camera.h"
+#include "film.h"
+#include "interaction.h"
 #include "paramset.h"
+#include "scene.h"
+#include "stats.h"
+
+namespace pbrt {
+
+STAT_PERCENT("Integrator/Zero-radiance paths", zeroRadiancePaths, totalPaths);
+STAT_INT_DISTRIBUTION("Integrator/Path length", pathLength);
 
 // PathIntegrator Method Definitions
-void PathIntegrator::RequestSamples(Sampler *sampler, Sample *sample,
-                                    const Scene *scene) {
-    for (int i = 0; i < SAMPLE_DEPTH; ++i) {
-        lightSampleOffsets[i] = LightSampleOffsets(1, sample);
-        lightNumOffset[i] = sample->Add1D(1);
-        bsdfSampleOffsets[i] = BSDFSampleOffsets(1, sample);
-        pathSampleOffsets[i] = BSDFSampleOffsets(1, sample);
-    }
+PathIntegrator::PathIntegrator(int maxDepth,
+                               std::shared_ptr<const Camera> camera,
+                               std::shared_ptr<Sampler> sampler,
+                               const Bounds2i &pixelBounds, Float rrThreshold,
+                               const std::string &lightSampleStrategy)
+    : SamplerIntegrator(camera, sampler, pixelBounds),
+      maxDepth(maxDepth),
+      rrThreshold(rrThreshold),
+      lightSampleStrategy(lightSampleStrategy) {}
+
+void PathIntegrator::Preprocess(const Scene &scene, Sampler &sampler) {
+    lightDistribution =
+        CreateLightSampleDistribution(lightSampleStrategy, scene);
 }
 
-
-Spectrum PathIntegrator::Li(const Scene *scene, const Renderer *renderer,
-        const RayDifferential &r, const Intersection &isect,
-        const Sample *sample, RNG &rng, MemoryArena &arena) const {
-    // Declare common path integration variables
-    Spectrum pathThroughput = 1., L = 0.;
+Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
+                            Sampler &sampler, MemoryArena &arena,
+                            int depth) const {
+    ProfilePhase p(Prof::SamplerIntegratorLi);
+    Spectrum L(0.f), beta(1.f);
     RayDifferential ray(r);
     bool specularBounce = false;
-    Intersection localIsect;
-    const Intersection *isectp = &isect;
-    for (int bounces = 0; ; ++bounces) {
-        // Possibly add emitted light at path vertex
-        if (bounces == 0 || specularBounce)
-            L += pathThroughput * isectp->Le(-ray.d);
+    int bounces;
+    // Added after book publication: etaScale tracks the accumulated effect
+    // of radiance scaling due to rays passing through refractive
+    // boundaries (see the derivation on p. 527 of the third edition). We
+    // track this value in order to remove it from beta when we apply
+    // Russian roulette; this is worthwhile, since it lets us sometimes
+    // avoid terminating refracted rays that are about to be refracted back
+    // out of a medium and thus have their beta value increased.
+    Float etaScale = 1;
 
-        // Sample illumination from lights to find path contribution
-        BSDF *bsdf = isectp->GetBSDF(ray, arena);
-        const Point &p = bsdf->dgShading.p;
-        const Normal &n = bsdf->dgShading.nn;
-        Vector wo = -ray.d;
-        if (bounces < SAMPLE_DEPTH)
-            L += pathThroughput *
-                 UniformSampleOneLight(scene, renderer, arena, p, n, wo,
-                     isectp->rayEpsilon, ray.time, bsdf, sample, rng,
-                     lightNumOffset[bounces], &lightSampleOffsets[bounces],
-                     &bsdfSampleOffsets[bounces]);
-        else
-            L += pathThroughput *
-                 UniformSampleOneLight(scene, renderer, arena, p, n, wo,
-                     isectp->rayEpsilon, ray.time, bsdf, sample, rng);
+    for (bounces = 0;; ++bounces) {
+        // Find next path vertex and accumulate contribution
+        VLOG(2) << "Path tracer bounce " << bounces << ", current L = " << L
+                << ", beta = " << beta;
+
+        // Intersect _ray_ with scene and store intersection in _isect_
+        SurfaceInteraction isect;
+        bool foundIntersection = scene.Intersect(ray, &isect);
+
+        // Possibly add emitted light at intersection
+        if (bounces == 0 || specularBounce) {
+            // Add emitted light at path vertex or from the environment
+            if (foundIntersection) {
+                L += beta * isect.Le(-ray.d);
+                VLOG(2) << "Added Le -> L = " << L;
+            } else {
+                for (const auto &light : scene.infiniteLights)
+                    L += beta * light->Le(ray);
+                VLOG(2) << "Added infinite area lights -> L = " << L;
+            }
+        }
+
+        // Terminate path if ray escaped or _maxDepth_ was reached
+        if (!foundIntersection || bounces >= maxDepth) break;
+
+        // Compute scattering functions and skip over medium boundaries
+        isect.ComputeScatteringFunctions(ray, arena, true);
+        if (!isect.bsdf) {
+            VLOG(2) << "Skipping intersection due to null bsdf";
+            ray = isect.SpawnRay(ray.d);
+            bounces--;
+            continue;
+        }
+
+        const Distribution1D *distrib = lightDistribution->Lookup(isect.p);
+
+        // Sample illumination from lights to find path contribution.
+        // (But skip this for perfectly specular BSDFs.)
+        if (isect.bsdf->NumComponents(BxDFType(BSDF_ALL & ~BSDF_SPECULAR)) >
+            0) {
+            ++totalPaths;
+            Spectrum Ld = beta * UniformSampleOneLight(isect, scene, arena,
+                                                       sampler, false, distrib);
+            VLOG(2) << "Sampled direct lighting Ld = " << Ld;
+            if (Ld.IsBlack()) ++zeroRadiancePaths;
+            CHECK_GE(Ld.y(), 0.f);
+            L += Ld;
+        }
 
         // Sample BSDF to get new path direction
-
-        // Get _outgoingBSDFSample_ for sampling new path direction
-        BSDFSample outgoingBSDFSample;
-        if (bounces < SAMPLE_DEPTH)
-            outgoingBSDFSample = BSDFSample(sample, pathSampleOffsets[bounces],
-                                            0);
-        else
-            outgoingBSDFSample = BSDFSample(rng);
-        Vector wi;
-        float pdf;
+        Vector3f wo = -ray.d, wi;
+        Float pdf;
         BxDFType flags;
-        Spectrum f = bsdf->Sample_f(wo, &wi, outgoingBSDFSample, &pdf,
-                                    BSDF_ALL, &flags);
-        if (f.IsBlack() || pdf == 0.)
-            break;
+        Spectrum f = isect.bsdf->Sample_f(wo, &wi, sampler.Get2D(), &pdf,
+                                          BSDF_ALL, &flags);
+        VLOG(2) << "Sampled BSDF, f = " << f << ", pdf = " << pdf;
+        if (f.IsBlack() || pdf == 0.f) break;
+        beta *= f * AbsDot(wi, isect.shading.n) / pdf;
+        VLOG(2) << "Updated beta = " << beta;
+        CHECK_GE(beta.y(), 0.f);
+        DCHECK(!std::isinf(beta.y()));
         specularBounce = (flags & BSDF_SPECULAR) != 0;
-        pathThroughput *= f * AbsDot(wi, n) / pdf;
-        ray = RayDifferential(p, wi, ray, isectp->rayEpsilon);
-
-        // Possibly terminate the path
-        if (bounces > 3) {
-            float continueProbability = min(.5f, pathThroughput.y());
-            if (rng.RandomFloat() > continueProbability)
-                break;
-            pathThroughput /= continueProbability;
+        if ((flags & BSDF_SPECULAR) && (flags & BSDF_TRANSMISSION)) {
+            Float eta = isect.bsdf->eta;
+            // Update the term that tracks radiance scaling for refraction
+            // depending on whether the ray is entering or leaving the
+            // medium.
+            etaScale *= (Dot(wo, isect.n) > 0) ? (eta * eta) : 1 / (eta * eta);
         }
-        if (bounces == maxDepth)
-            break;
+        ray = isect.SpawnRay(wi);
 
-        // Find next vertex of path
-        if (!scene->Intersect(ray, &localIsect)) {
-            if (specularBounce)
-                for (uint32_t i = 0; i < scene->lights.size(); ++i)
-                   L += pathThroughput * scene->lights[i]->Le(ray);
-            break;
+        // Account for subsurface scattering, if applicable
+        if (isect.bssrdf && (flags & BSDF_TRANSMISSION)) {
+            // Importance sample the BSSRDF
+            SurfaceInteraction pi;
+            Spectrum S = isect.bssrdf->Sample_S(
+                scene, sampler.Get1D(), sampler.Get2D(), arena, &pi, &pdf);
+            DCHECK(!std::isinf(beta.y()));
+            if (S.IsBlack() || pdf == 0) break;
+            beta *= S / pdf;
+
+            // Account for the direct subsurface scattering component
+            L += beta * UniformSampleOneLight(pi, scene, arena, sampler, false,
+                                              lightDistribution->Lookup(pi.p));
+
+            // Account for the indirect subsurface scattering component
+            Spectrum f = pi.bsdf->Sample_f(pi.wo, &wi, sampler.Get2D(), &pdf,
+                                           BSDF_ALL, &flags);
+            if (f.IsBlack() || pdf == 0) break;
+            beta *= f * AbsDot(wi, pi.shading.n) / pdf;
+            DCHECK(!std::isinf(beta.y()));
+            specularBounce = (flags & BSDF_SPECULAR) != 0;
+            ray = pi.SpawnRay(wi);
         }
-        pathThroughput *= renderer->Transmittance(scene, ray, NULL, rng, arena);
-        isectp = &localIsect;
+
+        // Possibly terminate the path with Russian roulette.
+        // Factor out radiance scaling due to refraction in rrBeta.
+        Spectrum rrBeta = beta * etaScale;
+        if (rrBeta.MaxComponentValue() < rrThreshold && bounces > 3) {
+            Float q = std::max((Float).05, 1 - rrBeta.MaxComponentValue());
+            if (sampler.Get1D() < q) break;
+            beta /= 1 - q;
+            DCHECK(!std::isinf(beta.y()));
+        }
     }
+    ReportValue(pathLength, bounces);
     return L;
 }
 
-
-PathIntegrator *CreatePathSurfaceIntegrator(const ParamSet &params) {
+PathIntegrator *CreatePathIntegrator(const ParamSet &params,
+                                     std::shared_ptr<Sampler> sampler,
+                                     std::shared_ptr<const Camera> camera) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
-    return new PathIntegrator(maxDepth);
+    int np;
+    const int *pb = params.FindInt("pixelbounds", &np);
+    Bounds2i pixelBounds = camera->film->GetSampleBounds();
+    if (pb) {
+        if (np != 4)
+            Error("Expected four values for \"pixelbounds\" parameter. Got %d.",
+                  np);
+        else {
+            pixelBounds = Intersect(pixelBounds,
+                                    Bounds2i{{pb[0], pb[2]}, {pb[1], pb[3]}});
+            if (pixelBounds.Area() == 0)
+                Error("Degenerate \"pixelbounds\" specified.");
+        }
+    }
+    Float rrThreshold = params.FindOneFloat("rrthreshold", 1.);
+    std::string lightStrategy =
+        params.FindOneString("lightsamplestrategy", "spatial");
+    return new PathIntegrator(maxDepth, camera, sampler, pixelBounds,
+                              rrThreshold, lightStrategy);
 }
 
-
+}  // namespace pbrt

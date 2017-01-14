@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -43,76 +45,86 @@
 #include "paramset.h"
 #include <map>
 
+namespace pbrt {
+
 // TexInfo Declarations
 struct TexInfo {
-    TexInfo(const string &f, bool dt, float ma, ImageWrap wm, float sc, float ga)
-        : filename(f), doTrilinear(dt), maxAniso(ma), wrapMode(wm), scale(sc), gamma(ga) { }
-    string filename;
+    TexInfo(const std::string &f, bool dt, Float ma, ImageWrap wm, Float sc,
+            bool gamma)
+        : filename(f),
+          doTrilinear(dt),
+          maxAniso(ma),
+          wrapMode(wm),
+          scale(sc),
+          gamma(gamma) {}
+    std::string filename;
     bool doTrilinear;
-    float maxAniso;
+    Float maxAniso;
     ImageWrap wrapMode;
-    float scale, gamma;
+    Float scale;
+    bool gamma;
     bool operator<(const TexInfo &t2) const {
         if (filename != t2.filename) return filename < t2.filename;
         if (doTrilinear != t2.doTrilinear) return doTrilinear < t2.doTrilinear;
         if (maxAniso != t2.maxAniso) return maxAniso < t2.maxAniso;
         if (scale != t2.scale) return scale < t2.scale;
-        if (gamma != t2.gamma) return gamma < t2.gamma;
+        if (gamma != t2.gamma) return !gamma;
         return wrapMode < t2.wrapMode;
     }
 };
 
-
-
 // ImageTexture Declarations
 template <typename Tmemory, typename Treturn>
-    class ImageTexture : public Texture<Treturn> {
-public:
+class ImageTexture : public Texture<Treturn> {
+  public:
     // ImageTexture Public Methods
-    ImageTexture(TextureMapping2D *m, const string &filename, bool doTri,
-                 float maxAniso, ImageWrap wm, float scale, float gamma);
-    Treturn Evaluate(const DifferentialGeometry &) const;
-    ~ImageTexture();
+    ImageTexture(std::unique_ptr<TextureMapping2D> m,
+                 const std::string &filename, bool doTri, Float maxAniso,
+                 ImageWrap wm, Float scale, bool gamma);
     static void ClearCache() {
-        typename std::map<TexInfo, MIPMap<Tmemory> *>::iterator iter;
-        iter = textures.begin();
-        while (iter != textures.end()) {
-            delete iter->second;
-            ++iter;
-        }
         textures.erase(textures.begin(), textures.end());
     }
-private:
-    // ImageTexture Private Methods
-    static MIPMap<Tmemory> *GetTexture(const string &filename,
-        bool doTrilinear, float maxAniso, ImageWrap wm, float scale, float gamma);
-    static void convertIn(const RGBSpectrum &from, RGBSpectrum *to,
-                          float scale, float gamma) {
-        *to = Pow(scale * from, gamma);
+    Treturn Evaluate(const SurfaceInteraction &si) const {
+        Vector2f dstdx, dstdy;
+        Point2f st = mapping->Map(si, &dstdx, &dstdy);
+        Tmemory mem = mipmap->Lookup(st, dstdx, dstdy);
+        Treturn ret;
+        convertOut(mem, &ret);
+        return ret;
     }
-    static void convertIn(const RGBSpectrum &from, float *to,
-                          float scale, float gamma) {
-        *to = powf(scale * from.y(), gamma);
+
+  private:
+    // ImageTexture Private Methods
+    static MIPMap<Tmemory> *GetTexture(const std::string &filename,
+                                       bool doTrilinear, Float maxAniso,
+                                       ImageWrap wm, Float scale, bool gamma);
+    static void convertIn(const RGBSpectrum &from, RGBSpectrum *to, Float scale,
+                          bool gamma) {
+        for (int i = 0; i < RGBSpectrum::nSamples; ++i)
+            (*to)[i] = scale * (gamma ? InverseGammaCorrect(from[i]) : from[i]);
+    }
+    static void convertIn(const RGBSpectrum &from, Float *to, Float scale,
+                          bool gamma) {
+        *to = scale * (gamma ? InverseGammaCorrect(from.y()) : from.y());
     }
     static void convertOut(const RGBSpectrum &from, Spectrum *to) {
-        float rgb[3];
+        Float rgb[3];
         from.ToRGB(rgb);
         *to = Spectrum::FromRGB(rgb);
     }
-    static void convertOut(float from, float *to) {
-        *to = from;
-    }
+    static void convertOut(Float from, Float *to) { *to = from; }
 
     // ImageTexture Private Data
+    std::unique_ptr<TextureMapping2D> mapping;
     MIPMap<Tmemory> *mipmap;
-    TextureMapping2D *mapping;
-    static std::map<TexInfo, MIPMap<Tmemory> *> textures;
+    static std::map<TexInfo, std::unique_ptr<MIPMap<Tmemory>>> textures;
 };
 
+ImageTexture<Float, Float> *CreateImageFloatTexture(const Transform &tex2world,
+                                                    const TextureParams &tp);
+ImageTexture<RGBSpectrum, Spectrum> *CreateImageSpectrumTexture(
+    const Transform &tex2world, const TextureParams &tp);
 
-ImageTexture<float, float> *CreateImageFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
-ImageTexture<RGBSpectrum, Spectrum> *CreateImageSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+}  // namespace pbrt
 
-#endif // PBRT_TEXTURES_IMAGEMAP_H
+#endif  // PBRT_TEXTURES_IMAGEMAP_H

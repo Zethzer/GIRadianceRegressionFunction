@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,27 +42,41 @@
 #include "pbrt.h"
 #include "material.h"
 
+namespace pbrt {
+
 // GlassMaterial Declarations
 class GlassMaterial : public Material {
-public:
+  public:
     // GlassMaterial Public Methods
-    GlassMaterial(Reference<Texture<Spectrum> > r, Reference<Texture<Spectrum> > t,
-            Reference<Texture<float> > i, Reference<Texture<float> > bump) {
-        Kr = r;
-        Kt = t;
-        index = i;
-        bumpMap = bump;
-    }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom, const DifferentialGeometry &dgShading, MemoryArena &arena) const;
-private:
+    GlassMaterial(const std::shared_ptr<Texture<Spectrum>> &Kr,
+                  const std::shared_ptr<Texture<Spectrum>> &Kt,
+                  const std::shared_ptr<Texture<Float>> &uRoughness,
+                  const std::shared_ptr<Texture<Float>> &vRoughness,
+                  const std::shared_ptr<Texture<Float>> &index,
+                  const std::shared_ptr<Texture<Float>> &bumpMap,
+                  bool remapRoughness)
+        : Kr(Kr),
+          Kt(Kt),
+          uRoughness(uRoughness),
+          vRoughness(vRoughness),
+          index(index),
+          bumpMap(bumpMap),
+          remapRoughness(remapRoughness) {}
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // GlassMaterial Private Data
-    Reference<Texture<Spectrum> > Kr, Kt;
-    Reference<Texture<float> > index;
-    Reference<Texture<float> > bumpMap;
+    std::shared_ptr<Texture<Spectrum>> Kr, Kt;
+    std::shared_ptr<Texture<Float>> uRoughness, vRoughness;
+    std::shared_ptr<Texture<Float>> index;
+    std::shared_ptr<Texture<Float>> bumpMap;
+    bool remapRoughness;
 };
 
+GlassMaterial *CreateGlassMaterial(const TextureParams &mp);
 
-GlassMaterial *CreateGlassMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_GLASS_H
+#endif  // PBRT_MATERIALS_GLASS_H

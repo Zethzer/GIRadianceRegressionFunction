@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,81 +32,78 @@
 
 
 // shapes/nurbs.cpp*
-#include "stdafx.h"
 #include "shapes/nurbs.h"
-#include "shapes/trianglemesh.h"
+#include "shapes/triangle.h"
 #include "paramset.h"
 #include "texture.h"
 
+namespace pbrt {
+
 // NURBS Evaluation Functions
-static int KnotOffset(const float *knot, int order, int np, float t) {
+static int KnotOffset(const Float *knot, int order, int np, Float t) {
     int firstKnot = order - 1;
 
     int knotOffset = firstKnot;
-    while (t > knot[knotOffset+1])
-        ++knotOffset;
-    Assert(knotOffset < np); // np == lastKnot
-    Assert(t >= knot[knotOffset] && t <= knot[knotOffset + 1]);
+    while (t > knot[knotOffset + 1]) ++knotOffset;
+    CHECK_LT(knotOffset, np);  // np == lastKnot
+    CHECK(t >= knot[knotOffset] && t <= knot[knotOffset + 1]);
     return knotOffset;
 }
-
-
 
 // doesn't handle flat out discontinuities in the curve...
 
 struct Homogeneous3 {
-Homogeneous3() { x = y = z = w = 0.; }
-Homogeneous3(float xx, float yy, float zz, float ww) {
-    x = xx; y = yy; z = zz; w = ww;
-}
+    Homogeneous3() { x = y = z = w = 0.; }
+    Homogeneous3(Float xx, Float yy, Float zz, Float ww) {
+        x = xx;
+        y = yy;
+        z = zz;
+        w = ww;
+    }
 
-
-float x, y, z, w;
+    Float x, y, z, w;
 };
 
-
-static Homogeneous3
-NURBSEvaluate(int order, const float *knot, const Homogeneous3 *cp, int np,
-          int cpStride, float t, Vector *deriv = NULL) {
-//    int nKnots = np + order;
-    float alpha;
+static Homogeneous3 NURBSEvaluate(int order, const Float *knot,
+                                  const Homogeneous3 *cp, int np, int cpStride,
+                                  Float t, Vector3f *deriv = nullptr) {
+    //    int nKnots = np + order;
+    Float alpha;
 
     int knotOffset = KnotOffset(knot, order, np, t);
     knot += knotOffset;
 
     int cpOffset = knotOffset - order + 1;
-    Assert(cpOffset >= 0 && cpOffset < np);
+    CHECK(cpOffset >= 0 && cpOffset < np);
 
     Homogeneous3 *cpWork = ALLOCA(Homogeneous3, order);
-    for (int i = 0; i < order; ++i)
-    cpWork[i] = cp[(cpOffset+i) * cpStride];
+    for (int i = 0; i < order; ++i) cpWork[i] = cp[(cpOffset + i) * cpStride];
 
     for (int i = 0; i < order - 2; ++i)
-    for (int j = 0; j < order - 1 - i; ++j) {
-        alpha = (knot[1 + j] - t) /
-        (knot[1 + j] - knot[j + 2 - order + i]);
-        Assert(alpha >= 0. && alpha <= 1.);
+        for (int j = 0; j < order - 1 - i; ++j) {
+            alpha = (knot[1 + j] - t) / (knot[1 + j] - knot[j + 2 - order + i]);
+            CHECK(alpha >= 0. && alpha <= 1.);
 
-        cpWork[j].x = cpWork[j].x * alpha + cpWork[j+1].x * (1 - alpha);
-        cpWork[j].y = cpWork[j].y * alpha + cpWork[j+1].y * (1 - alpha);
-        cpWork[j].z = cpWork[j].z * alpha + cpWork[j+1].z * (1 - alpha);
-        cpWork[j].w = cpWork[j].w * alpha + cpWork[j+1].w * (1 - alpha);
-    }
+            cpWork[j].x = cpWork[j].x * alpha + cpWork[j + 1].x * (1 - alpha);
+            cpWork[j].y = cpWork[j].y * alpha + cpWork[j + 1].y * (1 - alpha);
+            cpWork[j].z = cpWork[j].z * alpha + cpWork[j + 1].z * (1 - alpha);
+            cpWork[j].w = cpWork[j].w * alpha + cpWork[j + 1].w * (1 - alpha);
+        }
 
     alpha = (knot[1] - t) / (knot[1] - knot[0]);
-    Assert(alpha >= 0. && alpha <= 1.);
+    CHECK(alpha >= 0. && alpha <= 1.);
 
     Homogeneous3 val(cpWork[0].x * alpha + cpWork[1].x * (1 - alpha),
-             cpWork[0].y * alpha + cpWork[1].y * (1 - alpha),
-             cpWork[0].z * alpha + cpWork[1].z * (1 - alpha),
-             cpWork[0].w * alpha + cpWork[1].w * (1 - alpha));
+                     cpWork[0].y * alpha + cpWork[1].y * (1 - alpha),
+                     cpWork[0].z * alpha + cpWork[1].z * (1 - alpha),
+                     cpWork[0].w * alpha + cpWork[1].w * (1 - alpha));
 
     if (deriv) {
-        float factor = (order - 1) / (knot[1] - knot[0]);
+        Float factor = (order - 1) / (knot[1] - knot[0]);
         Homogeneous3 delta((cpWork[1].x - cpWork[0].x) * factor,
-               (cpWork[1].y - cpWork[0].y) * factor,
-               (cpWork[1].z - cpWork[0].z) * factor,
-               (cpWork[1].w - cpWork[0].w) * factor);
+                           (cpWork[1].y - cpWork[0].y) * factor,
+                           (cpWork[1].z - cpWork[0].z) * factor,
+                           (cpWork[1].w - cpWork[0].w) * factor);
 
         deriv->x = delta.x / val.w - (val.x * delta.w / (val.w * val.w));
         deriv->y = delta.y / val.w - (val.y * delta.w / (val.w * val.w));
@@ -115,243 +113,198 @@ NURBSEvaluate(int order, const float *knot, const Homogeneous3 *cp, int np,
     return val;
 }
 
-
-
-static Point
-NURBSEvaluateSurface(int uOrder, const float *uKnot, int ucp, float u,
-             int vOrder, const float *vKnot, int vcp, float v,
-             const Homogeneous3 *cp, Vector *dPdu, Vector *dPdv) {
-    Homogeneous3 *iso = ALLOCA(Homogeneous3, max(uOrder, vOrder));
+static Point3f NURBSEvaluateSurface(int uOrder, const Float *uKnot, int ucp,
+                                    Float u, int vOrder, const Float *vKnot,
+                                    int vcp, Float v, const Homogeneous3 *cp,
+                                    Vector3f *dpdu, Vector3f *dpdv) {
+    Homogeneous3 *iso = ALLOCA(Homogeneous3, std::max(uOrder, vOrder));
 
     int uOffset = KnotOffset(uKnot, uOrder, ucp, u);
     int uFirstCp = uOffset - uOrder + 1;
-    Assert(uFirstCp >= 0 && uFirstCp + uOrder - 1 < ucp);
+    CHECK(uFirstCp >= 0 && uFirstCp + uOrder - 1 < ucp);
 
     for (int i = 0; i < uOrder; ++i)
-        iso[i] = NURBSEvaluate(vOrder, vKnot, &cp[uFirstCp + i], vcp,
-                   ucp, v);
+        iso[i] = NURBSEvaluate(vOrder, vKnot, &cp[uFirstCp + i], vcp, ucp, v);
 
     int vOffset = KnotOffset(vKnot, vOrder, vcp, v);
     int vFirstCp = vOffset - vOrder + 1;
-    Assert(vFirstCp >= 0 && vFirstCp + vOrder - 1 < vcp);
+    CHECK(vFirstCp >= 0 && vFirstCp + vOrder - 1 < vcp);
 
-    Homogeneous3 P = NURBSEvaluate(uOrder, uKnot, iso - uFirstCp, ucp,
-                   1, u, dPdu);
+    Homogeneous3 P =
+        NURBSEvaluate(uOrder, uKnot, iso - uFirstCp, ucp, 1, u, dpdu);
 
-    if (dPdv) {
+    if (dpdv) {
         for (int i = 0; i < vOrder; ++i)
-            iso[i] = NURBSEvaluate(uOrder, uKnot, &cp[(vFirstCp+i)*ucp], ucp,
-                   1, u);
-        (void)NURBSEvaluate(vOrder, vKnot, iso - vFirstCp, vcp, 1, v, dPdv);
+            iso[i] = NURBSEvaluate(uOrder, uKnot, &cp[(vFirstCp + i) * ucp],
+                                   ucp, 1, u);
+        (void)NURBSEvaluate(vOrder, vKnot, iso - vFirstCp, vcp, 1, v, dpdv);
     }
-    return Point(P.x/P.w, P.y/P.w, P.z/P.w);;
+    return Point3f(P.x / P.w, P.y / P.w, P.z / P.w);
 }
 
-
-
-
-// NURBS Method Definitions
-NURBS::NURBS(const Transform *o2w, const Transform *w2o,
-        bool ro, int numu, int uo, const float *uk,
-        float u0, float u1, int numv, int vo, const float *vk,
-        float v0, float v1, const float *p, bool homogeneous)
-    : Shape(o2w, w2o, ro) {
-    nu = numu;    uorder = uo;
-    umin = u0;    umax = u1;
-    nv = numv;    vorder = vo;
-    vmin = v0;    vmax = v1;
-    isHomogeneous = homogeneous;
-    if (isHomogeneous) {
-        P = new float[4*nu*nv];
-        memcpy(P, p, 4*nu*nv*sizeof(float));
-    } else {
-        P = new float[3*nu*nv];
-        memcpy(P, p, 3*nu*nv*sizeof(float));
-    }
-    uknot = new float[nu + uorder];
-    memcpy(uknot, uk, (nu + uorder) * sizeof(float));
-    vknot = new float[nv + vorder];
-    memcpy(vknot, vk, (nv + vorder) * sizeof(float));
-}
-
-
-NURBS::~NURBS() {
-    delete[] P;
-    delete[] uknot;
-    delete[] vknot;
-}
-
-
-BBox NURBS::ObjectBound() const {
-    if (!isHomogeneous) {
-        // Compute object-space bound of non-homogeneous NURBS
-        float *pp = P;
-        BBox bound;
-        for (int i = 0; i < nu*nv; ++i, pp += 3)
-            bound = Union(bound, Point(pp[0], pp[1], pp[2]));
-        return bound;
-    } else {
-        // Compute object-space bound of homogeneous NURBS
-        float *pp = P;
-        BBox bound;
-        for (int i = 0; i < nu*nv; ++i, pp += 4)
-            bound = Union(bound, Point(pp[0] / pp[3], pp[1] / pp[3], pp[2] / pp[3]));
-        return bound;
-    }
-}
-
-
-BBox NURBS::WorldBound() const {
-    if (!isHomogeneous) {
-        // Compute world-space bound of non-homogeneous NURBS
-        float *pp = P;
-        BBox bound;
-        for (int i = 0; i < nu*nv; ++i, pp += 3) {
-            Point pt = (*ObjectToWorld)(Point(pp[0], pp[1], pp[2]));
-            bound = Union(bound, pt);
-        }
-        return bound;
-    } else {
-        // Compute world-space bound of homogeneous NURBS
-        float *pp = P;
-        BBox bound;
-        for (int i = 0; i < nu*nv; ++i, pp += 4) {
-            Point pt = (*ObjectToWorld)(Point(pp[0]/pp[3],
-                pp[1]/pp[3], pp[2]/pp[3]));
-            bound = Union(bound, pt);
-        }
-        return bound;
-    }
-}
-
-
-
-void NURBS::Refine(vector<Reference<Shape> > &refined) const {
-    // Compute NURBS dicing rates
-    int diceu = 30, dicev = 30;
-    float *ueval = new float[diceu];
-    float *veval = new float[dicev];
-    Point *evalPs = new Point[diceu*dicev];
-    Normal *evalNs = new Normal[diceu*dicev];
-    int i;
-    for (i = 0; i < diceu; ++i)
-        ueval[i] = Lerp((float)i / (float)(diceu-1), umin, umax);
-    for (i = 0; i < dicev; ++i)
-        veval[i] = Lerp((float)i / (float)(dicev-1), vmin, vmax);
-    // Evaluate NURBS over grid of points
-    memset(evalPs, 0, diceu*dicev*sizeof(Point));
-    memset(evalNs, 0, diceu*dicev*sizeof(Point));
-    float *uvs = new float[2*diceu*dicev];
-    // Turn NURBS into triangles
-    Homogeneous3 *Pw = (Homogeneous3 *)P;
-    if (!isHomogeneous) {
-        Pw = new Homogeneous3[nu * nv];
-        for (int i = 0; i < nu*nv; ++i) {
-            Pw[i].x = P[3*i];
-            Pw[i].y = P[3*i+1];
-            Pw[i].z = P[3*i+2];
-            Pw[i].w = 1.;
-        }
-    }
-    for (int v = 0; v < dicev; ++v) {
-        for (int u = 0; u < diceu; ++u) {
-            uvs[2*(v*diceu+u)]   = ueval[u];
-            uvs[2*(v*diceu+u)+1] = veval[v];
-
-            Vector dPdu, dPdv;
-            Point pt = NURBSEvaluateSurface(uorder, uknot, nu, ueval[u],
-                vorder, vknot, nv, veval[v], Pw, &dPdu, &dPdv);
-            evalPs[v*diceu + u].x = pt.x;
-            evalPs[v*diceu + u].y = pt.y;
-            evalPs[v*diceu + u].z = pt.z;
-            evalNs[v*diceu + u] = Normal(Normalize(Cross(dPdu, dPdv)));
-        }
-    }
-    // Generate points-polygons mesh
-    int nTris = 2*(diceu-1)*(dicev-1);
-    int *vertices = new int[3 * nTris];
-    int *vertp = vertices;
-    // Compute the vertex offset numbers for the triangles
-    for (int v = 0; v < dicev-1; ++v) {
-        for (int u = 0; u < diceu-1; ++u) {
-    #define VN(u,v) ((v)*diceu+(u))
-            *vertp++ = VN(u,   v);
-            *vertp++ = VN(u+1, v);
-            *vertp++ = VN(u+1, v+1);
-
-            *vertp++ = VN(u,   v);
-            *vertp++ = VN(u+1, v+1);
-            *vertp++ = VN(u,   v+1);
-    #undef VN
-        }
-    }
-    int nVerts = diceu*dicev;
-    ParamSet paramSet;
-    paramSet.AddInt("indices", vertices, 3*nTris);
-    paramSet.AddPoint("P", evalPs, nVerts);
-    paramSet.AddFloat("uv", uvs, 2 * nVerts);
-    paramSet.AddNormal("N", evalNs, nVerts);
-    refined.push_back(CreateTriangleMeshShape(ObjectToWorld, WorldToObject,
-            ReverseOrientation, paramSet));
-    // Cleanup from NURBS refinement
-    if (Pw != (Homogeneous3 *)P) delete[] Pw;
-    delete[] uvs;
-    delete[] ueval;
-    delete[] veval;
-    delete[] evalPs;
-    delete[] evalNs;
-    delete[] vertices;
-}
-
-
-
-NURBS *CreateNURBSShape(const Transform *o2w, const Transform *w2o,
-        bool ReverseOrientation, const ParamSet &params) {
+std::vector<std::shared_ptr<Shape>> CreateNURBS(const Transform *o2w,
+                                                const Transform *w2o,
+                                                bool reverseOrientation,
+                                                const ParamSet &params) {
     int nu = params.FindOneInt("nu", -1);
+    if (nu == -1) {
+        Error("Must provide number of control points \"nu\" with NURBS shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+
     int uorder = params.FindOneInt("uorder", -1);
+    if (uorder == -1) {
+        Error("Must provide u order \"uorder\" with NURBS shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
     int nuknots, nvknots;
-    const float *uknots = params.FindFloat("uknots", &nuknots);
-    Assert(nu != -1 && uorder != -1 && uknots != NULL);
-    Assert(nuknots == nu + uorder);
-    float u0 = params.FindOneFloat("u0", uknots[uorder-1]);
-    float u1 = params.FindOneFloat("u1", uknots[nu]);
+    const Float *uknots = params.FindFloat("uknots", &nuknots);
+    if (!uknots) {
+        Error("Must provide u knot vector \"uknots\" with NURBS shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+
+    if (nuknots != nu + uorder) {
+        Error(
+            "Number of knots in u knot vector %d doesn't match sum of "
+            "number of u control points %d and u order %d.",
+            nuknots, nu, uorder);
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+
+    Float u0 = params.FindOneFloat("u0", uknots[uorder - 1]);
+    Float u1 = params.FindOneFloat("u1", uknots[nu]);
 
     int nv = params.FindOneInt("nv", -1);
+    if (nv == -1) {
+        Error("Must provide number of control points \"nv\" with NURBS shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+
     int vorder = params.FindOneInt("vorder", -1);
-    const float *vknots = params.FindFloat("vknots", &nvknots);
-    Assert(nv != -1 && vorder != -1 && vknots != NULL);
-    Assert(nvknots == nv + vorder);
-    float v0 = params.FindOneFloat("v0", vknots[vorder-1]);
-    float v1 = params.FindOneFloat("v1", vknots[nv]);
+    if (vorder == -1) {
+        Error("Must provide v order \"vorder\" with NURBS shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+
+    const Float *vknots = params.FindFloat("vknots", &nvknots);
+    if (!vknots) {
+        Error("Must provide v knot vector \"vknots\" with NURBS shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+
+    if (nvknots != nv + vorder) {
+        Error(
+            "Number of knots in v knot vector %d doesn't match sum of "
+            "number of v control points %d and v order %d.",
+            nvknots, nv, vorder);
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+
+    Float v0 = params.FindOneFloat("v0", vknots[vorder - 1]);
+    Float v1 = params.FindOneFloat("v1", vknots[nv]);
 
     bool isHomogeneous = false;
     int npts;
-    const float *P = (const float *)params.FindPoint("P", &npts);
+    const Float *P = (const Float *)params.FindPoint3f("P", &npts);
     if (!P) {
         P = params.FindFloat("Pw", &npts);
         if (!P) {
-            Error("Must provide control points via \"P\" or \"Pw\" parameter to "
-                  "NURBS shape.");
-            return NULL;
+            Error(
+                "Must provide control points via \"P\" or \"Pw\" parameter to "
+                "NURBS shape.");
+            return std::vector<std::shared_ptr<Shape>>();
         }
         if ((npts % 4) != 0) {
-            Error("Number of \"Pw\" control points provided to NURBS shape must be "
-                  "multiple of four");
-            return NULL;
+            Error(
+                "Number of \"Pw\" control points provided to NURBS shape must "
+                "be "
+                "multiple of four");
+            return std::vector<std::shared_ptr<Shape>>();
         }
-
         npts /= 4;
         isHomogeneous = true;
     }
-    if (npts != nu*nv) {
+    if (npts != nu * nv) {
         Error("NURBS shape was expecting %dx%d=%d control points, was given %d",
-              nu, nv, nu*nv, npts);
-        return NULL;
+              nu, nv, nu * nv, npts);
+        return std::vector<std::shared_ptr<Shape>>();
     }
 
-    return new NURBS(o2w, w2o, ReverseOrientation, nu, uorder, uknots, u0, u1,
-                         nv, vorder, vknots, v0, v1, (float *)P,
-                         isHomogeneous);
+    // Compute NURBS dicing rates
+    int diceu = 30, dicev = 30;
+    std::unique_ptr<Float[]> ueval(new Float[diceu]);
+    std::unique_ptr<Float[]> veval(new Float[dicev]);
+    std::unique_ptr<Point3f[]> evalPs(new Point3f[diceu * dicev]);
+    std::unique_ptr<Normal3f[]> evalNs(new Normal3f[diceu * dicev]);
+    int i;
+    for (i = 0; i < diceu; ++i)
+        ueval[i] = Lerp((float)i / (float)(diceu - 1), u0, u1);
+    for (i = 0; i < dicev; ++i)
+        veval[i] = Lerp((float)i / (float)(dicev - 1), v0, v1);
+
+    // Evaluate NURBS over grid of points
+    memset(evalPs.get(), 0, diceu * dicev * sizeof(Point3f));
+    memset(evalNs.get(), 0, diceu * dicev * sizeof(Point3f));
+    std::unique_ptr<Point2f[]> uvs(new Point2f[diceu * dicev]);
+
+    // Turn NURBS into triangles
+    std::unique_ptr<Homogeneous3[]> Pw(new Homogeneous3[nu * nv]);
+    if (isHomogeneous) {
+        for (int i = 0; i < nu * nv; ++i) {
+            Pw[i].x = P[4 * i];
+            Pw[i].y = P[4 * i + 1];
+            Pw[i].z = P[4 * i + 2];
+            Pw[i].w = P[4 * i + 3];
+        }
+    } else {
+        for (int i = 0; i < nu * nv; ++i) {
+            Pw[i].x = P[3 * i];
+            Pw[i].y = P[3 * i + 1];
+            Pw[i].z = P[3 * i + 2];
+            Pw[i].w = 1.;
+        }
+    }
+
+    for (int v = 0; v < dicev; ++v) {
+        for (int u = 0; u < diceu; ++u) {
+            uvs[(v * diceu + u)].x = ueval[u];
+            uvs[(v * diceu + u)].y = veval[v];
+
+            Vector3f dpdu, dpdv;
+            Point3f pt = NURBSEvaluateSurface(uorder, uknots, nu, ueval[u],
+                                              vorder, vknots, nv, veval[v],
+                                              Pw.get(), &dpdu, &dpdv);
+            evalPs[v * diceu + u].x = pt.x;
+            evalPs[v * diceu + u].y = pt.y;
+            evalPs[v * diceu + u].z = pt.z;
+            evalNs[v * diceu + u] = Normal3f(Normalize(Cross(dpdu, dpdv)));
+        }
+    }
+
+    // Generate points-polygons mesh
+    int nTris = 2 * (diceu - 1) * (dicev - 1);
+    std::unique_ptr<int[]> vertices(new int[3 * nTris]);
+    int *vertp = vertices.get();
+    // Compute the vertex offset numbers for the triangles
+    for (int v = 0; v < dicev - 1; ++v) {
+        for (int u = 0; u < diceu - 1; ++u) {
+#define VN(u, v) ((v)*diceu + (u))
+            *vertp++ = VN(u, v);
+            *vertp++ = VN(u + 1, v);
+            *vertp++ = VN(u + 1, v + 1);
+
+            *vertp++ = VN(u, v);
+            *vertp++ = VN(u + 1, v + 1);
+            *vertp++ = VN(u, v + 1);
+#undef VN
+        }
+    }
+    int nVerts = diceu * dicev;
+
+    return CreateTriangleMesh(o2w, w2o, reverseOrientation, nTris,
+                              vertices.get(), nVerts, evalPs.get(), nullptr,
+                              evalNs.get(), uvs.get(), nullptr, nullptr);
 }
 
-
+}  // namespace pbrt

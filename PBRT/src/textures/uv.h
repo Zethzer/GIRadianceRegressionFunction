@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,30 +43,31 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // UVTexture Declarations
 class UVTexture : public Texture<Spectrum> {
-public:
+  public:
     // UVTexture Public Methods
-    UVTexture(TextureMapping2D *m) {
-        mapping = m;
-    }
-    ~UVTexture() {
-        delete mapping;
-    }
-    Spectrum Evaluate(const DifferentialGeometry &dg) const {
-        float s, t, dsdx, dtdx, dsdy, dtdy;
-        mapping->Map(dg, &s, &t, &dsdx, &dtdx, &dsdy, &dtdy);
-        float rgb[3] = { s - Floor2Int(s), t - Floor2Int(t), 0.f };
+    UVTexture(std::unique_ptr<TextureMapping2D> mapping)
+        : mapping(std::move(mapping)) {}
+    Spectrum Evaluate(const SurfaceInteraction &si) const {
+        Vector2f dstdx, dstdy;
+        Point2f st = mapping->Map(si, &dstdx, &dstdy);
+        Float rgb[3] = {st[0] - std::floor(st[0]), st[1] - std::floor(st[1]),
+                        0};
         return Spectrum::FromRGB(rgb);
     }
-private:
-    TextureMapping2D *mapping;
+
+  private:
+    std::unique_ptr<TextureMapping2D> mapping;
 };
 
-
-Texture<float> *CreateUVFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
+Texture<Float> *CreateUVFloatTexture(const Transform &tex2world,
+                                     const TextureParams &tp);
 UVTexture *CreateUVSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+                                   const TextureParams &tp);
 
-#endif // PBRT_TEXTURES_UV_H
+}  // namespace pbrt
+
+#endif  // PBRT_TEXTURES_UV_H

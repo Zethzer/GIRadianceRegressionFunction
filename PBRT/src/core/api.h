@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,50 +41,53 @@
 // core/api.h*
 #include "pbrt.h"
 
+namespace pbrt {
+
 // API Function Declarations
 void pbrtInit(const Options &opt);
 void pbrtCleanup();
 void pbrtIdentity();
-void pbrtTranslate(float dx, float dy, float dz);
-void pbrtRotate(float angle, float ax, float ay, float az);
-void pbrtScale(float sx, float sy, float sz);
-void pbrtLookAt(float ex, float ey, float ez,
-                float lx, float ly, float lz,
-                float ux, float uy, float uz);
-void pbrtConcatTransform(float transform[16]);
-void pbrtTransform(float transform[16]);
-void pbrtCoordinateSystem(const string &);
-void pbrtCoordSysTransform(const string &);
+void pbrtTranslate(Float dx, Float dy, Float dz);
+void pbrtRotate(Float angle, Float ax, Float ay, Float az);
+void pbrtScale(Float sx, Float sy, Float sz);
+void pbrtLookAt(Float ex, Float ey, Float ez, Float lx, Float ly, Float lz,
+                Float ux, Float uy, Float uz);
+void pbrtConcatTransform(Float transform[16]);
+void pbrtTransform(Float transform[16]);
+void pbrtCoordinateSystem(const std::string &);
+void pbrtCoordSysTransform(const std::string &);
 void pbrtActiveTransformAll();
 void pbrtActiveTransformEndTime();
 void pbrtActiveTransformStartTime();
-void pbrtTransformTimes(float start, float end);
-void pbrtPixelFilter(const string &name, const ParamSet &params);
-void pbrtFilm(const string &type, const ParamSet &params);
-void pbrtSampler(const string &name, const ParamSet &params);
-void pbrtAccelerator(const string &name, const ParamSet &params);
-void pbrtSurfaceIntegrator(const string &name, const ParamSet &params);
-void pbrtVolumeIntegrator(const string &name, const ParamSet &params);
-void pbrtRenderer(const string &name, const ParamSet &params);
-void pbrtCamera(const string &, const ParamSet &cameraParams);
+void pbrtTransformTimes(Float start, Float end);
+void pbrtPixelFilter(const std::string &name, const ParamSet &params);
+void pbrtFilm(const std::string &type, const ParamSet &params);
+void pbrtSampler(const std::string &name, const ParamSet &params);
+void pbrtAccelerator(const std::string &name, const ParamSet &params);
+void pbrtIntegrator(const std::string &name, const ParamSet &params);
+void pbrtCamera(const std::string &, const ParamSet &cameraParams);
+void pbrtMakeNamedMedium(const std::string &name, const ParamSet &params);
+void pbrtMediumInterface(const std::string &insideName,
+                         const std::string &outsideName);
 void pbrtWorldBegin();
 void pbrtAttributeBegin();
 void pbrtAttributeEnd();
 void pbrtTransformBegin();
 void pbrtTransformEnd();
-void pbrtTexture(const string &name, const string &type,
-    const string &texname, const ParamSet &params);
-void pbrtMaterial(const string &name, const ParamSet &params);
-void pbrtMakeNamedMaterial(const string &name, const ParamSet &params);
-void pbrtNamedMaterial(const string &name);
-void pbrtLightSource(const string &name, const ParamSet &params);
-void pbrtAreaLightSource(const string &name, const ParamSet &params);
-void pbrtShape(const string &name, const ParamSet &params);
+void pbrtTexture(const std::string &name, const std::string &type,
+                 const std::string &texname, const ParamSet &params);
+void pbrtMaterial(const std::string &name, const ParamSet &params);
+void pbrtMakeNamedMaterial(const std::string &name, const ParamSet &params);
+void pbrtNamedMaterial(const std::string &name);
+void pbrtLightSource(const std::string &name, const ParamSet &params);
+void pbrtAreaLightSource(const std::string &name, const ParamSet &params);
+void pbrtShape(const std::string &name, const ParamSet &params);
 void pbrtReverseOrientation();
-void pbrtVolume(const string &name, const ParamSet &params);
-void pbrtObjectBegin(const string &name);
+void pbrtObjectBegin(const std::string &name);
 void pbrtObjectEnd();
-void pbrtObjectInstance(const string &name);
+void pbrtObjectInstance(const std::string &name);
 void pbrtWorldEnd();
 
-#endif // PBRT_CORE_API_H
+}  // namespace pbrt
+
+#endif  // PBRT_CORE_API_H

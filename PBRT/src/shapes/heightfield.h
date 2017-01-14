@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,23 +41,14 @@
 // shapes/heightfield.h*
 #include "shape.h"
 
+namespace pbrt {
+
 // Heightfield Declarations
-class Heightfield : public Shape {
-public:
-    // Heightfield Public Methods
-    Heightfield(const Transform *o2, const Transform *w2o, bool ro, int nu, int nv, const float *zs);
-    ~Heightfield();
-    bool CanIntersect() const;
-    void Refine(vector<Reference<Shape> > &refined) const;
-    BBox ObjectBound() const;
-private:
-    // Heightfield Private Data
-    float *z;
-    int nx, ny;
-};
+std::vector<std::shared_ptr<Shape>> CreateHeightfield(const Transform *o2w,
+                                                      const Transform *w2o,
+                                                      bool ro,
+                                                      const ParamSet &params);
 
+}  // namespace pbrt
 
-Heightfield *CreateHeightfieldShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
-
-#endif // PBRT_SHAPES_HEIGHTFIELD_H
+#endif  // PBRT_SHAPES_HEIGHTFIELD_H

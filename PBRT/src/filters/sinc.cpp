@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,21 +32,21 @@
 
 
 // filters/sinc.cpp*
-#include "stdafx.h"
 #include "filters/sinc.h"
 #include "paramset.h"
 
-// Sinc Filter Method Definitions
-float LanczosSincFilter::Evaluate(float x, float y) const {
-    return Sinc1D(x * invXWidth) * Sinc1D(y * invYWidth);
-}
+namespace pbrt {
 
+// Sinc Filter Method Definitions
+Float LanczosSincFilter::Evaluate(const Point2f &p) const {
+    return WindowedSinc(p.x, radius.x) * WindowedSinc(p.y, radius.y);
+}
 
 LanczosSincFilter *CreateSincFilter(const ParamSet &ps) {
-    float xw = ps.FindOneFloat("xwidth", 4.);
-    float yw = ps.FindOneFloat("ywidth", 4.);
-    float tau = ps.FindOneFloat("tau", 3.f);
-    return new LanczosSincFilter(xw, yw, tau);
+    Float xw = ps.FindOneFloat("xwidth", 4.);
+    Float yw = ps.FindOneFloat("ywidth", 4.);
+    Float tau = ps.FindOneFloat("tau", 3.f);
+    return new LanczosSincFilter(Vector2f(xw, yw), tau);
 }
 
-
+}  // namespace pbrt

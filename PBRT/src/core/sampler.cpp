@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,97 +32,166 @@
 
 
 // core/sampler.cpp*
-#include "stdafx.h"
 #include "sampler.h"
-#include "integrator.h"
-#include "volume.h"
+#include "sampling.h"
+#include "camera.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // Sampler Method Definitions
-Sampler::~Sampler() {
+Sampler::~Sampler() {}
+
+Sampler::Sampler(int64_t samplesPerPixel) : samplesPerPixel(samplesPerPixel) {}
+CameraSample Sampler::GetCameraSample(const Point2i &pRaster) {
+    CameraSample cs;
+    cs.pFilm = (Point2f)pRaster + Get2D();
+    cs.time = Get1D();
+    cs.pLens = Get2D();
+    return cs;
 }
 
-
-Sampler::Sampler(int xstart, int xend, int ystart, int yend, int spp,
-                 float sopen, float sclose)
-    : xPixelStart(xstart), xPixelEnd(xend), yPixelStart(ystart),
-      yPixelEnd(yend), samplesPerPixel(spp), shutterOpen(sopen),
-      shutterClose(sclose) { }
-bool Sampler::ReportResults(Sample *samples, const RayDifferential *rays,
-        const Spectrum *Ls, const Intersection *isects, int count) {
-    return true;
+void Sampler::StartPixel(const Point2i &p) {
+    currentPixel = p;
+    currentPixelSampleIndex = 0;
+    // Reset array offsets for next pixel sample
+    array1DOffset = array2DOffset = 0;
 }
 
-
-void Sampler::ComputeSubWindow(int num, int count, int *newXStart,
-        int *newXEnd, int *newYStart, int *newYEnd) const {
-    // Determine how many tiles to use in each dimension, _nx_ and _ny_
-    int dx = xPixelEnd - xPixelStart, dy = yPixelEnd - yPixelStart;
-    int nx = count, ny = 1;
-    while ((nx & 0x1) == 0 && 2 * dx * ny < dy * nx) {
-        nx >>= 1;
-        ny <<= 1;
-    }
-    Assert(nx * ny == count);
-
-    // Compute $x$ and $y$ pixel sample range for sub-window
-    int xo = num % nx, yo = num / nx;
-    float tx0 = float(xo) / float(nx), tx1 = float(xo+1) / float(nx);
-    float ty0 = float(yo) / float(ny), ty1 = float(yo+1) / float(ny);
-    *newXStart = Floor2Int(Lerp(tx0, xPixelStart, xPixelEnd));
-    *newXEnd   = Floor2Int(Lerp(tx1, xPixelStart, xPixelEnd));
-    *newYStart = Floor2Int(Lerp(ty0, yPixelStart, yPixelEnd));
-    *newYEnd   = Floor2Int(Lerp(ty1, yPixelStart, yPixelEnd));
+bool Sampler::StartNextSample() {
+    // Reset array offsets for next pixel sample
+    array1DOffset = array2DOffset = 0;
+    return ++currentPixelSampleIndex < samplesPerPixel;
 }
 
-
-
-// Sample Method Definitions
-Sample::Sample(Sampler *sampler, SurfaceIntegrator *surf,
-               VolumeIntegrator *vol, const Scene *scene) {
-    if (surf) surf->RequestSamples(sampler, this, scene);
-    if (vol)  vol->RequestSamples(sampler, this, scene);
-    AllocateSampleMemory();
+bool Sampler::SetSampleNumber(int64_t sampleNum) {
+    // Reset array offsets for next pixel sample
+    array1DOffset = array2DOffset = 0;
+    currentPixelSampleIndex = sampleNum;
+    return currentPixelSampleIndex < samplesPerPixel;
 }
 
+void Sampler::Request1DArray(int n) {
+    CHECK_EQ(RoundCount(n), n);
+    samples1DArraySizes.push_back(n);
+    sampleArray1D.push_back(std::vector<Float>(n * samplesPerPixel));
+}
 
-void Sample::AllocateSampleMemory() {
-    // Allocate storage for sample pointers
-    int nPtrs = n1D.size() + n2D.size();
-    if (!nPtrs) {
-        oneD = twoD = NULL;
-        return;
-    }
-    oneD = AllocAligned<float *>(nPtrs);
-    twoD = oneD + n1D.size();
+void Sampler::Request2DArray(int n) {
+    CHECK_EQ(RoundCount(n), n);
+    samples2DArraySizes.push_back(n);
+    sampleArray2D.push_back(std::vector<Point2f>(n * samplesPerPixel));
+}
 
-    // Compute total number of sample values needed
-    int totSamples = 0;
-    for (uint32_t i = 0; i < n1D.size(); ++i)
-        totSamples += n1D[i];
-    for (uint32_t i = 0; i < n2D.size(); ++i)
-        totSamples += 2 * n2D[i];
+const Float *Sampler::Get1DArray(int n) {
+    if (array1DOffset == sampleArray1D.size()) return nullptr;
+    CHECK_EQ(samples1DArraySizes[array1DOffset], n);
+    CHECK_LT(currentPixelSampleIndex, samplesPerPixel);
+    return &sampleArray1D[array1DOffset++][currentPixelSampleIndex * n];
+}
 
-    // Allocate storage for sample values
-    float *mem = AllocAligned<float>(totSamples);
-    for (uint32_t i = 0; i < n1D.size(); ++i) {
-        oneD[i] = mem;
-        mem += n1D[i];
-    }
-    for (uint32_t i = 0; i < n2D.size(); ++i) {
-        twoD[i] = mem;
-        mem += 2 * n2D[i];
+const Point2f *Sampler::Get2DArray(int n) {
+    if (array2DOffset == sampleArray2D.size()) return nullptr;
+    CHECK_EQ(samples2DArraySizes[array2DOffset], n);
+    CHECK_LT(currentPixelSampleIndex, samplesPerPixel);
+    return &sampleArray2D[array2DOffset++][currentPixelSampleIndex * n];
+}
+
+PixelSampler::PixelSampler(int64_t samplesPerPixel, int nSampledDimensions)
+    : Sampler(samplesPerPixel) {
+    for (int i = 0; i < nSampledDimensions; ++i) {
+        samples1D.push_back(std::vector<Float>(samplesPerPixel));
+        samples2D.push_back(std::vector<Point2f>(samplesPerPixel));
     }
 }
 
-
-Sample *Sample::Duplicate(int count) const {
-    Sample *ret = new Sample[count];
-    for (int i = 0; i < count; ++i) {
-        ret[i].n1D = n1D;
-        ret[i].n2D = n2D;
-        ret[i].AllocateSampleMemory();
-    }
-    return ret;
+bool PixelSampler::StartNextSample() {
+    current1DDimension = current2DDimension = 0;
+    return Sampler::StartNextSample();
 }
 
+bool PixelSampler::SetSampleNumber(int64_t sampleNum) {
+    current1DDimension = current2DDimension = 0;
+    return Sampler::SetSampleNumber(sampleNum);
+}
 
+Float PixelSampler::Get1D() {
+    ProfilePhase _(Prof::GetSample);
+    CHECK_LT(currentPixelSampleIndex, samplesPerPixel);
+    if (current1DDimension < samples1D.size())
+        return samples1D[current1DDimension++][currentPixelSampleIndex];
+    else
+        return rng.UniformFloat();
+}
+
+Point2f PixelSampler::Get2D() {
+    ProfilePhase _(Prof::GetSample);
+    CHECK_LT(currentPixelSampleIndex, samplesPerPixel);
+    if (current2DDimension < samples2D.size())
+        return samples2D[current2DDimension++][currentPixelSampleIndex];
+    else
+        return Point2f(rng.UniformFloat(), rng.UniformFloat());
+}
+
+void GlobalSampler::StartPixel(const Point2i &p) {
+    ProfilePhase _(Prof::StartPixel);
+    Sampler::StartPixel(p);
+    dimension = 0;
+    intervalSampleIndex = GetIndexForSample(0);
+    // Compute _arrayEndDim_ for dimensions used for array samples
+    arrayEndDim =
+        arrayStartDim + sampleArray1D.size() + 2 * sampleArray2D.size();
+
+    // Compute 1D array samples for _GlobalSampler_
+    for (size_t i = 0; i < samples1DArraySizes.size(); ++i) {
+        int nSamples = samples1DArraySizes[i] * samplesPerPixel;
+        for (int j = 0; j < nSamples; ++j) {
+            int64_t index = GetIndexForSample(j);
+            sampleArray1D[i][j] = SampleDimension(index, arrayStartDim + i);
+        }
+    }
+
+    // Compute 2D array samples for _GlobalSampler_
+    int dim = arrayStartDim + samples1DArraySizes.size();
+    for (size_t i = 0; i < samples2DArraySizes.size(); ++i) {
+        int nSamples = samples2DArraySizes[i] * samplesPerPixel;
+        for (int j = 0; j < nSamples; ++j) {
+            int64_t idx = GetIndexForSample(j);
+            sampleArray2D[i][j].x = SampleDimension(idx, dim);
+            sampleArray2D[i][j].y = SampleDimension(idx, dim + 1);
+        }
+        dim += 2;
+    }
+    CHECK_EQ(arrayEndDim, dim);
+}
+
+bool GlobalSampler::StartNextSample() {
+    dimension = 0;
+    intervalSampleIndex = GetIndexForSample(currentPixelSampleIndex + 1);
+    return Sampler::StartNextSample();
+}
+
+bool GlobalSampler::SetSampleNumber(int64_t sampleNum) {
+    dimension = 0;
+    intervalSampleIndex = GetIndexForSample(sampleNum);
+    return Sampler::SetSampleNumber(sampleNum);
+}
+
+Float GlobalSampler::Get1D() {
+    ProfilePhase _(Prof::GetSample);
+    if (dimension >= arrayStartDim && dimension < arrayEndDim)
+        dimension = arrayEndDim;
+    return SampleDimension(intervalSampleIndex, dimension++);
+}
+
+Point2f GlobalSampler::Get2D() {
+    ProfilePhase _(Prof::GetSample);
+    if (dimension + 1 >= arrayStartDim && dimension < arrayEndDim)
+        dimension = arrayEndDim;
+    Point2f p(SampleDimension(intervalSampleIndex, dimension),
+              SampleDimension(intervalSampleIndex, dimension + 1));
+    dimension += 2;
+    return p;
+}
+
+}  // namespace pbrt

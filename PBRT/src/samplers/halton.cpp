@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,68 +32,110 @@
 
 
 // samplers/halton.cpp*
-#include "stdafx.h"
 #include "samplers/halton.h"
 #include "paramset.h"
-#include "camera.h"
-#include "montecarlo.h"
+#include "rng.h"
+
+namespace pbrt {
+
+// HaltonSampler Local Constants
+static PBRT_CONSTEXPR int kMaxResolution = 128;
+
+// HaltonSampler Utility Functions
+static void extendedGCD(uint64_t a, uint64_t b, int64_t *x, int64_t *y);
+static uint64_t multiplicativeInverse(int64_t a, int64_t n) {
+    int64_t x, y;
+    extendedGCD(a, n, &x, &y);
+    return Mod(x, n);
+}
+
+static void extendedGCD(uint64_t a, uint64_t b, int64_t *x, int64_t *y) {
+    if (b == 0) {
+        *x = 1;
+        *y = 0;
+        return;
+    }
+    int64_t d = a / b, xp, yp;
+    extendedGCD(b, a % b, &xp, &yp);
+    *x = yp;
+    *y = xp - (d * yp);
+}
 
 // HaltonSampler Method Definitions
-Sampler *HaltonSampler::GetSubSampler(int num, int count) {
-    int x0, x1, y0, y1;
-    ComputeSubWindow(num, count, &x0, &x1, &y0, &y1);
-    if (x0 == x1 || y0 == y1) return NULL;
-    return new HaltonSampler(x0, x1, y0, y1, samplesPerPixel, shutterOpen,
-        shutterClose);
+HaltonSampler::HaltonSampler(int samplesPerPixel, const Bounds2i &sampleBounds,
+                             bool sampleAtPixelCenter)
+    : GlobalSampler(samplesPerPixel), sampleAtPixelCenter(sampleAtPixelCenter) {
+    // Generate random digit permutations for Halton sampler
+    if (radicalInversePermutations.empty()) {
+        RNG rng;
+        radicalInversePermutations = ComputeRadicalInversePermutations(rng);
+    }
+
+    // Find radical inverse base scales and exponents that cover sampling area
+    Vector2i res = sampleBounds.pMax - sampleBounds.pMin;
+    for (int i = 0; i < 2; ++i) {
+        int base = (i == 0) ? 2 : 3;
+        int scale = 1, exp = 0;
+        while (scale < std::min(res[i], kMaxResolution)) {
+            scale *= base;
+            ++exp;
+        }
+        baseScales[i] = scale;
+        baseExponents[i] = exp;
+    }
+
+    // Compute stride in samples for visiting each pixel area
+    sampleStride = baseScales[0] * baseScales[1];
+
+    // Compute multiplicative inverses for _baseScales_
+    multInverse[0] = multiplicativeInverse(baseScales[1], baseScales[0]);
+    multInverse[1] = multiplicativeInverse(baseScales[0], baseScales[1]);
 }
 
-
-HaltonSampler::HaltonSampler(int xs, int xe, int ys, int ye, int ps,
-        float sopen, float sclose)
-    : Sampler(xs, xe, ys, ye, ps, sopen, sclose) {
-    int delta = max(xPixelEnd - xPixelStart,
-                    yPixelEnd - yPixelStart);
-    wantedSamples = samplesPerPixel * delta * delta;
-    currentSample = 0;
+std::vector<uint16_t> HaltonSampler::radicalInversePermutations;
+int64_t HaltonSampler::GetIndexForSample(int64_t sampleNum) const {
+    if (currentPixel != pixelForOffset) {
+        // Compute Halton sample offset for _currentPixel_
+        offsetForCurrentPixel = 0;
+        if (sampleStride > 1) {
+            Point2i pm(Mod(currentPixel[0], kMaxResolution),
+                       Mod(currentPixel[1], kMaxResolution));
+            for (int i = 0; i < 2; ++i) {
+                uint64_t dimOffset =
+                    (i == 0)
+                        ? InverseRadicalInverse<2>(pm[i], baseExponents[i])
+                        : InverseRadicalInverse<3>(pm[i], baseExponents[i]);
+                offsetForCurrentPixel +=
+                    dimOffset * (sampleStride / baseScales[i]) * multInverse[i];
+            }
+            offsetForCurrentPixel %= sampleStride;
+        }
+        pixelForOffset = currentPixel;
+    }
+    return offsetForCurrentPixel + sampleNum * sampleStride;
 }
 
-
-int HaltonSampler::GetMoreSamples(Sample *samples, RNG &rng) {
-retry:
-    if (currentSample >= wantedSamples) return 0;
-    // Generate sample with Halton sequence and reject if outside image extent
-    float u = (float)RadicalInverse(currentSample, 3);
-    float v = (float)RadicalInverse(currentSample, 2);
-    float lerpDelta = float(max(xPixelEnd - xPixelStart,
-                                yPixelEnd - yPixelStart));
-    samples->imageX = Lerp(u, xPixelStart, xPixelStart + lerpDelta);
-    samples->imageY = Lerp(v, yPixelStart, yPixelStart + lerpDelta);
-    ++currentSample;
-    if (samples->imageX >= xPixelEnd || samples->imageY >= yPixelEnd)
-        goto retry;
-
-    // Generate lens, time, and integrator samples for _HaltonSampler_
-    samples->lensU = (float)RadicalInverse(currentSample, 5);
-    samples->lensV = (float)RadicalInverse(currentSample, 7);
-    samples->time = Lerp((float)RadicalInverse(currentSample, 11),
-                         shutterOpen, shutterClose);
-    for (uint32_t i = 0; i < samples->n1D.size(); ++i)
-        LatinHypercube(samples->oneD[i], samples->n1D[i], 1, rng);
-    for (uint32_t i = 0; i < samples->n2D.size(); ++i)
-        LatinHypercube(samples->twoD[i], samples->n2D[i], 2, rng);
-    return 1;
+Float HaltonSampler::SampleDimension(int64_t index, int dim) const {
+    if (sampleAtPixelCenter && (dim == 0 || dim == 1)) return 0.5f;
+    if (dim == 0)
+        return RadicalInverse(dim, index >> baseExponents[0]);
+    else if (dim == 1)
+        return RadicalInverse(dim, index / baseScales[1]);
+    else
+        return ScrambledRadicalInverse(dim, index,
+                                       PermutationForDimension(dim));
 }
 
+std::unique_ptr<Sampler> HaltonSampler::Clone(int seed) {
+    return std::unique_ptr<Sampler>(new HaltonSampler(*this));
+}
 
-HaltonSampler *CreateHaltonSampler(const ParamSet &params, const Film *film,
-         const Camera *camera) {
-    // Initialize common sampler parameters
-    int xstart, xend, ystart, yend;
-    film->GetSampleExtent(&xstart, &xend, &ystart, &yend);
-    int nsamp = params.FindOneInt("pixelsamples", 4);
+HaltonSampler *CreateHaltonSampler(const ParamSet &params,
+                                   const Bounds2i &sampleBounds) {
+    int nsamp = params.FindOneInt("pixelsamples", 16);
     if (PbrtOptions.quickRender) nsamp = 1;
-    return new HaltonSampler(xstart, xend, ystart, yend, nsamp,
-         camera->shutterOpen, camera->shutterClose);
+    bool sampleAtCenter = params.FindOneBool("samplepixelcenter", false);
+    return new HaltonSampler(nsamp, sampleBounds, sampleAtCenter);
 }
 
-
+}  // namespace pbrt

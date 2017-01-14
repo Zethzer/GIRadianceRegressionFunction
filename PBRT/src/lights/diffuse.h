@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,32 +43,44 @@
 #include "light.h"
 #include "primitive.h"
 
+namespace pbrt {
+
 // DiffuseAreaLight Declarations
 class DiffuseAreaLight : public AreaLight {
-public:
+  public:
     // DiffuseAreaLight Public Methods
-    DiffuseAreaLight(const Transform &light2world,
-        const Spectrum &Le, int ns, const Reference<Shape> &shape);
-    ~DiffuseAreaLight();
-    Spectrum L(const Point &p, const Normal &n, const Vector &w) const {
-        return Dot(n, w) > 0.f ? Lemit : 0.f;
+    DiffuseAreaLight(const Transform &LightToWorld,
+                     const MediumInterface &mediumInterface, const Spectrum &Le,
+                     int nSamples, const std::shared_ptr<Shape> &shape,
+                     bool twoSided = false);
+    Spectrum L(const Interaction &intr, const Vector3f &w) const {
+        return (twoSided || Dot(intr.n, w) > 0) ? Lemit : Spectrum(0.f);
     }
-    Spectrum Power(const Scene *) const;
-    bool IsDeltaLight() const { return false; }
-    float Pdf(const Point &, const Vector &) const;
-    Spectrum Sample_L(const Point &P, float pEpsilon, const LightSample &ls, float time,
-        Vector *wo, float *pdf, VisibilityTester *visibility) const;
-    Spectrum Sample_L(const Scene *scene, const LightSample &ls, float u1, float u2,
-        float time, Ray *ray, Normal *Ns, float *pdf) const;
-protected:
+    Spectrum Power() const;
+    Spectrum Sample_Li(const Interaction &ref, const Point2f &u, Vector3f *wo,
+                       Float *pdf, VisibilityTester *vis) const;
+    Float Pdf_Li(const Interaction &, const Vector3f &) const;
+    Spectrum Sample_Le(const Point2f &u1, const Point2f &u2, Float time,
+                       Ray *ray, Normal3f *nLight, Float *pdfPos,
+                       Float *pdfDir) const;
+    void Pdf_Le(const Ray &, const Normal3f &, Float *pdfPos,
+                Float *pdfDir) const;
+
+  protected:
     // DiffuseAreaLight Protected Data
-    Spectrum Lemit;
-    ShapeSet *shapeSet;
-    float area;
+    const Spectrum Lemit;
+    std::shared_ptr<Shape> shape;
+    // Added after book publication: by default, DiffuseAreaLights still
+    // only emit in the hemimsphere around the surface normal.  However,
+    // this behavior can now be overridden to give emission on both sides.
+    const bool twoSided;
+    const Float area;
 };
 
+std::shared_ptr<AreaLight> CreateDiffuseAreaLight(
+    const Transform &light2world, const Medium *medium,
+    const ParamSet &paramSet, const std::shared_ptr<Shape> &shape);
 
-AreaLight *CreateDiffuseAreaLight(const Transform &light2world, const ParamSet &paramSet,
-        const Reference<Shape> &shape);
+}  // namespace pbrt
 
-#endif // PBRT_LIGHTS_DIFFUSE_H
+#endif  // PBRT_LIGHTS_DIFFUSE_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,33 +43,34 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // BilerpTexture Declarations
-template <typename T> class BilerpTexture : public Texture<T> {
-public:
+template <typename T>
+class BilerpTexture : public Texture<T> {
+  public:
     // BilerpTexture Public Methods
-    BilerpTexture(TextureMapping2D *m, const T &t00, const T &t01,
-                  const T &t10, const T &t11)
-        : mapping(m), v00(t00), v01(t01), v10(t10), v11(t11) {
+    BilerpTexture(std::unique_ptr<TextureMapping2D> mapping, const T &v00,
+                  const T &v01, const T &v10, const T &v11)
+        : mapping(std::move(mapping)), v00(v00), v01(v01), v10(v10), v11(v11) {}
+    T Evaluate(const SurfaceInteraction &si) const {
+        Vector2f dstdx, dstdy;
+        Point2f st = mapping->Map(si, &dstdx, &dstdy);
+        return (1 - st[0]) * (1 - st[1]) * v00 + (1 - st[0]) * (st[1]) * v01 +
+               (st[0]) * (1 - st[1]) * v10 + (st[0]) * (st[1]) * v11;
     }
-    ~BilerpTexture() {
-        delete mapping;
-    }
-    T Evaluate(const DifferentialGeometry &dg) const {
-        float s, t, dsdx, dtdx, dsdy, dtdy;
-        mapping->Map(dg, &s, &t, &dsdx, &dtdx, &dsdy, &dtdy);
-        return (1-s)*(1-t) * v00 + (1-s)*(  t) * v01 +
-               (  s)*(1-t) * v10 + (  s)*(  t) * v11;
-    }
-private:
+
+  private:
     // BilerpTexture Private Data
-    TextureMapping2D *mapping;
-    T v00, v01, v10, v11;
+    std::unique_ptr<TextureMapping2D> mapping;
+    const T v00, v01, v10, v11;
 };
 
-
-BilerpTexture<float> *CreateBilerpFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
+BilerpTexture<Float> *CreateBilerpFloatTexture(const Transform &tex2world,
+                                               const TextureParams &tp);
 BilerpTexture<Spectrum> *CreateBilerpSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+                                                     const TextureParams &tp);
 
-#endif // PBRT_TEXTURES_BILERP_H
+}  // namespace pbrt
+
+#endif  // PBRT_TEXTURES_BILERP_H

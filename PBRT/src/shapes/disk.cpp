@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,128 +32,121 @@
 
 
 // shapes/disk.cpp*
-#include "stdafx.h"
 #include "shapes/disk.h"
 #include "paramset.h"
-#include "montecarlo.h"
+#include "sampling.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // Disk Method Definitions
-Disk::Disk(const Transform *o2w, const Transform *w2o, bool ro,
-           float ht, float r, float ri, float tmax)
-    : Shape(o2w, w2o, ro) {
-    height = ht;
-    radius = r;
-    innerRadius = ri;
-    phiMax = Radians(Clamp(tmax, 0.0f, 360.0f));
+Bounds3f Disk::ObjectBound() const {
+    return Bounds3f(Point3f(-radius, -radius, height),
+                    Point3f(radius, radius, height));
 }
 
-
-BBox Disk::ObjectBound() const {
-    return BBox(Point(-radius, -radius, height),
-                Point( radius,  radius, height));
-}
-
-
-bool Disk::Intersect(const Ray &r, float *tHit, float *rayEpsilon,
-                     DifferentialGeometry *dg) const {
+bool Disk::Intersect(const Ray &r, Float *tHit, SurfaceInteraction *isect,
+                     bool testAlphaTexture) const {
+    ProfilePhase p(Prof::ShapeIntersect);
     // Transform _Ray_ to object space
-    Ray ray;
-    (*WorldToObject)(r, &ray);
+    Vector3f oErr, dErr;
+    Ray ray = (*WorldToObject)(r, &oErr, &dErr);
 
     // Compute plane intersection for disk
-    if (fabsf(ray.d.z) < 1e-7) return false;
-    float thit = (height - ray.o.z) / ray.d.z;
-    if (thit < ray.mint || thit > ray.maxt)
-        return false;
+
+    // Reject disk intersections for rays parallel to the disk's plane
+    if (ray.d.z == 0) return false;
+    Float tShapeHit = (height - ray.o.z) / ray.d.z;
+    if (tShapeHit <= 0 || tShapeHit >= ray.tMax) return false;
 
     // See if hit point is inside disk radii and $\phimax$
-    Point phit = ray(thit);
-    float dist2 = phit.x * phit.x + phit.y * phit.y;
+    Point3f pHit = ray(tShapeHit);
+    Float dist2 = pHit.x * pHit.x + pHit.y * pHit.y;
     if (dist2 > radius * radius || dist2 < innerRadius * innerRadius)
         return false;
 
     // Test disk $\phi$ value against $\phimax$
-    float phi = atan2f(phit.y, phit.x);
-    if (phi < 0) phi += 2. * M_PI;
-    if (phi > phiMax)
-        return false;
+    Float phi = std::atan2(pHit.y, pHit.x);
+    if (phi < 0) phi += 2 * Pi;
+    if (phi > phiMax) return false;
 
     // Find parametric representation of disk hit
-    float u = phi / phiMax;
-    float R = sqrtf(dist2);
-    float oneMinusV = ((R-innerRadius) /
-                       (radius-innerRadius));
-    float v = 1.f - oneMinusV;
-    Vector dpdu(-phiMax * phit.y, phiMax * phit.x, 0.);
-    Vector dpdv(phit.x, phit.y, 0.);
-    dpdv *= (innerRadius - radius) / R;
-    Normal dndu(0,0,0), dndv(0,0,0);
+    Float u = phi / phiMax;
+    Float rHit = std::sqrt(dist2);
+    Float oneMinusV = ((rHit - innerRadius) / (radius - innerRadius));
+    Float v = 1 - oneMinusV;
+    Vector3f dpdu(-phiMax * pHit.y, phiMax * pHit.x, 0);
+    Vector3f dpdv =
+        Vector3f(pHit.x, pHit.y, 0.) * (innerRadius - radius) / rHit;
+    Normal3f dndu(0, 0, 0), dndv(0, 0, 0);
 
-    // Initialize _DifferentialGeometry_ from parametric information
-    const Transform &o2w = *ObjectToWorld;
-    *dg = DifferentialGeometry(o2w(phit), o2w(dpdu), o2w(dpdv),
-                               o2w(dndu), o2w(dndv), u, v, this);
+    // Refine disk intersection point
+    pHit.z = height;
+
+    // Compute error bounds for disk intersection
+    Vector3f pError(0, 0, 0);
+
+    // Initialize _SurfaceInteraction_ from parametric information
+    *isect = (*ObjectToWorld)(SurfaceInteraction(pHit, pError, Point2f(u, v),
+                                                 -ray.d, dpdu, dpdv, dndu, dndv,
+                                                 ray.time, this));
 
     // Update _tHit_ for quadric intersection
-    *tHit = thit;
-
-    // Compute _rayEpsilon_ for quadric intersection
-    *rayEpsilon = 5e-4f * *tHit;
+    *tHit = (Float)tShapeHit;
     return true;
 }
 
-
-bool Disk::IntersectP(const Ray &r) const {
+bool Disk::IntersectP(const Ray &r, bool testAlphaTexture) const {
+    ProfilePhase p(Prof::ShapeIntersectP);
     // Transform _Ray_ to object space
-    Ray ray;
-    (*WorldToObject)(r, &ray);
+    Vector3f oErr, dErr;
+    Ray ray = (*WorldToObject)(r, &oErr, &dErr);
 
     // Compute plane intersection for disk
-    if (fabsf(ray.d.z) < 1e-7) return false;
-    float thit = (height - ray.o.z) / ray.d.z;
-    if (thit < ray.mint || thit > ray.maxt)
-        return false;
+
+    // Reject disk intersections for rays parallel to the disk's plane
+    if (ray.d.z == 0) return false;
+    Float tShapeHit = (height - ray.o.z) / ray.d.z;
+    if (tShapeHit <= 0 || tShapeHit >= ray.tMax) return false;
 
     // See if hit point is inside disk radii and $\phimax$
-    Point phit = ray(thit);
-    float dist2 = phit.x * phit.x + phit.y * phit.y;
+    Point3f pHit = ray(tShapeHit);
+    Float dist2 = pHit.x * pHit.x + pHit.y * pHit.y;
     if (dist2 > radius * radius || dist2 < innerRadius * innerRadius)
         return false;
 
     // Test disk $\phi$ value against $\phimax$
-    float phi = atan2f(phit.y, phit.x);
-    if (phi < 0) phi += 2. * M_PI;
-    if (phi > phiMax)
-        return false;
+    Float phi = std::atan2(pHit.y, pHit.x);
+    if (phi < 0) phi += 2 * Pi;
+    if (phi > phiMax) return false;
     return true;
 }
 
-
-float Disk::Area() const {
-    return phiMax * 0.5f *
-       (radius * radius - innerRadius * innerRadius);
+Float Disk::Area() const {
+    return phiMax * 0.5 * (radius * radius - innerRadius * innerRadius);
 }
 
-
-Disk *CreateDiskShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params) {
-    float height = params.FindOneFloat("height", 0.);
-    float radius = params.FindOneFloat("radius", 1);
-    float inner_radius = params.FindOneFloat("innerradius", 0);
-    float phimax = params.FindOneFloat("phimax", 360);
-    return new Disk(o2w, w2o, reverseOrientation, height, radius, inner_radius, phimax);
+Interaction Disk::Sample(const Point2f &u, Float *pdf) const {
+    Point2f pd = ConcentricSampleDisk(u);
+    Point3f pObj(pd.x * radius, pd.y * radius, height);
+    Interaction it;
+    it.n = Normalize((*ObjectToWorld)(Normal3f(0, 0, 1)));
+    if (reverseOrientation) it.n *= -1;
+    it.p = (*ObjectToWorld)(pObj, Vector3f(0, 0, 0), &it.pError);
+    *pdf = 1 / Area();
+    return it;
 }
 
-
-Point Disk::Sample(float u1, float u2, Normal *Ns) const {
-    Point p;
-    ConcentricSampleDisk(u1, u2, &p.x, &p.y);
-    p.x *= radius;
-    p.y *= radius;
-    p.z = height;
-    *Ns = Normalize((*ObjectToWorld)(Normal(0,0,1)));
-    if (ReverseOrientation) *Ns *= -1.f;
-    return (*ObjectToWorld)(p);
+std::shared_ptr<Disk> CreateDiskShape(const Transform *o2w,
+                                      const Transform *w2o,
+                                      bool reverseOrientation,
+                                      const ParamSet &params) {
+    Float height = params.FindOneFloat("height", 0.);
+    Float radius = params.FindOneFloat("radius", 1);
+    Float inner_radius = params.FindOneFloat("innerradius", 0);
+    Float phimax = params.FindOneFloat("phimax", 360);
+    return std::make_shared<Disk>(o2w, w2o, reverseOrientation, height, radius,
+                                  inner_radius, phimax);
 }
 
-
+}  // namespace pbrt

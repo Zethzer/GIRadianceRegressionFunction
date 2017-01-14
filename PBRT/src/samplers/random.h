@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,28 +40,24 @@
 
 // samplers/random.h*
 #include "sampler.h"
-#include "paramset.h"
-#include "film.h"
+#include "rng.h"
+
+namespace pbrt {
+
 class RandomSampler : public Sampler {
-public:
-    RandomSampler(int xstart, int xend, int ystart,
-        int yend, int ns, float sopen, float sclose);
-    ~RandomSampler() {
-        FreeAligned(imageSamples);
-    }
-    int MaximumSampleCount() { return 1; }
-    int GetMoreSamples(Sample *sample, RNG &rng);
-    int RoundSize(int sz) const { return sz; }
-    Sampler *GetSubSampler(int num, int count);
-private:
-    // RandomSampler Private Data
-    int xPos, yPos, nSamples;
-    float *imageSamples, *lensSamples, *timeSamples;
-    int samplePos;
+  public:
+    RandomSampler(int ns, int seed = 0);
+    void StartPixel(const Point2i &);
+    Float Get1D();
+    Point2f Get2D();
+    std::unique_ptr<Sampler> Clone(int seed);
+
+  private:
+    RNG rng;
 };
 
+Sampler *CreateRandomSampler(const ParamSet &params);
 
-Sampler *CreateRandomSampler(const ParamSet &params, const Film *film,
-    const Camera *camera);
+}  // namespace pbrt
 
-#endif // PBRT_SAMPLERS_RANDOM_H
+#endif  // PBRT_SAMPLERS_RANDOM_H

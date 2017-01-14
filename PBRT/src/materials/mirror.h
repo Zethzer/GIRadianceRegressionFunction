@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,23 +42,29 @@
 #include "pbrt.h"
 #include "material.h"
 
+namespace pbrt {
+
 // MirrorMaterial Declarations
 class MirrorMaterial : public Material {
-public:
+  public:
     // MirrorMaterial Public Methods
-    MirrorMaterial(Reference<Texture<Spectrum> > r, Reference<Texture<float> > bump) {
+    MirrorMaterial(const std::shared_ptr<Texture<Spectrum>> &r,
+                   const std::shared_ptr<Texture<Float>> &bump) {
         Kr = r;
         bumpMap = bump;
     }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom, const DifferentialGeometry &dgShading, MemoryArena &arena) const;
-private:
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // MirrorMaterial Private Data
-    Reference<Texture<Spectrum> > Kr;
-    Reference<Texture<float> > bumpMap;
+    std::shared_ptr<Texture<Spectrum>> Kr;
+    std::shared_ptr<Texture<Float>> bumpMap;
 };
 
+MirrorMaterial *CreateMirrorMaterial(const TextureParams &mp);
 
-MirrorMaterial *CreateMirrorMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_MIRROR_H
+#endif  // PBRT_MATERIALS_MIRROR_H

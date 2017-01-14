@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,23 +42,24 @@
 #include "pbrt.h"
 #include "memory.h"
 
+namespace pbrt {
+
+// TransportMode Declarations
+enum class TransportMode { Radiance, Importance };
+
 // Material Declarations
-class Material : public ReferenceCounted {
-public:
+class Material {
+  public:
     // Material Interface
-    virtual BSDF *GetBSDF(const DifferentialGeometry &dgGeom,
-                          const DifferentialGeometry &dgShading,
-                          MemoryArena &arena) const = 0;
-    virtual BSSRDF *GetBSSRDF(const DifferentialGeometry &dgGeom,
-                              const DifferentialGeometry &dgShading,
-                              MemoryArena &arena) const {
-        return NULL;
-    }
+    virtual void ComputeScatteringFunctions(SurfaceInteraction *si,
+                                            MemoryArena &arena,
+                                            TransportMode mode,
+                                            bool allowMultipleLobes) const = 0;
     virtual ~Material();
-    static void Bump(const Reference<Texture<float> > &d, const DifferentialGeometry &dgGeom,
-        const DifferentialGeometry &dgShading, DifferentialGeometry *dgBump);
+    static void Bump(const std::shared_ptr<Texture<Float>> &d,
+                     SurfaceInteraction *si);
 };
 
+}  // namespace pbrt
 
-
-#endif // PBRT_CORE_MATERIAL_H
+#endif  // PBRT_CORE_MATERIAL_H

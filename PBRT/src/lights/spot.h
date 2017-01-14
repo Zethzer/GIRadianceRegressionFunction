@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,27 +43,36 @@
 #include "light.h"
 #include "shape.h"
 
+namespace pbrt {
+
 // SpotLight Declarations
 class SpotLight : public Light {
-public:
+  public:
     // SpotLight Public Methods
-    SpotLight(const Transform &light2world, const Spectrum &, float width, float fall);
-    Spectrum Sample_L(const Point &p, float pEpsilon, const LightSample &ls, float time,
-        Vector *wi, float *pdf, VisibilityTester *vis) const;
-    bool IsDeltaLight() const { return true; }
-    float Falloff(const Vector &w) const;
-    Spectrum Power(const Scene *) const;
-    Spectrum Sample_L(const Scene *scene, const LightSample &ls,
-        float u1, float u2, float time, Ray *ray, Normal *Ns, float *pdf) const;
-    float Pdf(const Point &, const Vector &) const;
-private:
+    SpotLight(const Transform &LightToWorld, const MediumInterface &m,
+              const Spectrum &I, Float totalWidth, Float falloffStart);
+    Spectrum Sample_Li(const Interaction &ref, const Point2f &u, Vector3f *wi,
+                       Float *pdf, VisibilityTester *vis) const;
+    Float Falloff(const Vector3f &w) const;
+    Spectrum Power() const;
+    Float Pdf_Li(const Interaction &, const Vector3f &) const;
+    Spectrum Sample_Le(const Point2f &u1, const Point2f &u2, Float time,
+                       Ray *ray, Normal3f *nLight, Float *pdfPos,
+                       Float *pdfDir) const;
+    void Pdf_Le(const Ray &, const Normal3f &, Float *pdfPos,
+                Float *pdfDir) const;
+
+  private:
     // SpotLight Private Data
-    Point lightPos;
-    Spectrum Intensity;
-    float cosTotalWidth, cosFalloffStart;
+    const Point3f pLight;
+    const Spectrum I;
+    const Float cosTotalWidth, cosFalloffStart;
 };
 
+std::shared_ptr<SpotLight> CreateSpotLight(const Transform &l2w,
+                                           const Medium *medium,
+                                           const ParamSet &paramSet);
 
-SpotLight *CreateSpotLight(const Transform &l2w, const ParamSet &paramSet);
+}  // namespace pbrt
 
-#endif // PBRT_LIGHTS_SPOT_H
+#endif  // PBRT_LIGHTS_SPOT_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,30 +43,32 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // WindyTexture Declarations
-template <typename T> class WindyTexture : public Texture<T> {
-public:
+template <typename T>
+class WindyTexture : public Texture<T> {
+  public:
     // WindyTexture Public Methods
-    ~WindyTexture() {
-        delete mapping;
+    WindyTexture(std::unique_ptr<TextureMapping3D> mapping)
+        : mapping(std::move(mapping)) {}
+    T Evaluate(const SurfaceInteraction &si) const {
+        Vector3f dpdx, dpdy;
+        Point3f P = mapping->Map(si, &dpdx, &dpdy);
+        Float windStrength = FBm(.1f * P, .1f * dpdx, .1f * dpdy, .5, 3);
+        Float waveHeight = FBm(P, dpdx, dpdy, .5, 6);
+        return std::abs(windStrength) * waveHeight;
     }
-    WindyTexture(TextureMapping3D *map) : mapping(map) { }
-    T Evaluate(const DifferentialGeometry &dg) const {
-        Vector dpdx, dpdy;
-        Point P = mapping->Map(dg, &dpdx, &dpdy);
-        float windStrength = FBm(.1f * P, .1f * dpdx, .1f * dpdy, .5f, 3);
-        float waveHeight = FBm(P, dpdx, dpdy, .5f, 6);
-        return fabsf(windStrength) * waveHeight;
-    }
-private:
-    // WindyTexture Private Data
-    TextureMapping3D *mapping;
+
+  private:
+    std::unique_ptr<TextureMapping3D> mapping;
 };
 
-
-WindyTexture<float> *CreateWindyFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
+WindyTexture<Float> *CreateWindyFloatTexture(const Transform &tex2world,
+                                             const TextureParams &tp);
 WindyTexture<Spectrum> *CreateWindySpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+                                                   const TextureParams &tp);
 
-#endif // PBRT_TEXTURES_WINDY_H
+}  // namespace pbrt
+
+#endif  // PBRT_TEXTURES_WINDY_H

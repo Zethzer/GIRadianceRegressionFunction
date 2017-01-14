@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,26 +32,23 @@
 
 
 // textures/mix.cpp*
-#include "stdafx.h"
 #include "textures/mix.h"
 
+namespace pbrt {
+
 // MixTexture Method Definitions
-MixTexture<float> *CreateMixFloatTexture(const Transform &tex2world,
-        const TextureParams &tp) {
-    return new MixTexture<float>(
-        tp.GetFloatTexture("tex1", 0.f),
-        tp.GetFloatTexture("tex2", 1.f),
-        tp.GetFloatTexture("amount", 0.5f));
+MixTexture<Float> *CreateMixFloatTexture(const Transform &tex2world,
+                                         const TextureParams &tp) {
+    return new MixTexture<Float>(tp.GetFloatTexture("tex1", 0.f),
+                                 tp.GetFloatTexture("tex2", 1.f),
+                                 tp.GetFloatTexture("amount", 0.5f));
 }
-
-
 
 MixTexture<Spectrum> *CreateMixSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp) {
-    return new MixTexture<Spectrum>(
-        tp.GetSpectrumTexture("tex1", 0.f),
-        tp.GetSpectrumTexture("tex2", 1.f),
-        tp.GetFloatTexture("amount", 0.5f));
+                                               const TextureParams &tp) {
+    return new MixTexture<Spectrum>(tp.GetSpectrumTexture("tex1", 0.f),
+                                    tp.GetSpectrumTexture("tex2", 1.f),
+                                    tp.GetFloatTexture("amount", 0.5f));
 }
 
-
+}  // namespace pbrt

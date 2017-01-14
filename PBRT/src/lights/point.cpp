@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,79 +32,59 @@
 
 
 // lights/point.cpp*
-#include "stdafx.h"
 #include "lights/point.h"
-#include "sh.h"
 #include "scene.h"
 #include "paramset.h"
-#include "montecarlo.h"
+#include "sampling.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // PointLight Method Definitions
-PointLight::PointLight(const Transform &light2world,
-                       const Spectrum &intensity)
-    : Light(light2world) {
-    lightPos = LightToWorld(Point(0,0,0));
-    Intensity = intensity;
-}
-
-
-Spectrum PointLight::Sample_L(const Point &p, float pEpsilon,
-         const LightSample &ls, float time, Vector *wi, float *pdf,
-         VisibilityTester *visibility) const {
-    *wi = Normalize(lightPos - p);
+Spectrum PointLight::Sample_Li(const Interaction &ref, const Point2f &u,
+                               Vector3f *wi, Float *pdf,
+                               VisibilityTester *vis) const {
+    ProfilePhase _(Prof::LightSample);
+    *wi = Normalize(pLight - ref.p);
     *pdf = 1.f;
-    visibility->SetSegment(p, pEpsilon, lightPos, 0., time);
-    return Intensity / DistanceSquared(lightPos, p);
+    *vis =
+        VisibilityTester(ref, Interaction(pLight, ref.time, mediumInterface));
+    return I / DistanceSquared(pLight, ref.p);
 }
 
+Spectrum PointLight::Power() const { return 4 * Pi * I; }
 
-Spectrum PointLight::Power(const Scene *) const {
-    return 4.f * M_PI * Intensity;
+Float PointLight::Pdf_Li(const Interaction &, const Vector3f &) const {
+    return 0;
 }
 
+Spectrum PointLight::Sample_Le(const Point2f &u1, const Point2f &u2, Float time,
+                               Ray *ray, Normal3f *nLight, Float *pdfPos,
+                               Float *pdfDir) const {
+    ProfilePhase _(Prof::LightSample);
+    *ray = Ray(pLight, UniformSampleSphere(u1), Infinity, time,
+               mediumInterface.inside);
+    *nLight = (Normal3f)ray->d;
+    *pdfPos = 1;
+    *pdfDir = UniformSpherePdf();
+    return I;
+}
 
-PointLight *CreatePointLight(const Transform &light2world,
-        const ParamSet &paramSet) {
+void PointLight::Pdf_Le(const Ray &, const Normal3f &, Float *pdfPos,
+                        Float *pdfDir) const {
+    ProfilePhase _(Prof::LightPdf);
+    *pdfPos = 0;
+    *pdfDir = UniformSpherePdf();
+}
+
+std::shared_ptr<PointLight> CreatePointLight(const Transform &light2world,
+                                             const Medium *medium,
+                                             const ParamSet &paramSet) {
     Spectrum I = paramSet.FindOneSpectrum("I", Spectrum(1.0));
     Spectrum sc = paramSet.FindOneSpectrum("scale", Spectrum(1.0));
-    Point P = paramSet.FindOnePoint("from", Point(0,0,0));
-    Transform l2w = Translate(Vector(P.x, P.y, P.z)) * light2world;
-    return new PointLight(l2w, I * sc);
+    Point3f P = paramSet.FindOnePoint3f("from", Point3f(0, 0, 0));
+    Transform l2w = Translate(Vector3f(P.x, P.y, P.z)) * light2world;
+    return std::make_shared<PointLight>(l2w, medium, I * sc);
 }
 
-
-float PointLight::Pdf(const Point &, const Vector &) const {
-    return 0.;
-}
-
-
-Spectrum PointLight::Sample_L(const Scene *scene, const LightSample &ls,
-        float u1, float u2, float time, Ray *ray, Normal *Ns,
-        float *pdf) const {
-    *ray = Ray(lightPos, UniformSampleSphere(ls.uPos[0], ls.uPos[1]),
-               0.f, INFINITY, time);
-    *Ns = (Normal)ray->d;
-    *pdf = UniformSpherePdf();
-    return Intensity;
-}
-
-
-void PointLight::SHProject(const Point &p, float pEpsilon, int lmax,
-        const Scene *scene, bool computeLightVisibility, float time,
-        RNG &rng, Spectrum *coeffs) const {
-    for (int i = 0; i < SHTerms(lmax); ++i)
-        coeffs[i] = 0.f;
-    if (computeLightVisibility &&
-        scene->IntersectP(Ray(p, Normalize(lightPos - p), pEpsilon,
-                              Distance(lightPos, p), time)))
-        return;
-    // Project point light source to SH
-    float *Ylm = ALLOCA(float, SHTerms(lmax));
-    Vector wi = Normalize(lightPos - p);
-    SHEvaluate(wi, lmax, Ylm);
-    Spectrum Li = Intensity / DistanceSquared(lightPos, p);
-    for (int i = 0; i < SHTerms(lmax); ++i)
-        coeffs[i] = Li * Ylm[i];
-}
-
-
+}  // namespace pbrt

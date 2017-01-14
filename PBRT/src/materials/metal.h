@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,24 +43,33 @@
 #include "material.h"
 #include "spectrum.h"
 
+namespace pbrt {
+
 // MetalMaterial Declarations
 class MetalMaterial : public Material {
-public:
+  public:
     // MetalMaterial Public Methods
-    MetalMaterial(Reference<Texture<Spectrum> > eta,
-        Reference<Texture<Spectrum> > k, Reference<Texture<float> > rough,
-        Reference<Texture<float> > bump);
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom,
-        const DifferentialGeometry &dgShading, MemoryArena &arena) const;
-private:
+    MetalMaterial(const std::shared_ptr<Texture<Spectrum>> &eta,
+                  const std::shared_ptr<Texture<Spectrum>> &k,
+                  const std::shared_ptr<Texture<Float>> &rough,
+                  const std::shared_ptr<Texture<Float>> &urough,
+                  const std::shared_ptr<Texture<Float>> &vrough,
+                  const std::shared_ptr<Texture<Float>> &bump,
+                  bool remapRoughness);
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // MetalMaterial Private Data
-    Reference<Texture<Spectrum> > eta, k;
-    Reference<Texture<float> > roughness;
-    Reference<Texture<float> > bumpMap;
+    std::shared_ptr<Texture<Spectrum>> eta, k;
+    std::shared_ptr<Texture<Float>> roughness, uRoughness, vRoughness;
+    std::shared_ptr<Texture<Float>> bumpMap;
+    bool remapRoughness;
 };
 
+MetalMaterial *CreateMetalMaterial(const TextureParams &mp);
 
-MetalMaterial *CreateMetalMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_METAL_H
+#endif  // PBRT_MATERIALS_METAL_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,27 +41,33 @@
 // filters/sinc.h*
 #include "filter.h"
 
+namespace pbrt {
+
 // Sinc Filter Declarations
 class LanczosSincFilter : public Filter {
-public:
+  public:
     // LanczosSincFilter Public Methods
-    LanczosSincFilter(float xw, float yw, float t)
-        : Filter(xw, yw), tau(t) { }
-    float Evaluate(float x, float y) const;
-    float Sinc1D(float x) const {
-        x = fabsf(x);
-        if (x < 1e-5) return 1.f;
-        if (x > 1.)   return 0.f;
-        x *= M_PI;
-        float sinc = sinf(x) / x;
-        float lanczos = sinf(x * tau) / (x * tau);
-        return sinc * lanczos;
+    LanczosSincFilter(const Vector2f &radius, Float tau)
+        : Filter(radius), tau(tau) {}
+    Float Evaluate(const Point2f &p) const;
+    Float Sinc(Float x) const {
+        x = std::abs(x);
+        if (x < 1e-5) return 1;
+        return std::sin(Pi * x) / (Pi * x);
     }
-private:
-    const float tau;
-};
+    Float WindowedSinc(Float x, Float radius) const {
+        x = std::abs(x);
+        if (x > radius) return 0;
+        Float lanczos = Sinc(x / tau);
+        return Sinc(x) * lanczos;
+    }
 
+  private:
+    const Float tau;
+};
 
 LanczosSincFilter *CreateSincFilter(const ParamSet &ps);
 
-#endif // PBRT_FILTERS_SINC_H
+}  // namespace pbrt
+
+#endif  // PBRT_FILTERS_SINC_H

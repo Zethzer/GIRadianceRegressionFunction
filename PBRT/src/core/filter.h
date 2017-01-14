@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,22 +40,23 @@
 
 // core/filter.h*
 #include "pbrt.h"
+#include "geometry.h"
+
+namespace pbrt {
 
 // Filter Declarations
 class Filter {
-public:
+  public:
     // Filter Interface
     virtual ~Filter();
-    Filter(float xw, float yw)
-        : xWidth(xw), yWidth(yw), invXWidth(1.f/xw), invYWidth(1.f/yw) {
-    }
-    virtual float Evaluate(float x, float y) const = 0;
+    Filter(const Vector2f &radius)
+        : radius(radius), invRadius(Vector2f(1 / radius.x, 1 / radius.y)) {}
+    virtual Float Evaluate(const Point2f &p) const = 0;
 
     // Filter Public Data
-    const float xWidth, yWidth;
-    const float invXWidth, invYWidth;
+    const Vector2f radius, invRadius;
 };
 
+}  // namespace pbrt
 
-
-#endif // PBRT_CORE_FILTER_H
+#endif  // PBRT_CORE_FILTER_H

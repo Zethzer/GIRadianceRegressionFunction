@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,26 +41,32 @@
 // shapes/paraboloid.h*
 #include "shape.h"
 
+namespace pbrt {
+
 // Paraboloid Declarations
 class Paraboloid : public Shape {
-public:
+  public:
     // Paraboloid Public Methods
-    Paraboloid(const Transform *o2w, const Transform *w2o, bool ro, float rad,
-               float z0, float z1, float tm );
-    BBox ObjectBound() const;
-    bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
-                      DifferentialGeometry *dg) const;
-    bool IntersectP(const Ray &ray) const;
-    float Area() const;
-protected:
+    Paraboloid(const Transform *o2w, const Transform *w2o,
+               bool reverseOrientation, Float radius, Float z0, Float z1,
+               Float phiMax);
+    Bounds3f ObjectBound() const;
+    bool Intersect(const Ray &ray, Float *tHit, SurfaceInteraction *isect,
+                   bool testAlphaTexture) const;
+    bool IntersectP(const Ray &ray, bool testAlphaTexture) const;
+    Float Area() const;
+    Interaction Sample(const Point2f &u, Float *pdf) const;
+
+  protected:
     // Paraboloid Private Data
-    float radius;
-    float zmin, zmax;
-    float phiMax;
+    const Float radius, zMin, zMax, phiMax;
 };
 
+std::shared_ptr<Paraboloid> CreateParaboloidShape(const Transform *o2w,
+                                                  const Transform *w2o,
+                                                  bool reverseOrientation,
+                                                  const ParamSet &params);
 
-Paraboloid *CreateParaboloidShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_SHAPES_PARABOLOID_H
+#endif  // PBRT_SHAPES_PARABOLOID_H

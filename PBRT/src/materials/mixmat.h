@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,26 +42,30 @@
 #include "pbrt.h"
 #include "material.h"
 
+namespace pbrt {
+
 // MixMaterial Declarations
 class MixMaterial : public Material {
-public:
+  public:
     // MixMaterial Public Methods
-    MixMaterial(Reference<Material> mat1, Reference<Material> mat2,
-                Reference<Texture<Spectrum> > sc)
-        : m1(mat1), m2(mat2), scale(sc) {
-    }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom,
-                  const DifferentialGeometry &dgShading,
-                  MemoryArena &arena) const;
-private:
+    MixMaterial(const std::shared_ptr<Material> &m1,
+                const std::shared_ptr<Material> &m2,
+                const std::shared_ptr<Texture<Spectrum>> &scale)
+        : m1(m1), m2(m2), scale(scale) {}
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // MixMaterial Private Data
-    Reference<Material> m1, m2;
-    Reference<Texture<Spectrum> > scale;
+    std::shared_ptr<Material> m1, m2;
+    std::shared_ptr<Texture<Spectrum>> scale;
 };
 
+MixMaterial *CreateMixMaterial(const TextureParams &mp,
+                               const std::shared_ptr<Material> &m1,
+                               const std::shared_ptr<Material> &m2);
 
-MixMaterial *CreateMixMaterial(const Transform &xform,
-    const TextureParams &mp, const Reference<Material> &m1,
-    const Reference<Material> &m2);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_MIXMAT_H
+#endif  // PBRT_MATERIALS_MIXMAT_H

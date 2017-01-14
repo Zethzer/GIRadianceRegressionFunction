@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -29,14 +30,14 @@
 
  */
 
-
 // core/floatfile.cpp*
-#include "stdafx.h"
 #include "floatfile.h"
 #include <ctype.h>
 #include <stdlib.h>
 
-bool ReadFloatFile(const char *filename, vector<float> *values) {
+namespace pbrt {
+
+bool ReadFloatFile(const char *filename, std::vector<Float> *values) {
     FILE *f = fopen(filename, "r");
     if (!f) {
         Error("Unable to open file \"%s\"", filename);
@@ -51,27 +52,26 @@ bool ReadFloatFile(const char *filename, vector<float> *values) {
     while ((c = getc(f)) != EOF) {
         if (c == '\n') ++lineNumber;
         if (inNumber) {
+            CHECK_LT(curNumberPos, (int)sizeof(curNumber))
+                << "Overflowed buffer for parsing number in file: " << filename
+                << ", at line " << lineNumber;
             if (isdigit(c) || c == '.' || c == 'e' || c == '-' || c == '+')
                 curNumber[curNumberPos++] = c;
             else {
                 curNumber[curNumberPos++] = '\0';
                 values->push_back(atof(curNumber));
-                Assert(curNumberPos < (int)sizeof(curNumber));
                 inNumber = false;
                 curNumberPos = 0;
             }
-        }
-        else {
+        } else {
             if (isdigit(c) || c == '.' || c == '-' || c == '+') {
                 inNumber = true;
                 curNumber[curNumberPos++] = c;
-            }
-            else if (c == '#') {
+            } else if (c == '#') {
                 while ((c = getc(f)) != '\n' && c != EOF)
                     ;
                 ++lineNumber;
-            }
-            else if (!isspace(c)) {
+            } else if (!isspace(c)) {
                 Warning("Unexpected text found at line %d of float file \"%s\"",
                         lineNumber, filename);
             }
@@ -81,4 +81,4 @@ bool ReadFloatFile(const char *filename, vector<float> *values) {
     return true;
 }
 
-
+}  // namespace pbrt

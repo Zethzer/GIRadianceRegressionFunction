@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -29,628 +30,766 @@
 
  */
 
-
 // core/reflection.cpp*
-#include "stdafx.h"
 #include "reflection.h"
 #include "spectrum.h"
 #include "sampler.h"
-#include "montecarlo.h"
+#include "sampling.h"
+#include "interpolation.h"
+#include "scene.h"
+#include "interaction.h"
+#include "stats.h"
 #include <stdarg.h>
 
-// BxDF Local Definitions
-struct IrregIsoProc {
-    // IrregIsoProc Public Methods
-    IrregIsoProc() { sumWeights = 0.f; nFound = 0; }
-    void operator()(const Point &p, const IrregIsotropicBRDFSample &sample,
-                    float d2, float &maxDist2) {
-        float weight = expf(-100.f * d2);
-        v += weight * sample.v;
-        sumWeights += weight;
-        ++nFound;
-    }
-    Spectrum v;
-    float sumWeights;
-    int nFound;
-};
-
-
+namespace pbrt {
 
 // BxDF Utility Functions
-Spectrum FrDiel(float cosi, float cost, const Spectrum &etai,
-                const Spectrum &etat) {
-    Spectrum Rparl = ((etat * cosi) - (etai * cost)) /
-                     ((etat * cosi) + (etai * cost));
-    Spectrum Rperp = ((etai * cosi) - (etat * cost)) /
-                     ((etai * cosi) + (etat * cost));
-    return (Rparl*Rparl + Rperp*Rperp) / 2.f;
+Float FrDielectric(Float cosThetaI, Float etaI, Float etaT) {
+    cosThetaI = Clamp(cosThetaI, -1, 1);
+    // Potentially swap indices of refraction
+    bool entering = cosThetaI > 0.f;
+    if (!entering) {
+        std::swap(etaI, etaT);
+        cosThetaI = std::abs(cosThetaI);
+    }
+
+    // Compute _cosThetaT_ using Snell's law
+    Float sinThetaI = std::sqrt(std::max((Float)0, 1 - cosThetaI * cosThetaI));
+    Float sinThetaT = etaI / etaT * sinThetaI;
+
+    // Handle total internal reflection
+    if (sinThetaT >= 1) return 1;
+    Float cosThetaT = std::sqrt(std::max((Float)0, 1 - sinThetaT * sinThetaT));
+    Float Rparl = ((etaT * cosThetaI) - (etaI * cosThetaT)) /
+                  ((etaT * cosThetaI) + (etaI * cosThetaT));
+    Float Rperp = ((etaI * cosThetaI) - (etaT * cosThetaT)) /
+                  ((etaI * cosThetaI) + (etaT * cosThetaT));
+    return (Rparl * Rparl + Rperp * Rperp) / 2;
 }
 
+// https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
+Spectrum FrConductor(Float cosThetaI, const Spectrum &etai,
+                     const Spectrum &etat, const Spectrum &k) {
+    cosThetaI = Clamp(cosThetaI, -1, 1);
+    Spectrum eta = etat / etai;
+    Spectrum etak = k / etai;
 
-Spectrum FrCond(float cosi, const Spectrum &eta, const Spectrum &k) {
-    Spectrum tmp = (eta*eta + k*k) * cosi*cosi;
-    Spectrum Rparl2 = (tmp - (2.f * eta * cosi) + 1) /
-                      (tmp + (2.f * eta * cosi) + 1);
-    Spectrum tmp_f = eta*eta + k*k;
-    Spectrum Rperp2 =
-        (tmp_f - (2.f * eta * cosi) + cosi*cosi) /
-        (tmp_f + (2.f * eta * cosi) + cosi*cosi);
-    return (Rparl2 + Rperp2) / 2.f;
+    Float cosThetaI2 = cosThetaI * cosThetaI;
+    Float sinThetaI2 = 1. - cosThetaI2;
+    Spectrum eta2 = eta * eta;
+    Spectrum etak2 = etak * etak;
+
+    Spectrum t0 = eta2 - etak2 - sinThetaI2;
+    Spectrum a2plusb2 = Sqrt(t0 * t0 + 4 * eta2 * etak2);
+    Spectrum t1 = a2plusb2 + cosThetaI2;
+    Spectrum a = Sqrt(0.5f * (a2plusb2 + t0));
+    Spectrum t2 = (Float)2 * cosThetaI * a;
+    Spectrum Rs = (t1 - t2) / (t1 + t2);
+
+    Spectrum t3 = cosThetaI2 * a2plusb2 + sinThetaI2 * sinThetaI2;
+    Spectrum t4 = t2 * sinThetaI2;
+    Spectrum Rp = Rs * (t3 - t4) / (t3 + t4);
+
+    return 0.5 * (Rp + Rs);
 }
-
-
 
 // BxDF Method Definitions
-Spectrum BRDFToBTDF::f(const Vector &wo, const Vector &wi) const {
-    return brdf->f(wo, otherHemisphere(wi));
+Spectrum ScaledBxDF::f(const Vector3f &wo, const Vector3f &wi) const {
+    return scale * bxdf->f(wo, wi);
 }
 
-
-Spectrum BRDFToBTDF::Sample_f(const Vector &wo, Vector *wi,
-                              float u1, float u2, float *pdf) const {
-    Spectrum f = brdf->Sample_f(wo, wi, u1, u2, pdf);
-    *wi = otherHemisphere(*wi);
-    return f;
+Spectrum ScaledBxDF::Sample_f(const Vector3f &wo, Vector3f *wi,
+                              const Point2f &sample, Float *pdf,
+                              BxDFType *sampledType) const {
+    Spectrum f = bxdf->Sample_f(wo, wi, sample, pdf, sampledType);
+    return scale * f;
 }
 
-
-Spectrum ScaledBxDF::f(const Vector &wo, const Vector &wi) const {
-    return s * bxdf->f(wo, wi);
+Float ScaledBxDF::Pdf(const Vector3f &wo, const Vector3f &wi) const {
+    return bxdf->Pdf(wo, wi);
 }
 
-
-Spectrum ScaledBxDF::Sample_f(const Vector &wo, Vector *wi,
-                              float u1, float u2, float *pdf) const {
-    Spectrum f = bxdf->Sample_f(wo, wi, u1, u2, pdf);
-    return s * f;
+std::string ScaledBxDF::ToString() const {
+    return std::string("[ ScaledBxDF bxdf: ") + bxdf->ToString() +
+           std::string(" scale: ") + scale.ToString() + std::string(" ]");
 }
 
-
-Fresnel::~Fresnel() { }
-Spectrum FresnelConductor::Evaluate(float cosi) const {
-    return FrCond(fabsf(cosi), eta, k);
+Fresnel::~Fresnel() {}
+Spectrum FresnelConductor::Evaluate(Float cosThetaI) const {
+    return FrConductor(std::abs(cosThetaI), etaI, etaT, k);
 }
 
-
-Spectrum FresnelDielectric::Evaluate(float cosi) const {
-    // Compute Fresnel reflectance for dielectric
-    cosi = Clamp(cosi, -1.f, 1.f);
-
-    // Compute indices of refraction for dielectric
-    bool entering = cosi > 0.;
-    float ei = eta_i, et = eta_t;
-    if (!entering)
-        swap(ei, et);
-
-    // Compute _sint_ using Snell's law
-    float sint = ei/et * sqrtf(max(0.f, 1.f - cosi*cosi));
-    if (sint >= 1.) {
-        // Handle total internal reflection
-        return 1.;
-    }
-    else {
-        float cost = sqrtf(max(0.f, 1.f - sint*sint));
-        return FrDiel(fabsf(cosi), cost, ei, et);
-    }
+std::string FresnelConductor::ToString() const {
+    return std::string("[ FresnelConductor etaI: ") + etaI.ToString() +
+           std::string(" etaT: ") + etaT.ToString() + std::string(" k: ") +
+           k.ToString() + std::string(" ]");
 }
 
+Spectrum FresnelDielectric::Evaluate(Float cosThetaI) const {
+    return FrDielectric(cosThetaI, etaI, etaT);
+}
 
-Spectrum SpecularReflection::Sample_f(const Vector &wo,
-        Vector *wi, float u1, float u2, float *pdf) const {
+std::string FresnelDielectric::ToString() const {
+    return StringPrintf("[ FrenselDielectric etaI: %f etaT: %f ]", etaI, etaT);
+}
+
+Spectrum SpecularReflection::Sample_f(const Vector3f &wo, Vector3f *wi,
+                                      const Point2f &sample, Float *pdf,
+                                      BxDFType *sampledType) const {
     // Compute perfect specular reflection direction
-    *wi = Vector(-wo.x, -wo.y, wo.z);
-    *pdf = 1.f;
-    return fresnel->Evaluate(CosTheta(wo)) * R / AbsCosTheta(*wi);
+    *wi = Vector3f(-wo.x, -wo.y, wo.z);
+    *pdf = 1;
+    return fresnel->Evaluate(CosTheta(*wi)) * R / AbsCosTheta(*wi);
 }
 
+std::string SpecularReflection::ToString() const {
+    return std::string("[ SpecularReflection R: ") + R.ToString() +
+           std::string(" fresnel: ") + fresnel->ToString() + std::string(" ]");
+}
 
-Spectrum SpecularTransmission::Sample_f(const Vector &wo,
-        Vector *wi, float u1, float u2, float *pdf) const {
+Spectrum SpecularTransmission::Sample_f(const Vector3f &wo, Vector3f *wi,
+                                        const Point2f &sample, Float *pdf,
+                                        BxDFType *sampledType) const {
     // Figure out which $\eta$ is incident and which is transmitted
-    bool entering = CosTheta(wo) > 0.;
-    float ei = etai, et = etat;
-    if (!entering)
-        swap(ei, et);
+    bool entering = CosTheta(wo) > 0;
+    Float etaI = entering ? etaA : etaB;
+    Float etaT = entering ? etaB : etaA;
 
-    // Compute transmitted ray direction
-    float sini2 = SinTheta2(wo);
-    float eta = ei / et;
-    float sint2 = eta * eta * sini2;
-
-    // Handle total internal reflection for transmission
-    if (sint2 >= 1.) return 0.;
-    float cost = sqrtf(max(0.f, 1.f - sint2));
-    if (entering) cost = -cost;
-    float sintOverSini = eta;
-    *wi = Vector(sintOverSini * -wo.x, sintOverSini * -wo.y, cost);
-    *pdf = 1.f;
-    Spectrum F = fresnel.Evaluate(CosTheta(wo));
-    return /*(ei*ei)/(et*et) * */ (Spectrum(1.)-F) * T /
-        AbsCosTheta(*wi);
+    // Compute ray direction for specular transmission
+    if (!Refract(wo, Faceforward(Normal3f(0, 0, 1), wo), etaI / etaT, wi))
+        return 0;
+    *pdf = 1;
+    Spectrum ft = T * (Spectrum(1.) - fresnel.Evaluate(CosTheta(*wi)));
+    // Account for non-symmetry with transmission to different medium
+    if (mode == TransportMode::Radiance) ft *= (etaI * etaI) / (etaT * etaT);
+    return ft / AbsCosTheta(*wi);
 }
 
-
-Spectrum Lambertian::f(const Vector &wo, const Vector &wi) const {
-    return R * INV_PI;
+std::string SpecularTransmission::ToString() const {
+    return std::string("[ SpecularTransmission: T: ") + T.ToString() +
+           StringPrintf(" etaA: %f etaB: %f ", etaA, etaB) +
+           std::string(" fresnel: ") + fresnel.ToString() +
+           std::string(" mode : ") +
+           (mode == TransportMode::Radiance ? std::string("RADIANCE")
+                                            : std::string("IMPORTANCE")) +
+           std::string(" ]");
 }
 
+Spectrum LambertianReflection::f(const Vector3f &wo, const Vector3f &wi) const {
+    return R * InvPi;
+}
 
-Spectrum OrenNayar::f(const Vector &wo, const Vector &wi) const {
-    float sinthetai = SinTheta(wi);
-    float sinthetao = SinTheta(wo);
+std::string LambertianReflection::ToString() const {
+    return std::string("[ LambertianReflection R: ") + R.ToString() +
+           std::string(" ]");
+}
+
+Spectrum LambertianTransmission::f(const Vector3f &wo,
+                                   const Vector3f &wi) const {
+    return T * InvPi;
+}
+
+std::string LambertianTransmission::ToString() const {
+    return std::string("[ LambertianTransmission T: ") + T.ToString() +
+           std::string(" ]");
+}
+
+Spectrum OrenNayar::f(const Vector3f &wo, const Vector3f &wi) const {
+    Float sinThetaI = SinTheta(wi);
+    Float sinThetaO = SinTheta(wo);
     // Compute cosine term of Oren-Nayar model
-    float maxcos = 0.f;
-    if (sinthetai > 1e-4 && sinthetao > 1e-4) {
-        float sinphii = SinPhi(wi), cosphii = CosPhi(wi);
-        float sinphio = SinPhi(wo), cosphio = CosPhi(wo);
-        float dcos = cosphii * cosphio + sinphii * sinphio;
-        maxcos = max(0.f, dcos);
+    Float maxCos = 0;
+    if (sinThetaI > 1e-4 && sinThetaO > 1e-4) {
+        Float sinPhiI = SinPhi(wi), cosPhiI = CosPhi(wi);
+        Float sinPhiO = SinPhi(wo), cosPhiO = CosPhi(wo);
+        Float dCos = cosPhiI * cosPhiO + sinPhiI * sinPhiO;
+        maxCos = std::max((Float)0, dCos);
     }
 
     // Compute sine and tangent terms of Oren-Nayar model
-    float sinalpha, tanbeta;
+    Float sinAlpha, tanBeta;
     if (AbsCosTheta(wi) > AbsCosTheta(wo)) {
-        sinalpha = sinthetao;
-        tanbeta = sinthetai / AbsCosTheta(wi);
+        sinAlpha = sinThetaO;
+        tanBeta = sinThetaI / AbsCosTheta(wi);
+    } else {
+        sinAlpha = sinThetaI;
+        tanBeta = sinThetaO / AbsCosTheta(wo);
     }
-    else {
-        sinalpha = sinthetai;
-        tanbeta = sinthetao / AbsCosTheta(wo);
-    }
-    return R * INV_PI * (A + B * maxcos * sinalpha * tanbeta);
+    return R * InvPi * (A + B * maxCos * sinAlpha * tanBeta);
 }
 
+std::string OrenNayar::ToString() const {
+    return std::string("[ OrenNayar R: ") + R.ToString() +
+           StringPrintf(" A: %f B: %f ]", A, B);
+}
 
-Microfacet::Microfacet(const Spectrum &reflectance, Fresnel *f,
-                       MicrofacetDistribution *d)
+Spectrum MicrofacetReflection::f(const Vector3f &wo, const Vector3f &wi) const {
+    Float cosThetaO = AbsCosTheta(wo), cosThetaI = AbsCosTheta(wi);
+    Vector3f wh = wi + wo;
+    // Handle degenerate cases for microfacet reflection
+    if (cosThetaI == 0 || cosThetaO == 0) return Spectrum(0.);
+    if (wh.x == 0 && wh.y == 0 && wh.z == 0) return Spectrum(0.);
+    wh = Normalize(wh);
+    Spectrum F = fresnel->Evaluate(Dot(wi, wh));
+    return R * distribution->D(wh) * distribution->G(wo, wi) * F /
+           (4 * cosThetaI * cosThetaO);
+}
+
+std::string MicrofacetReflection::ToString() const {
+    return std::string("[ MicrofacetReflection R: ") + R.ToString() +
+           std::string(" distribution: ") + distribution->ToString() +
+           std::string(" fresnel: ") + fresnel->ToString() + std::string(" ]");
+}
+
+Spectrum MicrofacetTransmission::f(const Vector3f &wo,
+                                   const Vector3f &wi) const {
+    if (SameHemisphere(wo, wi)) return 0;  // transmission only
+
+    Float cosThetaO = CosTheta(wo);
+    Float cosThetaI = CosTheta(wi);
+    if (cosThetaI == 0 || cosThetaO == 0) return Spectrum(0);
+
+    // Compute $\wh$ from $\wo$ and $\wi$ for microfacet transmission
+    Float eta = CosTheta(wo) > 0 ? (etaB / etaA) : (etaA / etaB);
+    Vector3f wh = Normalize(wo + wi * eta);
+    if (wh.z < 0) wh = -wh;
+
+    Spectrum F = fresnel.Evaluate(Dot(wo, wh));
+
+    Float sqrtDenom = Dot(wo, wh) + eta * Dot(wi, wh);
+    Float factor = (mode == TransportMode::Radiance) ? (1 / eta) : 1;
+
+    return (Spectrum(1.f) - F) * T *
+           std::abs(distribution->D(wh) * distribution->G(wo, wi) * eta * eta *
+                    AbsDot(wi, wh) * AbsDot(wo, wh) * factor * factor /
+                    (cosThetaI * cosThetaO * sqrtDenom * sqrtDenom));
+}
+
+std::string MicrofacetTransmission::ToString() const {
+    return std::string("[ MicrofacetTransmission T: ") + T.ToString() +
+           std::string(" distribution: ") + distribution->ToString() +
+           StringPrintf(" etaA: %f etaB: %f", etaA, etaB) +
+           std::string(" fresnel: ") + fresnel.ToString() +
+           std::string(" mode : ") +
+           (mode == TransportMode::Radiance ? std::string("RADIANCE")
+                                            : std::string("IMPORTANCE")) +
+           std::string(" ]");
+}
+
+FresnelBlend::FresnelBlend(const Spectrum &Rd, const Spectrum &Rs,
+                           MicrofacetDistribution *distribution)
     : BxDF(BxDFType(BSDF_REFLECTION | BSDF_GLOSSY)),
-     R(reflectance), distribution(d), fresnel(f) {
-}
-
-
-Spectrum Microfacet::f(const Vector &wo, const Vector &wi) const {
-    float cosThetaO = AbsCosTheta(wo);
-    float cosThetaI = AbsCosTheta(wi);
-    if (cosThetaI == 0.f || cosThetaO == 0.f) return Spectrum(0.f);
-    Vector wh = wi + wo;
-    if (wh.x == 0. && wh.y == 0. && wh.z == 0.) return Spectrum(0.f);
+      Rd(Rd),
+      Rs(Rs),
+      distribution(distribution) {}
+Spectrum FresnelBlend::f(const Vector3f &wo, const Vector3f &wi) const {
+    auto pow5 = [](Float v) { return (v * v) * (v * v) * v; };
+    Spectrum diffuse = (28.f / (23.f * Pi)) * Rd * (Spectrum(1.f) - Rs) *
+                       (1 - pow5(1 - .5f * AbsCosTheta(wi))) *
+                       (1 - pow5(1 - .5f * AbsCosTheta(wo)));
+    Vector3f wh = wi + wo;
+    if (wh.x == 0 && wh.y == 0 && wh.z == 0) return Spectrum(0);
     wh = Normalize(wh);
-    float cosThetaH = Dot(wi, wh);
-    Spectrum F = fresnel->Evaluate(cosThetaH);
-    return R * distribution->D(wh) * G(wo, wi, wh) * F /
-               (4.f * cosThetaI * cosThetaO);
-}
-
-
-FresnelBlend::FresnelBlend(const Spectrum &d, const Spectrum &s,
-                           MicrofacetDistribution *dist)
-    : BxDF(BxDFType(BSDF_REFLECTION | BSDF_GLOSSY)), Rd(d), Rs(s) {
-    distribution = dist;
-}
-
-
-Spectrum FresnelBlend::f(const Vector &wo, const Vector &wi) const {
-    Spectrum diffuse = (28.f/(23.f*M_PI)) * Rd *
-        (Spectrum(1.f) - Rs) *
-        (1.f - powf(1.f - .5f * AbsCosTheta(wi), 5)) *
-        (1.f - powf(1.f - .5f * AbsCosTheta(wo), 5));
-    Vector wh = wi + wo;
-    if (wh.x == 0. && wh.y == 0. && wh.z == 0.) return Spectrum(0.f);
-    wh = Normalize(wh);
-    Spectrum specular = distribution->D(wh) /
-        (4.f * AbsDot(wi, wh) * max(AbsCosTheta(wi), AbsCosTheta(wo))) *
+    Spectrum specular =
+        distribution->D(wh) /
+        (4 * AbsDot(wi, wh) * std::max(AbsCosTheta(wi), AbsCosTheta(wo))) *
         SchlickFresnel(Dot(wi, wh));
     return diffuse + specular;
 }
 
-
-Point BRDFRemap(const Vector &wo, const Vector &wi) {
-    float cosi = CosTheta(wi), coso = CosTheta(wo);
-    float sini = SinTheta(wi), sino = SinTheta(wo);
-    float phii = SphericalPhi(wi), phio = SphericalPhi(wo);
-    float dphi = phii - phio;
-    if (dphi < 0.) dphi += 2.f * M_PI;
-    if (dphi > 2.f * M_PI) dphi -= 2.f * M_PI;
-    if (dphi > M_PI) dphi = 2.f * M_PI - dphi;
-    return Point(sini * sino, dphi / M_PI, cosi * coso);
+std::string FresnelBlend::ToString() const {
+    return std::string("[ FresnelBlend Rd: ") + Rd.ToString() +
+           std::string(" Rs: ") + Rs.ToString() +
+           std::string(" distribution: ") + distribution->ToString() +
+           std::string(" ]");
 }
 
+Spectrum FourierBSDF::f(const Vector3f &wo, const Vector3f &wi) const {
+    // Find the zenith angle cosines and azimuth difference angle
+    Float muI = CosTheta(-wi), muO = CosTheta(wo);
+    Float cosPhi = CosDPhi(-wi, wo);
 
-Spectrum IrregIsotropicBRDF::f(const Vector &wo,
-                               const Vector &wi) const {
-    Point m = BRDFRemap(wo, wi);
-    float lastMaxDist2 = .001f;
-    while (true) {
-        // Try to find enough BRDF samples around _m_ within search radius
-        IrregIsoProc proc;
-        float maxDist2 = lastMaxDist2;
-        isoBRDFData->Lookup(m, proc, maxDist2);
-        if (proc.nFound > 2 || lastMaxDist2 > 1.5f)
-            return proc.v.Clamp() / proc.sumWeights;
-        lastMaxDist2 *= 2.f;
+    // Compute Fourier coefficients $a_k$ for $(\mui, \muo)$
+
+    // Determine offsets and weights for $\mui$ and $\muo$
+    int offsetI, offsetO;
+    Float weightsI[4], weightsO[4];
+    if (!bsdfTable.GetWeightsAndOffset(muI, &offsetI, weightsI) ||
+        !bsdfTable.GetWeightsAndOffset(muO, &offsetO, weightsO))
+        return Spectrum(0.f);
+
+    // Allocate storage to accumulate _ak_ coefficients
+    Float *ak = ALLOCA(Float, bsdfTable.mMax * bsdfTable.nChannels);
+    memset(ak, 0, bsdfTable.mMax * bsdfTable.nChannels * sizeof(Float));
+
+    // Accumulate weighted sums of nearby $a_k$ coefficients
+    int mMax = 0;
+    for (int b = 0; b < 4; ++b) {
+        for (int a = 0; a < 4; ++a) {
+            // Add contribution of _(a, b)_ to $a_k$ values
+            Float weight = weightsI[a] * weightsO[b];
+            if (weight != 0) {
+                int m;
+                const Float *ap = bsdfTable.GetAk(offsetI + a, offsetO + b, &m);
+                mMax = std::max(mMax, m);
+                for (int c = 0; c < bsdfTable.nChannels; ++c)
+                    for (int k = 0; k < m; ++k)
+                        ak[c * bsdfTable.mMax + k] += weight * ap[c * m + k];
+            }
+        }
+    }
+
+    // Evaluate Fourier expansion for angle $\phi$
+    Float Y = std::max((Float)0, Fourier(ak, mMax, cosPhi));
+    Float scale = muI != 0 ? (1 / std::abs(muI)) : (Float)0;
+
+    // Update _scale_ to account for adjoint light transport
+    if (mode == TransportMode::Radiance && muI * muO > 0) {
+        float eta = muI > 0 ? 1 / bsdfTable.eta : bsdfTable.eta;
+        scale *= eta * eta;
+    }
+    if (bsdfTable.nChannels == 1)
+        return Spectrum(Y * scale);
+    else {
+        // Compute and return RGB colors for tabulated BSDF
+        Float R = Fourier(ak + 1 * bsdfTable.mMax, mMax, cosPhi);
+        Float B = Fourier(ak + 2 * bsdfTable.mMax, mMax, cosPhi);
+        Float G = 1.39829f * Y - 0.100913f * B - 0.297375f * R;
+        Float rgb[3] = {R * scale, G * scale, B * scale};
+        return Spectrum::FromRGB(rgb).Clamp();
     }
 }
 
-
-Spectrum RegularHalfangleBRDF::f(const Vector &WO,
-                                 const Vector &WI) const {
-    // Compute $\wh$ and transform $\wi$ to halfangle coordinate system
-    Vector wo = WO, wi = WI;
-    Vector wh = wo + wi;
-    if (wh.z < 0.f) {
-        wo = -wo;
-        wi = -wi;
-        wh = -wh;
-    }
-    if (wh.x == 0.f && wh.y == 0.f && wh.z == 0.f) return Spectrum (0.f);
-    wh = Normalize(wh);
-    float whTheta = SphericalTheta(wh);
-    float whCosPhi = CosPhi(wh), whSinPhi = SinPhi(wh);
-    float whCosTheta = CosTheta(wh), whSinTheta = SinTheta(wh);
-    Vector whx(whCosPhi * whCosTheta, whSinPhi * whCosTheta, -whSinTheta);
-    Vector why(-whSinPhi, whCosPhi, 0);
-    Vector wd(Dot(wi, whx), Dot(wi, why), Dot(wi, wh));
-
-    // Compute _index_ into measured BRDF tables
-    float wdTheta = SphericalTheta(wd), wdPhi = SphericalPhi(wd);
-    if (wdPhi > M_PI) wdPhi -= M_PI;
-
-    // Compute indices _whThetaIndex_, _wdThetaIndex_, _wdPhiIndex_
-#define REMAP(V, MAX, COUNT) \
-        Clamp(int((V) / (MAX) * (COUNT)), 0, (COUNT)-1)
-    int whThetaIndex = REMAP(sqrtf(max(0.f, whTheta / (M_PI / 2.f))),
-                             1.f, nThetaH);
-    int wdThetaIndex = REMAP(wdTheta, M_PI / 2.f, nThetaD);
-    int wdPhiIndex = REMAP(wdPhi, M_PI, nPhiD);
-#undef REMAP
-    int index = wdPhiIndex + nPhiD * (wdThetaIndex + whThetaIndex * nThetaD);
-    return Spectrum::FromRGB(&brdf[3*index]);
+std::string FourierBSDF::ToString() const {
+    return StringPrintf("[ FourierBSDF eta: %f mMax: %d nChannels: %d nMu: %d ",
+                        bsdfTable.eta, bsdfTable.mMax, bsdfTable.nChannels,
+                        bsdfTable.nMu) +
+           std::string(" mode : ") +
+           (mode == TransportMode::Radiance ? std::string("RADIANCE")
+                                            : std::string("IMPORTANCE")) +
+           std::string(" ]");
 }
 
+bool FourierBSDFTable::GetWeightsAndOffset(Float cosTheta, int *offset,
+                                           Float weights[4]) const {
+    return CatmullRomWeights(nMu, mu, cosTheta, offset, weights);
+}
 
-Spectrum BxDF::Sample_f(const Vector &wo, Vector *wi,
-                        float u1, float u2, float *pdf) const {
+Spectrum BxDF::Sample_f(const Vector3f &wo, Vector3f *wi, const Point2f &u,
+                        Float *pdf, BxDFType *sampledType) const {
     // Cosine-sample the hemisphere, flipping the direction if necessary
-    *wi = CosineSampleHemisphere(u1, u2);
-    if (wo.z < 0.) wi->z *= -1.f;
+    *wi = CosineSampleHemisphere(u);
+    if (wo.z < 0) wi->z *= -1;
     *pdf = Pdf(wo, *wi);
     return f(wo, *wi);
 }
 
-
-float BxDF::Pdf(const Vector &wo, const Vector &wi) const {
-    return SameHemisphere(wo, wi) ? AbsCosTheta(wi) * INV_PI : 0.f;
+Float BxDF::Pdf(const Vector3f &wo, const Vector3f &wi) const {
+    return SameHemisphere(wo, wi) ? AbsCosTheta(wi) * InvPi : 0;
 }
 
-
-float BRDFToBTDF::Pdf(const Vector &wo,
-        const Vector &wi) const {
-    return brdf->Pdf(wo, otherHemisphere(wi));
-}
-
-
-Spectrum Microfacet::Sample_f(const Vector &wo, Vector *wi,
-                              float u1, float u2, float *pdf) const {
-    distribution->Sample_f(wo, wi, u1, u2, pdf);
-    if (!SameHemisphere(wo, *wi)) return Spectrum(0.f);
+Spectrum LambertianTransmission::Sample_f(const Vector3f &wo, Vector3f *wi,
+                                          const Point2f &u, Float *pdf,
+                                          BxDFType *sampledType) const {
+    *wi = CosineSampleHemisphere(u);
+    if (wo.z > 0) wi->z *= -1;
+    *pdf = Pdf(wo, *wi);
     return f(wo, *wi);
 }
 
-
-float Microfacet::Pdf(const Vector &wo, const Vector &wi) const {
-    if (!SameHemisphere(wo, wi)) return 0.f;
-    return distribution->Pdf(wo, wi);
+Float LambertianTransmission::Pdf(const Vector3f &wo,
+                                  const Vector3f &wi) const {
+    return !SameHemisphere(wo, wi) ? AbsCosTheta(wi) * InvPi : 0;
 }
 
+Spectrum MicrofacetReflection::Sample_f(const Vector3f &wo, Vector3f *wi,
+                                        const Point2f &u, Float *pdf,
+                                        BxDFType *sampledType) const {
+    // Sample microfacet orientation $\wh$ and reflected direction $\wi$
+    if (wo.z == 0) return 0.;
+    Vector3f wh = distribution->Sample_wh(wo, u);
+    *wi = Reflect(wo, wh);
+    if (!SameHemisphere(wo, *wi)) return Spectrum(0.f);
 
-void Blinn::Sample_f(const Vector &wo, Vector *wi, float u1, float u2,
-                     float *pdf) const {
-    // Compute sampled half-angle vector $\wh$ for Blinn distribution
-    float costheta = powf(u1, 1.f / (exponent+1));
-    float sintheta = sqrtf(max(0.f, 1.f - costheta*costheta));
-    float phi = u2 * 2.f * M_PI;
-    Vector wh = SphericalDirection(sintheta, costheta, phi);
-    if (!SameHemisphere(wo, wh)) wh = -wh;
-
-    // Compute incident direction by reflecting about $\wh$
-    *wi = -wo + 2.f * Dot(wo, wh) * wh;
-
-    // Compute PDF for $\wi$ from Blinn distribution
-    float blinn_pdf = ((exponent + 1.f) * powf(costheta, exponent)) /
-                      (2.f * M_PI * 4.f * Dot(wo, wh));
-    if (Dot(wo, wh) <= 0.f) blinn_pdf = 0.f;
-    *pdf = blinn_pdf;
+    // Compute PDF of _wi_ for microfacet reflection
+    *pdf = distribution->Pdf(wo, wh) / (4 * Dot(wo, wh));
+    return f(wo, *wi);
 }
 
-
-float Blinn::Pdf(const Vector &wo, const Vector &wi) const {
-    Vector wh = Normalize(wo + wi);
-    float costheta = AbsCosTheta(wh);
-    // Compute PDF for $\wi$ from Blinn distribution
-    float blinn_pdf = ((exponent + 1.f) * powf(costheta, exponent)) /
-                      (2.f * M_PI * 4.f * Dot(wo, wh));
-    if (Dot(wo, wh) <= 0.f) blinn_pdf = 0.f;
-    return blinn_pdf;
+Float MicrofacetReflection::Pdf(const Vector3f &wo, const Vector3f &wi) const {
+    if (!SameHemisphere(wo, wi)) return 0;
+    Vector3f wh = Normalize(wo + wi);
+    return distribution->Pdf(wo, wh) / (4 * Dot(wo, wh));
 }
 
-
-void Anisotropic::Sample_f(const Vector &wo, Vector *wi,
-                           float u1, float u2, float *pdf) const {
-    // Sample from first quadrant and remap to hemisphere to sample $\wh$
-    float phi, costheta;
-    if (u1 < .25f) {
-        sampleFirstQuadrant(4.f * u1, u2, &phi, &costheta);
-    } else if (u1 < .5f) {
-        u1 = 4.f * (.5f - u1);
-        sampleFirstQuadrant(u1, u2, &phi, &costheta);
-        phi = M_PI - phi;
-    } else if (u1 < .75f) {
-        u1 = 4.f * (u1 - .5f);
-        sampleFirstQuadrant(u1, u2, &phi, &costheta);
-        phi += M_PI;
-    } else {
-        u1 = 4.f * (1.f - u1);
-        sampleFirstQuadrant(u1, u2, &phi, &costheta);
-        phi = 2.f * M_PI - phi;
-    }
-    float sintheta = sqrtf(max(0.f, 1.f - costheta*costheta));
-    Vector wh = SphericalDirection(sintheta, costheta, phi);
-    if (!SameHemisphere(wo, wh)) wh = -wh;
-
-    // Compute incident direction by reflecting about $\wh$
-    *wi = -wo + 2.f * Dot(wo, wh) * wh;
-
-    // Compute PDF for $\wi$ from anisotropic distribution
-    float costhetah = AbsCosTheta(wh);
-    float ds = 1.f - costhetah * costhetah;
-    float anisotropic_pdf = 0.f;
-    if (ds > 0.f && Dot(wo, wh) > 0.f) {
-        float e = (ex * wh.x * wh.x + ey * wh.y * wh.y) / ds;
-        float d = sqrtf((ex+1.f) * (ey+1.f)) * INV_TWOPI *
-                  powf(costhetah, e);
-        anisotropic_pdf = d / (4.f * Dot(wo, wh));
-    }
-    *pdf = anisotropic_pdf;
+Spectrum MicrofacetTransmission::Sample_f(const Vector3f &wo, Vector3f *wi,
+                                          const Point2f &u, Float *pdf,
+                                          BxDFType *sampledType) const {
+    if (wo.z == 0) return 0.;
+    Vector3f wh = distribution->Sample_wh(wo, u);
+    Float eta = CosTheta(wo) > 0 ? (etaA / etaB) : (etaB / etaA);
+    if (!Refract(wo, (Normal3f)wh, eta, wi)) return 0;
+    *pdf = Pdf(wo, *wi);
+    return f(wo, *wi);
 }
 
+Float MicrofacetTransmission::Pdf(const Vector3f &wo,
+                                  const Vector3f &wi) const {
+    if (SameHemisphere(wo, wi)) return 0;
+    // Compute $\wh$ from $\wo$ and $\wi$ for microfacet transmission
+    Float eta = CosTheta(wo) > 0 ? (etaB / etaA) : (etaA / etaB);
+    Vector3f wh = Normalize(wo + wi * eta);
 
-void Anisotropic::sampleFirstQuadrant(float u1, float u2,
-        float *phi, float *costheta) const {
-    if (ex == ey)
-        *phi = M_PI * u1 * 0.5f;
-    else
-        *phi = atanf(sqrtf((ex+1.f) / (ey+1.f)) *
-                     tanf(M_PI * u1 * 0.5f));
-    float cosphi = cosf(*phi), sinphi = sinf(*phi);
-    *costheta = powf(u2, 1.f/(ex * cosphi * cosphi +
-                              ey * sinphi * sinphi + 1));
+    // Compute change of variables _dwh\_dwi_ for microfacet transmission
+    Float sqrtDenom = Dot(wo, wh) + eta * Dot(wi, wh);
+    Float dwh_dwi =
+        std::abs((eta * eta * Dot(wi, wh)) / (sqrtDenom * sqrtDenom));
+    return distribution->Pdf(wo, wh) * dwh_dwi;
 }
 
-
-float Anisotropic::Pdf(const Vector &wo, const Vector &wi) const {
-    Vector wh = Normalize(wo + wi);
-    // Compute PDF for $\wi$ from anisotropic distribution
-    float costhetah = AbsCosTheta(wh);
-    float ds = 1.f - costhetah * costhetah;
-    float anisotropic_pdf = 0.f;
-    if (ds > 0.f && Dot(wo, wh) > 0.f) {
-        float e = (ex * wh.x * wh.x + ey * wh.y * wh.y) / ds;
-        float d = sqrtf((ex+1.f) * (ey+1.f)) * INV_TWOPI *
-                  powf(costhetah, e);
-        anisotropic_pdf = d / (4.f * Dot(wo, wh));
-    }
-    return anisotropic_pdf;
-}
-
-
-Spectrum FresnelBlend::Sample_f(const Vector &wo, Vector *wi,
-                                float u1, float u2, float *pdf) const {
-    if (u1 < .5) {
-        u1 = 2.f * u1;
+Spectrum FresnelBlend::Sample_f(const Vector3f &wo, Vector3f *wi,
+                                const Point2f &uOrig, Float *pdf,
+                                BxDFType *sampledType) const {
+    Point2f u = uOrig;
+    if (u[0] < .5) {
+        u[0] = std::min(2 * u[0], OneMinusEpsilon);
         // Cosine-sample the hemisphere, flipping the direction if necessary
-        *wi = CosineSampleHemisphere(u1, u2);
-        if (wo.z < 0.) wi->z *= -1.f;
-    }
-    else {
-        u1 = 2.f * (u1 - .5f);
-        distribution->Sample_f(wo, wi, u1, u2, pdf);
+        *wi = CosineSampleHemisphere(u);
+        if (wo.z < 0) wi->z *= -1;
+    } else {
+        u[0] = std::min(2 * (u[0] - .5f), OneMinusEpsilon);
+        // Sample microfacet orientation $\wh$ and reflected direction $\wi$
+        Vector3f wh = distribution->Sample_wh(wo, u);
+        *wi = Reflect(wo, wh);
         if (!SameHemisphere(wo, *wi)) return Spectrum(0.f);
     }
     *pdf = Pdf(wo, *wi);
     return f(wo, *wi);
 }
 
-
-float FresnelBlend::Pdf(const Vector &wo, const Vector &wi) const {
-    if (!SameHemisphere(wo, wi)) return 0.f;
-    return .5f * (AbsCosTheta(wi) * INV_PI + distribution->Pdf(wo, wi));
+Float FresnelBlend::Pdf(const Vector3f &wo, const Vector3f &wi) const {
+    if (!SameHemisphere(wo, wi)) return 0;
+    Vector3f wh = Normalize(wo + wi);
+    Float pdf_wh = distribution->Pdf(wo, wh);
+    return .5f * (AbsCosTheta(wi) * InvPi + pdf_wh / (4 * Dot(wo, wh)));
 }
 
+Spectrum FresnelSpecular::Sample_f(const Vector3f &wo, Vector3f *wi,
+                                   const Point2f &u, Float *pdf,
+                                   BxDFType *sampledType) const {
+    Float F = FrDielectric(CosTheta(wo), etaA, etaB);
+    if (u[0] < F) {
+        // Compute specular reflection for _FresnelSpecular_
 
-Spectrum BxDF::rho(const Vector &w, int nSamples,
-                   const float *samples) const {
-    Spectrum r = 0.;
+        // Compute perfect specular reflection direction
+        *wi = Vector3f(-wo.x, -wo.y, wo.z);
+        if (sampledType)
+            *sampledType = BxDFType(BSDF_SPECULAR | BSDF_REFLECTION);
+        *pdf = F;
+        return F * R / AbsCosTheta(*wi);
+    } else {
+        // Compute specular transmission for _FresnelSpecular_
+
+        // Figure out which $\eta$ is incident and which is transmitted
+        bool entering = CosTheta(wo) > 0;
+        Float etaI = entering ? etaA : etaB;
+        Float etaT = entering ? etaB : etaA;
+
+        // Compute ray direction for specular transmission
+        if (!Refract(wo, Faceforward(Normal3f(0, 0, 1), wo), etaI / etaT, wi))
+            return 0;
+        Spectrum ft = T * (1 - F);
+
+        // Account for non-symmetry with transmission to different medium
+        if (mode == TransportMode::Radiance)
+            ft *= (etaI * etaI) / (etaT * etaT);
+        if (sampledType)
+            *sampledType = BxDFType(BSDF_SPECULAR | BSDF_TRANSMISSION);
+        *pdf = 1 - F;
+        return ft / AbsCosTheta(*wi);
+    }
+}
+
+std::string FresnelSpecular::ToString() const {
+    return std::string("[ FresnelSpecular R: ") + R.ToString() +
+           std::string(" T: ") + T.ToString() +
+           StringPrintf(" etaA: %f etaB: %f ", etaA, etaB) +
+           std::string(" fresnel: ") + fresnel.ToString() +
+           std::string(" mode : ") +
+           (mode == TransportMode::Radiance ? std::string("RADIANCE")
+                                            : std::string("IMPORTANCE")) +
+           std::string(" ]");
+}
+
+Spectrum FourierBSDF::Sample_f(const Vector3f &wo, Vector3f *wi,
+                               const Point2f &u, Float *pdf,
+                               BxDFType *sampledType) const {
+    // Sample zenith angle component for _FourierBSDF_
+    Float muO = CosTheta(wo);
+    Float pdfMu;
+    Float muI = SampleCatmullRom2D(bsdfTable.nMu, bsdfTable.nMu, bsdfTable.mu,
+                                   bsdfTable.mu, bsdfTable.a0, bsdfTable.cdf,
+                                   muO, u[1], nullptr, &pdfMu);
+
+    // Compute Fourier coefficients $a_k$ for $(\mui, \muo)$
+
+    // Determine offsets and weights for $\mui$ and $\muo$
+    int offsetI, offsetO;
+    Float weightsI[4], weightsO[4];
+    if (!bsdfTable.GetWeightsAndOffset(muI, &offsetI, weightsI) ||
+        !bsdfTable.GetWeightsAndOffset(muO, &offsetO, weightsO))
+        return Spectrum(0.f);
+
+    // Allocate storage to accumulate _ak_ coefficients
+    Float *ak = ALLOCA(Float, bsdfTable.mMax * bsdfTable.nChannels);
+    memset(ak, 0, bsdfTable.mMax * bsdfTable.nChannels * sizeof(Float));
+
+    // Accumulate weighted sums of nearby $a_k$ coefficients
+    int mMax = 0;
+    for (int b = 0; b < 4; ++b) {
+        for (int a = 0; a < 4; ++a) {
+            // Add contribution of _(a, b)_ to $a_k$ values
+            Float weight = weightsI[a] * weightsO[b];
+            if (weight != 0) {
+                int m;
+                const Float *ap = bsdfTable.GetAk(offsetI + a, offsetO + b, &m);
+                mMax = std::max(mMax, m);
+                for (int c = 0; c < bsdfTable.nChannels; ++c)
+                    for (int k = 0; k < m; ++k)
+                        ak[c * bsdfTable.mMax + k] += weight * ap[c * m + k];
+            }
+        }
+    }
+
+    // Importance sample the luminance Fourier expansion
+    Float phi, pdfPhi;
+    Float Y = SampleFourier(ak, bsdfTable.recip, mMax, u[0], &pdfPhi, &phi);
+    *pdf = std::max((Float)0, pdfPhi * pdfMu);
+
+    // Compute the scattered direction for _FourierBSDF_
+    Float sin2ThetaI = std::max((Float)0, 1 - muI * muI);
+    Float norm = std::sqrt(sin2ThetaI / Sin2Theta(wo));
+    if (std::isinf(norm)) norm = 0;
+    Float sinPhi = std::sin(phi), cosPhi = std::cos(phi);
+    *wi = -Vector3f(norm * (cosPhi * wo.x - sinPhi * wo.y),
+                    norm * (sinPhi * wo.x + cosPhi * wo.y), muI);
+
+    // Mathematically, wi will be normalized (if wo was). However, in
+    // practice, floating-point rounding error can cause some error to
+    // accumulate in the computed value of wi here. This can be
+    // catastrophic: if the ray intersects an object with the FourierBSDF
+    // again and the wo (based on such a wi) is nearly perpendicular to the
+    // surface, then the wi computed at the next intersection can end up
+    // being substantially (like 4x) longer than normalized, which leads to
+    // all sorts of errors, including negative spectral values. Therefore,
+    // we normalize again here.
+    *wi = Normalize(*wi);
+
+    // Evaluate remaining Fourier expansions for angle $\phi$
+    Float scale = muI != 0 ? (1 / std::abs(muI)) : (Float)0;
+    if (mode == TransportMode::Radiance && muI * muO > 0) {
+        float eta = muI > 0 ? 1 / bsdfTable.eta : bsdfTable.eta;
+        scale *= eta * eta;
+    }
+
+    if (bsdfTable.nChannels == 1) return Spectrum(Y * scale);
+    Float R = Fourier(ak + 1 * bsdfTable.mMax, mMax, cosPhi);
+    Float B = Fourier(ak + 2 * bsdfTable.mMax, mMax, cosPhi);
+    Float G = 1.39829f * Y - 0.100913f * B - 0.297375f * R;
+    Float rgb[3] = {R * scale, G * scale, B * scale};
+    return Spectrum::FromRGB(rgb).Clamp();
+}
+
+Float FourierBSDF::Pdf(const Vector3f &wo, const Vector3f &wi) const {
+    // Find the zenith angle cosines and azimuth difference angle
+    Float muI = CosTheta(-wi), muO = CosTheta(wo);
+    Float cosPhi = CosDPhi(-wi, wo);
+
+    // Compute luminance Fourier coefficients $a_k$ for $(\mui, \muo)$
+    int offsetI, offsetO;
+    Float weightsI[4], weightsO[4];
+    if (!bsdfTable.GetWeightsAndOffset(muI, &offsetI, weightsI) ||
+        !bsdfTable.GetWeightsAndOffset(muO, &offsetO, weightsO))
+        return 0;
+    Float *ak = ALLOCA(Float, bsdfTable.mMax * bsdfTable.nChannels);
+    memset(ak, 0, bsdfTable.mMax * bsdfTable.nChannels * sizeof(Float));
+    int mMax = 0;
+    for (int o = 0; o < 4; ++o) {
+        for (int i = 0; i < 4; ++i) {
+            Float weight = weightsI[i] * weightsO[o];
+            if (weight == 0) continue;
+
+            int order;
+            const Float *coeffs =
+                bsdfTable.GetAk(offsetI + i, offsetO + o, &order);
+            mMax = std::max(mMax, order);
+
+            for (int k = 0; k < order; ++k) ak[k] += *coeffs++ * weight;
+        }
+    }
+
+    // Evaluate probability of sampling _wi_
+    Float rho = 0;
+    for (int o = 0; o < 4; ++o) {
+        if (weightsO[o] == 0) continue;
+        rho +=
+            weightsO[o] *
+            bsdfTable.cdf[(offsetO + o) * bsdfTable.nMu + bsdfTable.nMu - 1] *
+            (2 * Pi);
+    }
+    Float Y = Fourier(ak, mMax, cosPhi);
+    return (rho > 0 && Y > 0) ? (Y / rho) : 0;
+}
+
+Spectrum BxDF::rho(const Vector3f &w, int nSamples, const Point2f *u) const {
+    Spectrum r(0.);
     for (int i = 0; i < nSamples; ++i) {
         // Estimate one term of $\rho_\roman{hd}$
-        Vector wi;
-        float pdf = 0.f;
-        Spectrum f = Sample_f(w, &wi, samples[2*i], samples[2*i+1], &pdf);
-        if (pdf > 0.) r += f * AbsCosTheta(wi) / pdf;
+        Vector3f wi;
+        Float pdf = 0;
+        Spectrum f = Sample_f(w, &wi, u[i], &pdf);
+        if (pdf > 0) r += f * AbsCosTheta(wi) / pdf;
     }
-    return r / float(nSamples);
+    return r / nSamples;
 }
 
-
-Spectrum BxDF::rho(int nSamples, const float *samples1,
-                   const float *samples2) const {
-    Spectrum r = 0.;
+Spectrum BxDF::rho(int nSamples, const Point2f *u1, const Point2f *u2) const {
+    Spectrum r(0.f);
     for (int i = 0; i < nSamples; ++i) {
         // Estimate one term of $\rho_\roman{hh}$
-        Vector wo, wi;
-        wo = UniformSampleHemisphere(samples1[2*i], samples1[2*i+1]);
-        float pdf_o = INV_TWOPI, pdf_i = 0.f;
-        Spectrum f = Sample_f(wo, &wi, samples2[2*i], samples2[2*i+1], &pdf_i);
-        if (pdf_i > 0.)
-            r += f * AbsCosTheta(wi) * AbsCosTheta(wo) / (pdf_o * pdf_i);
+        Vector3f wo, wi;
+        wo = UniformSampleHemisphere(u1[i]);
+        Float pdfo = UniformHemispherePdf(), pdfi = 0;
+        Spectrum f = Sample_f(wo, &wi, u2[i], &pdfi);
+        if (pdfi > 0)
+            r += f * AbsCosTheta(wi) * AbsCosTheta(wo) / (pdfo * pdfi);
     }
-    return r / (M_PI*nSamples);
+    return r / (Pi * nSamples);
 }
-
-
 
 // BSDF Method Definitions
-BSDFSampleOffsets::BSDFSampleOffsets(int count, Sample *sample) {
-    nSamples = count;
-    componentOffset = sample->Add1D(nSamples);
-    dirOffset = sample->Add2D(nSamples);
-}
-
-
-BSDFSample::BSDFSample(const Sample *sample,
-                       const BSDFSampleOffsets &offsets, uint32_t n) {
-    Assert(n < sample->n2D[offsets.dirOffset]);
-    Assert(n < sample->n1D[offsets.componentOffset]);
-    uDir[0] = sample->twoD[offsets.dirOffset][2*n];
-    uDir[1] = sample->twoD[offsets.dirOffset][2*n+1];
-    uComponent = sample->oneD[offsets.componentOffset][n];
-    Assert(uDir[0] >= 0.f && uDir[0] < 1.f);
-    Assert(uDir[1] >= 0.f && uDir[1] < 1.f);
-    Assert(uComponent >= 0.f && uComponent < 1.f);
-}
-
-
-Spectrum BSDF::Sample_f(const Vector &woW, Vector *wiW,
-                        const BSDFSample &bsdfSample, float *pdf,
-                        BxDFType flags, BxDFType *sampledType) const {
-    PBRT_STARTED_BSDF_SAMPLE();
-    // Choose which _BxDF_ to sample
-    int matchingComps = NumComponents(flags);
-    if (matchingComps == 0) {
-        *pdf = 0.f;
-        if (sampledType) *sampledType = BxDFType(0);
-        PBRT_FINISHED_BSDF_SAMPLE();
-        return Spectrum(0.f);
-    }
-    int which = min(Floor2Int(bsdfSample.uComponent * matchingComps),
-                    matchingComps-1);
-    BxDF *bxdf = NULL;
-    int count = which;
+Spectrum BSDF::f(const Vector3f &woW, const Vector3f &wiW,
+                 BxDFType flags) const {
+    ProfilePhase pp(Prof::BSDFEvaluation);
+    Vector3f wi = WorldToLocal(wiW), wo = WorldToLocal(woW);
+    if (wo.z == 0) return 0.;
+    bool reflect = Dot(wiW, ng) * Dot(woW, ng) > 0;
+    Spectrum f(0.f);
     for (int i = 0; i < nBxDFs; ++i)
-        if (bxdfs[i]->MatchesFlags(flags) && count-- == 0) {
+        if (bxdfs[i]->MatchesFlags(flags) &&
+            ((reflect && (bxdfs[i]->type & BSDF_REFLECTION)) ||
+             (!reflect && (bxdfs[i]->type & BSDF_TRANSMISSION))))
+            f += bxdfs[i]->f(wo, wi);
+    return f;
+}
+
+Spectrum BSDF::rho(int nSamples, const Point2f *samples1,
+                   const Point2f *samples2, BxDFType flags) const {
+    Spectrum ret(0.f);
+    for (int i = 0; i < nBxDFs; ++i)
+        if (bxdfs[i]->MatchesFlags(flags))
+            ret += bxdfs[i]->rho(nSamples, samples1, samples2);
+    return ret;
+}
+
+Spectrum BSDF::rho(const Vector3f &wo, int nSamples, const Point2f *samples,
+                   BxDFType flags) const {
+    Spectrum ret(0.f);
+    for (int i = 0; i < nBxDFs; ++i)
+        if (bxdfs[i]->MatchesFlags(flags))
+            ret += bxdfs[i]->rho(wo, nSamples, samples);
+    return ret;
+}
+
+Spectrum BSDF::Sample_f(const Vector3f &woWorld, Vector3f *wiWorld,
+                        const Point2f &u, Float *pdf, BxDFType type,
+                        BxDFType *sampledType) const {
+    ProfilePhase pp(Prof::BSDFSampling);
+    // Choose which _BxDF_ to sample
+    int matchingComps = NumComponents(type);
+    if (matchingComps == 0) {
+        *pdf = 0;
+        if (sampledType) *sampledType = BxDFType(0);
+        return Spectrum(0);
+    }
+    int comp =
+        std::min((int)std::floor(u[0] * matchingComps), matchingComps - 1);
+
+    // Get _BxDF_ pointer for chosen component
+    BxDF *bxdf = nullptr;
+    int count = comp;
+    for (int i = 0; i < nBxDFs; ++i)
+        if (bxdfs[i]->MatchesFlags(type) && count-- == 0) {
             bxdf = bxdfs[i];
             break;
         }
-    Assert(bxdf);
+    CHECK_NOTNULL(bxdf);
+    VLOG(2) << "BSDF::Sample_f chose comp = " << comp << " / matching = " <<
+        matchingComps << ", bxdf: " << bxdf->ToString();
+
+    // Remap _BxDF_ sample _u_ to $[0,1)^2$
+    Point2f uRemapped(std::min(u[0] * matchingComps - comp, OneMinusEpsilon),
+                      u[1]);
 
     // Sample chosen _BxDF_
-    Vector wo = WorldToLocal(woW);
-    Vector wi;
-    *pdf = 0.f;
-    Spectrum f = bxdf->Sample_f(wo, &wi, bsdfSample.uDir[0],
-                                bsdfSample.uDir[1], pdf);
-    if (*pdf == 0.f)
-    {
-        if (sampledType) *sampledType = BxDFType(0);
-        PBRT_FINISHED_BSDF_SAMPLE();
-        return 0.f;
-    }
+    Vector3f wi, wo = WorldToLocal(woWorld);
+    if (wo.z == 0) return 0.;
+    *pdf = 0;
     if (sampledType) *sampledType = bxdf->type;
-    *wiW = LocalToWorld(wi);
+    Spectrum f = bxdf->Sample_f(wo, &wi, uRemapped, pdf, sampledType);
+    VLOG(2) << "For wo = " << wo << ", sampled f = " << f << ", pdf = "
+            << *pdf << ", ratio = " << ((*pdf > 0) ? (f / *pdf) : Spectrum(0.))
+            << ", wi = " << wi;
+    if (*pdf == 0) {
+        if (sampledType) *sampledType = BxDFType(0);
+        return 0;
+    }
+    *wiWorld = LocalToWorld(wi);
 
     // Compute overall PDF with all matching _BxDF_s
     if (!(bxdf->type & BSDF_SPECULAR) && matchingComps > 1)
         for (int i = 0; i < nBxDFs; ++i)
-            if (bxdfs[i] != bxdf && bxdfs[i]->MatchesFlags(flags))
+            if (bxdfs[i] != bxdf && bxdfs[i]->MatchesFlags(type))
                 *pdf += bxdfs[i]->Pdf(wo, wi);
     if (matchingComps > 1) *pdf /= matchingComps;
 
     // Compute value of BSDF for sampled direction
-    if (!(bxdf->type & BSDF_SPECULAR)) {
+    if (!(bxdf->type & BSDF_SPECULAR) && matchingComps > 1) {
+        bool reflect = Dot(*wiWorld, ng) * Dot(woWorld, ng) > 0;
         f = 0.;
-        if (Dot(*wiW, ng) * Dot(woW, ng) > 0) // ignore BTDFs
-            flags = BxDFType(flags & ~BSDF_TRANSMISSION);
-        else // ignore BRDFs
-            flags = BxDFType(flags & ~BSDF_REFLECTION);
         for (int i = 0; i < nBxDFs; ++i)
-            if (bxdfs[i]->MatchesFlags(flags))
+            if (bxdfs[i]->MatchesFlags(type) &&
+                ((reflect && (bxdfs[i]->type & BSDF_REFLECTION)) ||
+                 (!reflect && (bxdfs[i]->type & BSDF_TRANSMISSION))))
                 f += bxdfs[i]->f(wo, wi);
     }
-        PBRT_FINISHED_BSDF_SAMPLE();
+    VLOG(2) << "Overall f = " << f << ", pdf = " << *pdf << ", ratio = "
+            << ((*pdf > 0) ? (f / *pdf) : Spectrum(0.));
     return f;
 }
 
-
-float BSDF::Pdf(const Vector &woW, const Vector &wiW,
-        BxDFType flags) const {
-    if (nBxDFs == 0.) return 0.;
-    PBRT_STARTED_BSDF_PDF();
-    Vector wo = WorldToLocal(woW), wi = WorldToLocal(wiW);
-    float pdf = 0.f;
+Float BSDF::Pdf(const Vector3f &woWorld, const Vector3f &wiWorld,
+                BxDFType flags) const {
+    ProfilePhase pp(Prof::BSDFPdf);
+    if (nBxDFs == 0.f) return 0.f;
+    Vector3f wo = WorldToLocal(woWorld), wi = WorldToLocal(wiWorld);
+    if (wo.z == 0) return 0.;
+    Float pdf = 0.f;
     int matchingComps = 0;
     for (int i = 0; i < nBxDFs; ++i)
         if (bxdfs[i]->MatchesFlags(flags)) {
             ++matchingComps;
             pdf += bxdfs[i]->Pdf(wo, wi);
         }
-    float v = matchingComps > 0 ? pdf / matchingComps : 0.f;
-    PBRT_FINISHED_BSDF_PDF();
+    Float v = matchingComps > 0 ? pdf / matchingComps : 0.f;
     return v;
 }
 
-
-BSDF::BSDF(const DifferentialGeometry &dg, const Normal &ngeom,
-           float e)
-    : dgShading(dg), eta(e) {
-    ng = ngeom;
-    nn = dgShading.nn;
-    sn = Normalize(dgShading.dpdu);
-    tn = Cross(nn, sn);
-    nBxDFs = 0;
-}
-
-
-Spectrum BSDF::f(const Vector &woW, const Vector &wiW,
-                 BxDFType flags) const {
-    PBRT_STARTED_BSDF_EVAL();
-    Vector wi = WorldToLocal(wiW), wo = WorldToLocal(woW);
-    if (Dot(wiW, ng) * Dot(woW, ng) > 0) // ignore BTDFs
-        flags = BxDFType(flags & ~BSDF_TRANSMISSION);
-    else // ignore BRDFs
-        flags = BxDFType(flags & ~BSDF_REFLECTION);
-    Spectrum f = 0.;
+std::string BSDF::ToString() const {
+    std::string s = StringPrintf("[ BSDF eta: %f nBxDFs: %d", eta, nBxDFs);
     for (int i = 0; i < nBxDFs; ++i)
-        if (bxdfs[i]->MatchesFlags(flags))
-            f += bxdfs[i]->f(wo, wi);
-    PBRT_FINISHED_BSDF_EVAL();
-    return f;
+        s += StringPrintf("\n  bxdfs[%d]: ", i) + bxdfs[i]->ToString();
+    return s + std::string(" ]");
 }
 
-
-Spectrum BSDF::rho(RNG &rng, BxDFType flags, int sqrtSamples) const {
-    int nSamples = sqrtSamples * sqrtSamples;
-    float *s1 = ALLOCA(float, 2 * nSamples);
-    StratifiedSample2D(s1, sqrtSamples, sqrtSamples, rng);
-    float *s2 = ALLOCA(float, 2 * nSamples);
-    StratifiedSample2D(s2, sqrtSamples, sqrtSamples, rng);
-
-    Spectrum ret(0.);
-    for (int i = 0; i < nBxDFs; ++i)
-        if (bxdfs[i]->MatchesFlags(flags))
-            ret += bxdfs[i]->rho(nSamples, s1, s2);
-    return ret;
-}
-
-
-Spectrum BSDF::rho(const Vector &wo, RNG &rng, BxDFType flags,
-                   int sqrtSamples) const {
-    int nSamples = sqrtSamples * sqrtSamples;
-    float *s1 = ALLOCA(float, 2 * nSamples);
-    StratifiedSample2D(s1, sqrtSamples, sqrtSamples, rng);
-    Spectrum ret(0.);
-    for (int i = 0; i < nBxDFs; ++i)
-        if (bxdfs[i]->MatchesFlags(flags))
-            ret += bxdfs[i]->rho(wo, nSamples, s1);
-    return ret;
-}
-
-
+}  // namespace pbrt

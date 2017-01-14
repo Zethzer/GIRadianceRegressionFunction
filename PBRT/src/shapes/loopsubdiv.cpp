@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,88 +32,73 @@
 
 
 // shapes/loopsubdiv.cpp*
-#include "stdafx.h"
 #include "shapes/loopsubdiv.h"
-#include "shapes/trianglemesh.h"
+#include "shapes/triangle.h"
 #include "paramset.h"
 #include <set>
 #include <map>
-using std::set;
-using std::map;
+
+namespace pbrt {
+
+struct SDFace;
+struct SDVertex;
 
 // LoopSubdiv Macros
-#define NEXT(i) (((i)+1)%3)
-#define PREV(i) (((i)+2)%3)
+#define NEXT(i) (((i) + 1) % 3)
+#define PREV(i) (((i) + 2) % 3)
 
 // LoopSubdiv Local Structures
-struct SDFace;
-struct SDFace;
 struct SDVertex {
     // SDVertex Constructor
-    SDVertex(Point pt = Point(0,0,0))
-        : P(pt), startFace(NULL), child(NULL),
-          regular(false), boundary(false) { }
+    SDVertex(const Point3f &p = Point3f(0, 0, 0)) : p(p) {}
 
     // SDVertex Methods
     int valence();
-    void oneRing(Point *P);
-    Point P;
-    SDFace *startFace;
-    SDVertex *child;
-    bool regular, boundary;
+    void oneRing(Point3f *p);
+    Point3f p;
+    SDFace *startFace = nullptr;
+    SDVertex *child = nullptr;
+    bool regular = false, boundary = false;
 };
-
 
 struct SDFace {
     // SDFace Constructor
     SDFace() {
-        int i;
-        for (i = 0; i < 3; ++i) {
-            v[i] = NULL;
-            f[i] = NULL;
+        for (int i = 0; i < 3; ++i) {
+            v[i] = nullptr;
+            f[i] = nullptr;
         }
-        for (i = 0; i < 4; ++i)
-            children[i] = NULL;
+        for (int i = 0; i < 4; ++i) children[i] = nullptr;
     }
 
     // SDFace Methods
     int vnum(SDVertex *vert) const {
         for (int i = 0; i < 3; ++i)
             if (v[i] == vert) return i;
-        Severe("Basic logic error in SDFace::vnum()");
+        LOG(FATAL) << "Basic logic error in SDFace::vnum()";
         return -1;
     }
-    SDFace *nextFace(SDVertex *vert) {
-        return f[vnum(vert)];
-    }
-    SDFace *prevFace(SDVertex *vert) {
-        return f[PREV(vnum(vert))];
-    }
-    SDVertex *nextVert(SDVertex *vert) {
-        return v[NEXT(vnum(vert))];
-    }
-    SDVertex *prevVert(SDVertex *vert) {
-        return v[PREV(vnum(vert))];
-    }
+    SDFace *nextFace(SDVertex *vert) { return f[vnum(vert)]; }
+    SDFace *prevFace(SDVertex *vert) { return f[PREV(vnum(vert))]; }
+    SDVertex *nextVert(SDVertex *vert) { return v[NEXT(vnum(vert))]; }
+    SDVertex *prevVert(SDVertex *vert) { return v[PREV(vnum(vert))]; }
     SDVertex *otherVert(SDVertex *v0, SDVertex *v1) {
         for (int i = 0; i < 3; ++i)
-            if (v[i] != v0 && v[i] != v1)
-                return v[i];
-        Severe("Basic logic error in SDVertex::otherVert()");
-        return NULL;
+            if (v[i] != v0 && v[i] != v1) return v[i];
+        LOG(FATAL) << "Basic logic error in SDVertex::otherVert()";
+        return nullptr;
     }
     SDVertex *v[3];
     SDFace *f[3];
     SDFace *children[4];
 };
 
-
 struct SDEdge {
     // SDEdge Constructor
-    SDEdge(SDVertex *v0 = NULL, SDVertex *v1 = NULL) {
-        v[0] = min(v0, v1);
-        v[1] = max(v0, v1);
-        f[0] = f[1] = NULL;
+    SDEdge(SDVertex *v0 = nullptr, SDVertex *v1 = nullptr) {
+        v[0] = std::min(v0, v1);
+        v[1] = std::max(v0, v1);
+        f[0] = f[1] = nullptr;
         f0edgeNum = -1;
     }
 
@@ -126,7 +112,9 @@ struct SDEdge {
     int f0edgeNum;
 };
 
-
+// LoopSubdiv Local Declarations
+static Point3f weightOneRing(SDVertex *vert, Float beta);
+static Point3f weightBoundary(SDVertex *vert, Float beta);
 
 // LoopSubdiv Inline Functions
 inline int SDVertex::valence() {
@@ -134,56 +122,60 @@ inline int SDVertex::valence() {
     if (!boundary) {
         // Compute valence of interior vertex
         int nf = 1;
-        while ((f = f->nextFace(this)) != startFace)
-            ++nf;
+        while ((f = f->nextFace(this)) != startFace) ++nf;
         return nf;
-    }
-    else {
+    } else {
         // Compute valence of boundary vertex
         int nf = 1;
-        while ((f = f->nextFace(this)) != NULL)
-            ++nf;
+        while ((f = f->nextFace(this)) != nullptr) ++nf;
         f = startFace;
-        while ((f = f->prevFace(this)) != NULL)
-            ++nf;
-        return nf+1;
+        while ((f = f->prevFace(this)) != nullptr) ++nf;
+        return nf + 1;
     }
 }
 
+inline Float beta(int valence) {
+    if (valence == 3)
+        return 3.f / 16.f;
+    else
+        return 3.f / (8.f * valence);
+}
 
+inline Float loopGamma(int valence) {
+    return 1.f / (valence + 3.f / (8.f * beta(valence)));
+}
 
-// LoopSubdiv Method Definitions
-LoopSubdiv::LoopSubdiv(const Transform *o2w, const Transform *w2o,
-                       bool ro, int nfaces, int nvertices,
-                       const int *vertexIndices, const Point *P, int nl)
-    : Shape(o2w, w2o, ro) {
-    nLevels = nl;
+// LoopSubdiv Function Definitions
+static std::vector<std::shared_ptr<Shape>> LoopSubdivide(
+    const Transform *ObjectToWorld, const Transform *WorldToObject,
+    bool reverseOrientation, int nLevels, int nIndices,
+    const int *vertexIndices, int nVertices, const Point3f *p) {
+    std::vector<SDVertex *> vertices;
+    std::vector<SDFace *> faces;
     // Allocate _LoopSubdiv_ vertices and faces
-    int i;
-    SDVertex *verts = new SDVertex[nvertices];
-    for (i = 0; i < nvertices; ++i) {
-        verts[i] = SDVertex(P[i]);
+    std::unique_ptr<SDVertex[]> verts(new SDVertex[nVertices]);
+    for (int i = 0; i < nVertices; ++i) {
+        verts[i] = SDVertex(p[i]);
         vertices.push_back(&verts[i]);
     }
-    SDFace *fs = new SDFace[nfaces];
-    for (i = 0; i < nfaces; ++i)
-        faces.push_back(&fs[i]);
+    int nFaces = nIndices / 3;
+    std::unique_ptr<SDFace[]> fs(new SDFace[nFaces]);
+    for (int i = 0; i < nFaces; ++i) faces.push_back(&fs[i]);
 
     // Set face to vertex pointers
     const int *vp = vertexIndices;
-    for (i = 0; i < nfaces; ++i) {
+    for (int i = 0; i < nFaces; ++i, vp += 3) {
         SDFace *f = faces[i];
         for (int j = 0; j < 3; ++j) {
             SDVertex *v = vertices[vp[j]];
             f->v[j] = v;
             v->startFace = f;
         }
-        vp += 3;
     }
 
     // Set neighbor pointers in _faces_
-    set<SDEdge> edges;
-    for (i = 0; i < nfaces; ++i) {
+    std::set<SDEdge> edges;
+    for (int i = 0; i < nFaces; ++i) {
         SDFace *f = faces[i];
         for (int edgeNum = 0; edgeNum < 3; ++edgeNum) {
             // Update neighbor pointer for _edgeNum_
@@ -194,8 +186,7 @@ LoopSubdiv::LoopSubdiv(const Transform *o2w, const Transform *w2o,
                 e.f[0] = f;
                 e.f0edgeNum = edgeNum;
                 edges.insert(e);
-            }
-            else {
+            } else {
                 // Handle previously seen edge
                 e = *edges.find(e);
                 e.f[0]->f[e.f0edgeNum] = f;
@@ -206,13 +197,13 @@ LoopSubdiv::LoopSubdiv(const Transform *o2w, const Transform *w2o,
     }
 
     // Finish vertex initialization
-    for (i = 0; i < nvertices; ++i) {
+    for (int i = 0; i < nVertices; ++i) {
         SDVertex *v = vertices[i];
         SDFace *f = v->startFace;
         do {
             f = f->nextFace(v);
         } while (f && f != v->startFace);
-        v->boundary = (f == NULL);
+        v->boundary = (f == nullptr);
         if (!v->boundary && v->valence() == 6)
             v->regular = true;
         else if (v->boundary && v->valence() == 4)
@@ -220,79 +211,50 @@ LoopSubdiv::LoopSubdiv(const Transform *o2w, const Transform *w2o,
         else
             v->regular = false;
     }
-}
 
-
-LoopSubdiv::~LoopSubdiv() {
-    delete[] vertices[0];
-    delete[] faces[0];
-}
-
-
-BBox LoopSubdiv::ObjectBound() const {
-    BBox b;
-    for (uint32_t i = 0; i < vertices.size(); i++)
-        b = Union(b, vertices[i]->P);
-    return b;
-}
-
-
-BBox LoopSubdiv::WorldBound() const {
-    BBox b;
-    for (uint32_t i = 0; i < vertices.size(); i++)
-        b = Union(b, (*ObjectToWorld)(vertices[i]->P));
-    return b;
-}
-
-
-bool LoopSubdiv::CanIntersect() const {
-    return false;
-}
-
-
-void LoopSubdiv::Refine(vector<Reference<Shape> > &refined) const {
-    vector<SDFace *> f = faces;
-    vector<SDVertex *> v = vertices;
+    // Refine _LoopSubdiv_ into triangles
+    std::vector<SDFace *> f = faces;
+    std::vector<SDVertex *> v = vertices;
     MemoryArena arena;
     for (int i = 0; i < nLevels; ++i) {
         // Update _f_ and _v_ for next level of subdivision
-        vector<SDFace *> newFaces;
-        vector<SDVertex *> newVertices;
+        std::vector<SDFace *> newFaces;
+        std::vector<SDVertex *> newVertices;
 
         // Allocate next level of children in mesh tree
-        for (uint32_t j = 0; j < v.size(); ++j) {
-            v[j]->child = arena.Alloc<SDVertex>();
-            v[j]->child->regular = v[j]->regular;
-            v[j]->child->boundary = v[j]->boundary;
-            newVertices.push_back(v[j]->child);
+        for (SDVertex *vertex : v) {
+            vertex->child = arena.Alloc<SDVertex>();
+            vertex->child->regular = vertex->regular;
+            vertex->child->boundary = vertex->boundary;
+            newVertices.push_back(vertex->child);
         }
-        for (uint32_t j = 0; j < f.size(); ++j)
+        for (SDFace *face : f) {
             for (int k = 0; k < 4; ++k) {
-                f[j]->children[k] = arena.Alloc<SDFace>();
-                newFaces.push_back(f[j]->children[k]);
+                face->children[k] = arena.Alloc<SDFace>();
+                newFaces.push_back(face->children[k]);
             }
+        }
 
         // Update vertex positions and create new edge vertices
 
         // Update vertex positions for even vertices
-        for (uint32_t j = 0; j < v.size(); ++j) {
-            if (!v[j]->boundary) {
+        for (SDVertex *vertex : v) {
+            if (!vertex->boundary) {
                 // Apply one-ring rule for even vertex
-                if (v[j]->regular)
-                    v[j]->child->P = weightOneRing(v[j], 1.f/16.f);
+                if (vertex->regular)
+                    vertex->child->p = weightOneRing(vertex, 1.f / 16.f);
                 else
-                    v[j]->child->P = weightOneRing(v[j], beta(v[j]->valence()));
-            }
-            else {
+                    vertex->child->p =
+                        weightOneRing(vertex, beta(vertex->valence()));
+            } else {
                 // Apply boundary rule for even vertex
-                v[j]->child->P = weightBoundary(v[j], 1.f/8.f);
+                vertex->child->p = weightBoundary(vertex, 1.f / 8.f);
             }
         }
 
         // Compute new odd edge vertices
-        map<SDEdge, SDVertex *> edgeVerts;
-        for (uint32_t j = 0; j < f.size(); ++j) {
-            SDFace *face = f[j];
+        std::map<SDEdge, SDVertex *> edgeVerts;
+        for (SDFace *face : f) {
             for (int k = 0; k < 3; ++k) {
                 // Compute odd vertex on _k_th edge
                 SDEdge edge(face->v[k], face->v[NEXT(k)]);
@@ -302,20 +264,21 @@ void LoopSubdiv::Refine(vector<Reference<Shape> > &refined) const {
                     vert = arena.Alloc<SDVertex>();
                     newVertices.push_back(vert);
                     vert->regular = true;
-                    vert->boundary = (face->f[k] == NULL);
+                    vert->boundary = (face->f[k] == nullptr);
                     vert->startFace = face->children[3];
 
                     // Apply edge rules to compute new vertex position
                     if (vert->boundary) {
-                        vert->P =  0.5f * edge.v[0]->P;
-                        vert->P += 0.5f * edge.v[1]->P;
-                    }
-                    else {
-                        vert->P =  3.f/8.f * edge.v[0]->P;
-                        vert->P += 3.f/8.f * edge.v[1]->P;
-                        vert->P += 1.f/8.f * face->otherVert(edge.v[0], edge.v[1])->P;
-                        vert->P += 1.f/8.f *
-                            face->f[k]->otherVert(edge.v[0], edge.v[1])->P;
+                        vert->p = 0.5f * edge.v[0]->p;
+                        vert->p += 0.5f * edge.v[1]->p;
+                    } else {
+                        vert->p = 3.f / 8.f * edge.v[0]->p;
+                        vert->p += 3.f / 8.f * edge.v[1]->p;
+                        vert->p += 1.f / 8.f *
+                                   face->otherVert(edge.v[0], edge.v[1])->p;
+                        vert->p +=
+                            1.f / 8.f *
+                            face->f[k]->otherVert(edge.v[0], edge.v[1])->p;
                     }
                     edgeVerts[edge] = vert;
                 }
@@ -325,43 +288,40 @@ void LoopSubdiv::Refine(vector<Reference<Shape> > &refined) const {
         // Update new mesh topology
 
         // Update even vertex face pointers
-        for (uint32_t j = 0; j < v.size(); ++j) {
-            SDVertex *vert = v[j];
-            int vertNum = vert->startFace->vnum(vert);
-            vert->child->startFace =
-                vert->startFace->children[vertNum];
+        for (SDVertex *vertex : v) {
+            int vertNum = vertex->startFace->vnum(vertex);
+            vertex->child->startFace = vertex->startFace->children[vertNum];
         }
 
         // Update face neighbor pointers
-        for (uint32_t j = 0; j < f.size(); ++j) {
-            SDFace *face = f[j];
-            for (int k = 0; k < 3; ++k) {
+        for (SDFace *face : f) {
+            for (int j = 0; j < 3; ++j) {
                 // Update children _f_ pointers for siblings
-                face->children[3]->f[k] = face->children[NEXT(k)];
-                face->children[k]->f[NEXT(k)] = face->children[3];
+                face->children[3]->f[j] = face->children[NEXT(j)];
+                face->children[j]->f[NEXT(j)] = face->children[3];
 
                 // Update children _f_ pointers for neighbor children
-                SDFace *f2 = face->f[k];
-                face->children[k]->f[k] =
-                    f2 ? f2->children[f2->vnum(face->v[k])] : NULL;
-                f2 = face->f[PREV(k)];
-                face->children[k]->f[PREV(k)] =
-                    f2 ? f2->children[f2->vnum(face->v[k])] : NULL;
+                SDFace *f2 = face->f[j];
+                face->children[j]->f[j] =
+                    f2 ? f2->children[f2->vnum(face->v[j])] : nullptr;
+                f2 = face->f[PREV(j)];
+                face->children[j]->f[PREV(j)] =
+                    f2 ? f2->children[f2->vnum(face->v[j])] : nullptr;
             }
         }
 
         // Update face vertex pointers
-        for (uint32_t j = 0; j < f.size(); ++j) {
-            SDFace *face = f[j];
-            for (int k = 0; k < 3; ++k) {
+        for (SDFace *face : f) {
+            for (int j = 0; j < 3; ++j) {
                 // Update child vertex pointer to new even vertex
-                face->children[k]->v[k] = face->v[k]->child;
+                face->children[j]->v[j] = face->v[j]->child;
 
                 // Update child vertex pointer to new odd vertex
-                SDVertex *vert = edgeVerts[SDEdge(face->v[k], face->v[NEXT(k)])];
-                face->children[k]->v[NEXT(k)] = vert;
-                face->children[NEXT(k)]->v[k] = vert;
-                face->children[3]->v[k] = vert;
+                SDVertex *vert =
+                    edgeVerts[SDEdge(face->v[j], face->v[NEXT(j)])];
+                face->children[j]->v[NEXT(j)] = vert;
+                face->children[NEXT(j)]->v[j] = vert;
+                face->children[3]->v[j] = vert;
             }
         }
 
@@ -369,142 +329,139 @@ void LoopSubdiv::Refine(vector<Reference<Shape> > &refined) const {
         f = newFaces;
         v = newVertices;
     }
+
     // Push vertices to limit surface
-    Point *Plimit = new Point[v.size()];
-    for (uint32_t i = 0; i < v.size(); ++i) {
+    std::unique_ptr<Point3f[]> pLimit(new Point3f[v.size()]);
+    for (size_t i = 0; i < v.size(); ++i) {
         if (v[i]->boundary)
-            Plimit[i] =  weightBoundary(v[i], 1.f/5.f);
+            pLimit[i] = weightBoundary(v[i], 1.f / 5.f);
         else
-            Plimit[i] =  weightOneRing(v[i], gamma(v[i]->valence()));
+            pLimit[i] = weightOneRing(v[i], loopGamma(v[i]->valence()));
     }
-    for (uint32_t i = 0; i < v.size(); ++i)
-        v[i]->P = Plimit[i];
+    for (size_t i = 0; i < v.size(); ++i) v[i]->p = pLimit[i];
 
     // Compute vertex tangents on limit surface
-    vector<Normal> Ns;
+    std::vector<Normal3f> Ns;
     Ns.reserve(v.size());
-    vector<Point> Pring(16, Point());
-    for (uint32_t i = 0; i < v.size(); ++i) {
-        SDVertex *vert = v[i];
-        Vector S(0,0,0), T(0,0,0);
-        int valence = vert->valence();
-        if (valence > (int)Pring.size())
-            Pring.resize(valence);
-        vert->oneRing(&Pring[0]);
-        if (!vert->boundary) {
+    std::vector<Point3f> pRing(16, Point3f());
+    for (SDVertex *vertex : v) {
+        Vector3f S(0, 0, 0), T(0, 0, 0);
+        int valence = vertex->valence();
+        if (valence > (int)pRing.size()) pRing.resize(valence);
+        vertex->oneRing(&pRing[0]);
+        if (!vertex->boundary) {
             // Compute tangents of interior face
-            for (int k = 0; k < valence; ++k) {
-                S += cosf(2.f*M_PI*k/valence) * Vector(Pring[k]);
-                T += sinf(2.f*M_PI*k/valence) * Vector(Pring[k]);
+            for (int j = 0; j < valence; ++j) {
+                S += std::cos(2 * Pi * j / valence) * Vector3f(pRing[j]);
+                T += std::sin(2 * Pi * j / valence) * Vector3f(pRing[j]);
             }
         } else {
             // Compute tangents of boundary face
-            S = Pring[valence-1] - Pring[0];
+            S = pRing[valence - 1] - pRing[0];
             if (valence == 2)
-                T = Vector(Pring[0] + Pring[1] - 2 * vert->P);
+                T = Vector3f(pRing[0] + pRing[1] - 2 * vertex->p);
             else if (valence == 3)
-                T = Pring[1] - vert->P;
-            else if (valence == 4) // regular
-                T = Vector(-1*Pring[0] + 2*Pring[1] + 2*Pring[2] +
-                           -1*Pring[3] + -2*vert->P);
+                T = pRing[1] - vertex->p;
+            else if (valence == 4)  // regular
+                T = Vector3f(-1 * pRing[0] + 2 * pRing[1] + 2 * pRing[2] +
+                             -1 * pRing[3] + -2 * vertex->p);
             else {
-                float theta = M_PI / float(valence-1);
-                T = Vector(sinf(theta) * (Pring[0] + Pring[valence-1]));
-                for (int k = 1; k < valence-1; ++k) {
-                    float wt = (2*cosf(theta) - 2) * sinf((k) * theta);
-                    T += Vector(wt * Pring[k]);
+                Float theta = Pi / float(valence - 1);
+                T = Vector3f(std::sin(theta) * (pRing[0] + pRing[valence - 1]));
+                for (int k = 1; k < valence - 1; ++k) {
+                    Float wt = (2 * std::cos(theta) - 2) * std::sin((k)*theta);
+                    T += Vector3f(wt * pRing[k]);
                 }
                 T = -T;
             }
         }
-        Ns.push_back(Normal(Cross(S, T)));
+        Ns.push_back(Normal3f(Cross(S, T)));
     }
 
-    // Create _TriangleMesh_ from subdivision mesh
-    uint32_t ntris = uint32_t(f.size());
-    int *verts = new int[3*ntris];
-    int *vp = verts;
-    uint32_t totVerts = uint32_t(v.size());
-    map<SDVertex *, int> usedVerts;
-    for (uint32_t i = 0; i < totVerts; ++i)
-        usedVerts[v[i]] = i;
-    for (uint32_t i = 0; i < ntris; ++i) {
-        for (int j = 0; j < 3; ++j) {
-            *vp = usedVerts[f[i]->v[j]];
-            ++vp;
+    // Create triangle mesh from subdivision mesh
+    {
+        size_t ntris = f.size();
+        std::unique_ptr<int[]> verts(new int[3 * ntris]);
+        int *vp = verts.get();
+        size_t totVerts = v.size();
+        std::map<SDVertex *, int> usedVerts;
+        for (size_t i = 0; i < totVerts; ++i) usedVerts[v[i]] = i;
+        for (size_t i = 0; i < ntris; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                *vp = usedVerts[f[i]->v[j]];
+                ++vp;
+            }
         }
+        return CreateTriangleMesh(ObjectToWorld, WorldToObject,
+                                  reverseOrientation, ntris, verts.get(),
+                                  totVerts, pLimit.get(), nullptr, &Ns[0],
+                                  nullptr, nullptr, nullptr);
     }
-    ParamSet paramSet;
-    paramSet.AddInt("indices", verts, 3*ntris);
-    paramSet.AddPoint("P", Plimit, totVerts);
-    paramSet.AddNormal("N", &Ns[0], int(Ns.size()));
-    refined.push_back(CreateTriangleMeshShape(ObjectToWorld,
-            WorldToObject, ReverseOrientation, paramSet));
-    delete[] verts;
-    delete[] Plimit;
 }
 
+std::vector<std::shared_ptr<Shape>> CreateLoopSubdiv(const Transform *o2w,
+                                                     const Transform *w2o,
+                                                     bool reverseOrientation,
+                                                     const ParamSet &params) {
+    int nLevels = params.FindOneInt("levels",
+                                    params.FindOneInt("nlevels", 3));
+    int nps, nIndices;
+    const int *vertexIndices = params.FindInt("indices", &nIndices);
+    const Point3f *P = params.FindPoint3f("P", &nps);
+    if (!vertexIndices) {
+        Error("Vertex indices \"indices\" not provided for LoopSubdiv shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
+    if (!P) {
+        Error("Vertex positions \"P\" not provided for LoopSubdiv shape.");
+        return std::vector<std::shared_ptr<Shape>>();
+    }
 
-Point LoopSubdiv::weightOneRing(SDVertex *vert, float beta) {
-    // Put _vert_ one-ring in _Pring_
+    // don't actually use this for now...
+    std::string scheme = params.FindOneString("scheme", "loop");
+    return LoopSubdivide(o2w, w2o, reverseOrientation, nLevels, nIndices,
+                         vertexIndices, nps, P);
+}
+
+static Point3f weightOneRing(SDVertex *vert, Float beta) {
+    // Put _vert_ one-ring in _pRing_
     int valence = vert->valence();
-    Point *Pring = ALLOCA(Point, valence);
-    vert->oneRing(Pring);
-    Point P = (1 - valence * beta) * vert->P;
-    for (int i = 0; i < valence; ++i)
-        P += beta * Pring[i];
-    return P;
+    Point3f *pRing = ALLOCA(Point3f, valence);
+    vert->oneRing(pRing);
+    Point3f p = (1 - valence * beta) * vert->p;
+    for (int i = 0; i < valence; ++i) p += beta * pRing[i];
+    return p;
 }
 
-
-void SDVertex::oneRing(Point *P) {
+void SDVertex::oneRing(Point3f *p) {
     if (!boundary) {
         // Get one-ring vertices for interior vertex
         SDFace *face = startFace;
         do {
-            *P++ = face->nextVert(this)->P;
+            *p++ = face->nextVert(this)->p;
             face = face->nextFace(this);
         } while (face != startFace);
-    }
-    else {
+    } else {
         // Get one-ring vertices for boundary vertex
         SDFace *face = startFace, *f2;
-        while ((f2 = face->nextFace(this)) != NULL)
-            face = f2;
-        *P++ = face->nextVert(this)->P;
+        while ((f2 = face->nextFace(this)) != nullptr) face = f2;
+        *p++ = face->nextVert(this)->p;
         do {
-            *P++ = face->prevVert(this)->P;
+            *p++ = face->prevVert(this)->p;
             face = face->prevFace(this);
-        } while (face != NULL);
+        } while (face != nullptr);
     }
 }
 
-
-Point LoopSubdiv::weightBoundary(SDVertex *vert, float beta) {
-    // Put _vert_ one-ring in _Pring_
+static Point3f weightBoundary(SDVertex *vert, Float beta) {
+    // Put _vert_ one-ring in _pRing_
     int valence = vert->valence();
-    Point *Pring = ALLOCA(Point, valence);
-    vert->oneRing(Pring);
-    Point P = (1-2*beta) * vert->P;
-    P += beta * Pring[0];
-    P += beta * Pring[valence-1];
-    return P;
+    Point3f *pRing = ALLOCA(Point3f, valence);
+    vert->oneRing(pRing);
+    Point3f p = (1 - 2 * beta) * vert->p;
+    p += beta * pRing[0];
+    p += beta * pRing[valence - 1];
+    return p;
 }
 
-
-LoopSubdiv *CreateLoopSubdivShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params) {
-    int nlevels = params.FindOneInt("nlevels", 3);
-    int nps, nIndices;
-    const int *vi = params.FindInt("indices", &nIndices);
-    const Point *P = params.FindPoint("P", &nps);
-    if (!vi || !P) return NULL;
-
-    // don't actually use this for now...
-    string scheme = params.FindOneString("scheme", "loop");
-
-    return new LoopSubdiv(o2w, w2o, reverseOrientation, nIndices/3, nps,
-        vi, P, nlevels);
-}
-
-
+}  // namespace pbrt

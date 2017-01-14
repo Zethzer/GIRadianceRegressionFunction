@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,41 +32,52 @@
 
 
 // materials/substrate.cpp*
-#include "stdafx.h"
 #include "materials/substrate.h"
 #include "spectrum.h"
 #include "reflection.h"
 #include "paramset.h"
 #include "texture.h"
+#include "interaction.h"
+
+namespace pbrt {
 
 // SubstrateMaterial Method Definitions
-BSDF *SubstrateMaterial::GetBSDF(const DifferentialGeometry &dgGeom, const DifferentialGeometry &dgShading, MemoryArena &arena) const {
-    // Allocate _BSDF_, possibly doing bump mapping with _bumpMap_
-    DifferentialGeometry dgs;
-    if (bumpMap)
-        Bump(bumpMap, dgGeom, dgShading, &dgs);
-    else
-        dgs = dgShading;
-    BSDF *bsdf = BSDF_ALLOC(arena, BSDF)(dgs, dgGeom.nn);
-    Spectrum d = Kd->Evaluate(dgs).Clamp();
-    Spectrum s = Ks->Evaluate(dgs).Clamp();
-    float u = nu->Evaluate(dgs);
-    float v = nv->Evaluate(dgs);
+void SubstrateMaterial::ComputeScatteringFunctions(
+    SurfaceInteraction *si, MemoryArena &arena, TransportMode mode,
+    bool allowMultipleLobes) const {
+    // Perform bump mapping with _bumpMap_, if present
+    if (bumpMap) Bump(bumpMap, si);
+    si->bsdf = ARENA_ALLOC(arena, BSDF)(*si);
+    Spectrum d = Kd->Evaluate(*si).Clamp();
+    Spectrum s = Ks->Evaluate(*si).Clamp();
+    Float roughu = nu->Evaluate(*si);
+    Float roughv = nv->Evaluate(*si);
 
-    if (!d.IsBlack() || !s.IsBlack())
-        bsdf->Add(BSDF_ALLOC(arena, FresnelBlend)(d, s, BSDF_ALLOC(arena, Anisotropic)(1.f/u, 1.f/v)));
-    return bsdf;
+    if (!d.IsBlack() || !s.IsBlack()) {
+        if (remapRoughness) {
+            roughu = TrowbridgeReitzDistribution::RoughnessToAlpha(roughu);
+            roughv = TrowbridgeReitzDistribution::RoughnessToAlpha(roughv);
+        }
+        MicrofacetDistribution *distrib =
+            ARENA_ALLOC(arena, TrowbridgeReitzDistribution)(roughu, roughv);
+        si->bsdf->Add(ARENA_ALLOC(arena, FresnelBlend)(d, s, distrib));
+    }
 }
 
-
-SubstrateMaterial *CreateSubstrateMaterial(const Transform &xform,
-        const TextureParams &mp) {
-    Reference<Texture<Spectrum> > Kd = mp.GetSpectrumTexture("Kd", Spectrum(.5f));
-    Reference<Texture<Spectrum> > Ks = mp.GetSpectrumTexture("Ks", Spectrum(.5f));
-    Reference<Texture<float> > uroughness = mp.GetFloatTexture("uroughness", .1f);
-    Reference<Texture<float> > vroughness = mp.GetFloatTexture("vroughness", .1f);
-    Reference<Texture<float> > bumpMap = mp.GetFloatTextureOrNull("bumpmap");
-    return new SubstrateMaterial(Kd, Ks, uroughness, vroughness, bumpMap);
+SubstrateMaterial *CreateSubstrateMaterial(const TextureParams &mp) {
+    std::shared_ptr<Texture<Spectrum>> Kd =
+        mp.GetSpectrumTexture("Kd", Spectrum(.5f));
+    std::shared_ptr<Texture<Spectrum>> Ks =
+        mp.GetSpectrumTexture("Ks", Spectrum(.5f));
+    std::shared_ptr<Texture<Float>> uroughness =
+        mp.GetFloatTexture("uroughness", .1f);
+    std::shared_ptr<Texture<Float>> vroughness =
+        mp.GetFloatTexture("vroughness", .1f);
+    std::shared_ptr<Texture<Float>> bumpMap =
+        mp.GetFloatTextureOrNull("bumpmap");
+    bool remapRoughness = mp.FindBool("remaproughness", true);
+    return new SubstrateMaterial(Kd, Ks, uroughness, vroughness, bumpMap,
+                                 remapRoughness);
 }
 
-
+}  // namespace pbrt

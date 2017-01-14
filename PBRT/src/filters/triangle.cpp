@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,22 +32,22 @@
 
 
 // filters/triangle.cpp*
-#include "stdafx.h"
 #include "filters/triangle.h"
 #include "paramset.h"
 
-// Triangle Filter Method Definitions
-float TriangleFilter::Evaluate(float x, float y) const {
-    return max(0.f, xWidth - fabsf(x)) *
-           max(0.f, yWidth - fabsf(y));
-}
+namespace pbrt {
 
+// Triangle Filter Method Definitions
+Float TriangleFilter::Evaluate(const Point2f &p) const {
+    return std::max((Float)0, radius.x - std::abs(p.x)) *
+           std::max((Float)0, radius.y - std::abs(p.y));
+}
 
 TriangleFilter *CreateTriangleFilter(const ParamSet &ps) {
     // Find common filter parameters
-    float xw = ps.FindOneFloat("xwidth", 2.f);
-    float yw = ps.FindOneFloat("ywidth", 2.f);
-    return new TriangleFilter(xw, yw);
+    Float xw = ps.FindOneFloat("xwidth", 2.f);
+    Float yw = ps.FindOneFloat("ywidth", 2.f);
+    return new TriangleFilter(Vector2f(xw, yw));
 }
 
-
+}  // namespace pbrt

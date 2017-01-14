@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,11 +40,21 @@
 
 // core/imageio.h*
 #include "pbrt.h"
+#include "geometry.h"
+#include <cctype>
+
+namespace pbrt {
 
 // ImageIO Declarations
-RGBSpectrum *ReadImage(const string &name, int *xSize, int *ySize);
-void WriteImage(const string &name, float *pixels, float *alpha,
-    int XRes, int YRes, int totalXRes, int totalYRes, int xOffset,
-    int yOffset);
+std::unique_ptr<RGBSpectrum[]> ReadImage(const std::string &name,
+                                         Point2i *resolution);
+RGBSpectrum *ReadImageEXR(const std::string &name, int *width,
+                          int *height, Bounds2i *dataWindow = nullptr,
+                          Bounds2i *displayWindow = nullptr);
 
-#endif // PBRT_CORE_IMAGEIO_H
+void WriteImage(const std::string &name, const Float *rgb,
+                const Bounds2i &outputBounds, const Point2i &totalResolution);
+
+}  // namespace pbrt
+
+#endif  // PBRT_CORE_IMAGEIO_H

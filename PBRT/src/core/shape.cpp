@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,71 +32,73 @@
 
 
 // core/shape.cpp*
-#include "stdafx.h"
 #include "shape.h"
+#include "stats.h"
+#include "lowdiscrepancy.h"
+
+namespace pbrt {
 
 // Shape Method Definitions
-Shape::~Shape() {
+Shape::~Shape() {}
+
+STAT_COUNTER("Scene/Shapes created", nShapesCreated);
+Shape::Shape(const Transform *ObjectToWorld, const Transform *WorldToObject,
+             bool reverseOrientation)
+    : ObjectToWorld(ObjectToWorld),
+      WorldToObject(WorldToObject),
+      reverseOrientation(reverseOrientation),
+      transformSwapsHandedness(ObjectToWorld->SwapsHandedness()) {
+    ++nShapesCreated;
 }
 
+Bounds3f Shape::WorldBound() const { return (*ObjectToWorld)(ObjectBound()); }
 
-Shape::Shape(const Transform *o2w, const Transform *w2o, bool ro)
-    : ObjectToWorld(o2w), WorldToObject(w2o), ReverseOrientation(ro),
-      TransformSwapsHandedness(o2w->SwapsHandedness()),
-      shapeId(nextshapeId++) {
-    // Update shape creation statistics
-    PBRT_CREATED_SHAPE(this);
+Interaction Shape::Sample(const Interaction &ref, const Point2f &u,
+                          Float *pdf) const {
+    Interaction intr = Sample(u, pdf);
+    Vector3f wi = intr.p - ref.p;
+    if (wi.LengthSquared() == 0)
+        *pdf = 0;
+    else {
+        wi = Normalize(wi);
+        // Convert from area measure, as returned by the Sample() call
+        // above, to solid angle measure.
+        *pdf *= DistanceSquared(ref.p, intr.p) / AbsDot(intr.n, -wi);
+        if (std::isinf(*pdf)) *pdf = 0.f;
+    }
+    return intr;
 }
 
-
-uint32_t Shape::nextshapeId = 1;
-BBox Shape::WorldBound() const {
-    return (*ObjectToWorld)(ObjectBound());
-}
-
-
-bool Shape::CanIntersect() const {
-    return true;
-}
-
-
-void Shape::Refine(vector<Reference<Shape> > &refined) const {
-    Severe("Unimplemented Shape::Refine() method called");
-}
-
-
-bool Shape::Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
-                      DifferentialGeometry *dg) const {
-    Severe("Unimplemented Shape::Intersect() method called");
-    return false;
-}
-
-
-bool Shape::IntersectP(const Ray &ray) const {
-    Severe("Unimplemented Shape::IntersectP() method called");
-    return false;
-}
-
-
-float Shape::Area() const {
-    Severe("Unimplemented Shape::Area() method called");
-    return 0.;
-}
-
-
-float Shape::Pdf(const Point &p, const Vector &wi) const {
+Float Shape::Pdf(const Interaction &ref, const Vector3f &wi) const {
     // Intersect sample ray with area light geometry
-    DifferentialGeometry dgLight;
-    Ray ray(p, wi, 1e-3f);
-    ray.depth = -1; // temporary hack to ignore alpha mask
-    float thit, rayEpsilon;
-    if (!Intersect(ray, &thit, &rayEpsilon, &dgLight)) return 0.;
+    Ray ray = ref.SpawnRay(wi);
+    Float tHit;
+    SurfaceInteraction isectLight;
+    // Ignore any alpha textures used for trimming the shape when performing
+    // this intersection. Hack for the "San Miguel" scene, where this is used
+    // to make an invisible area light.
+    if (!Intersect(ray, &tHit, &isectLight, false)) return 0;
 
     // Convert light sample weight to solid angle measure
-    float pdf = DistanceSquared(p, ray(thit)) /
-                (AbsDot(dgLight.nn, -wi) * Area());
-    if (isinf(pdf)) pdf = 0.f;
+    Float pdf = DistanceSquared(ref.p, isectLight.p) /
+                (AbsDot(isectLight.n, -wi) * Area());
+    if (std::isinf(pdf)) pdf = 0.f;
     return pdf;
 }
 
+Float Shape::SolidAngle(const Point3f &p, int nSamples) const {
+    Interaction ref(p, Normal3f(), Vector3f(), Vector3f(0, 0, 1), 0,
+                    MediumInterface{});
+    double solidAngle = 0;
+    for (int i = 0; i < nSamples; ++i) {
+        Point2f u{RadicalInverse(0, i), RadicalInverse(1, i)};
+        Float pdf;
+        Interaction pShape = Sample(ref, u, &pdf);
+        if (pdf > 0 && !IntersectP(Ray(p, pShape.p - p, .999f))) {
+            solidAngle += 1 / pdf;
+        }
+    }
+    return solidAngle / nSamples;
+}
 
+}  // namespace pbrt

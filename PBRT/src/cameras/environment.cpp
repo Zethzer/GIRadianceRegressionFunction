@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,59 +32,72 @@
 
 
 // cameras/environment.cpp*
-#include "stdafx.h"
 #include "cameras/environment.h"
 #include "paramset.h"
 #include "sampler.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // EnvironmentCamera Method Definitions
-float EnvironmentCamera::GenerateRay(const CameraSample &sample,
+Float EnvironmentCamera::GenerateRay(const CameraSample &sample,
                                      Ray *ray) const {
+    ProfilePhase prof(Prof::GenerateCameraRay);
     // Compute environment camera ray direction
-    float theta = M_PI * sample.imageY / film->yResolution;
-    float phi = 2 * M_PI * sample.imageX / film->xResolution;
-    Vector dir(sinf(theta) * cosf(phi), cosf(theta),
-               sinf(theta) * sinf(phi));
-    *ray = Ray(Point(0,0,0), dir, 0.f, INFINITY, sample.time);
-    CameraToWorld(*ray, ray);
-    return 1.f;
+    Float theta = Pi * sample.pFilm.y / film->fullResolution.y;
+    Float phi = 2 * Pi * sample.pFilm.x / film->fullResolution.x;
+    Vector3f dir(std::sin(theta) * std::cos(phi), std::cos(theta),
+                 std::sin(theta) * std::sin(phi));
+    *ray = Ray(Point3f(0, 0, 0), dir, Infinity,
+               Lerp(sample.time, shutterOpen, shutterClose));
+    ray->medium = medium;
+    *ray = CameraToWorld(*ray);
+    return 1;
 }
 
-
 EnvironmentCamera *CreateEnvironmentCamera(const ParamSet &params,
-        const AnimatedTransform &cam2world, Film *film) {
+                                           const AnimatedTransform &cam2world,
+                                           Film *film, const Medium *medium) {
     // Extract common camera parameters from _ParamSet_
-    float shutteropen = params.FindOneFloat("shutteropen", 0.f);
-    float shutterclose = params.FindOneFloat("shutterclose", 1.f);
+    Float shutteropen = params.FindOneFloat("shutteropen", 0.f);
+    Float shutterclose = params.FindOneFloat("shutterclose", 1.f);
     if (shutterclose < shutteropen) {
         Warning("Shutter close time [%f] < shutter open [%f].  Swapping them.",
                 shutterclose, shutteropen);
-        swap(shutterclose, shutteropen);
+        std::swap(shutterclose, shutteropen);
     }
-    float lensradius = params.FindOneFloat("lensradius", 0.f);
-    float focaldistance = params.FindOneFloat("focaldistance", 1e30f);
-    float frame = params.FindOneFloat("frameaspectratio",
-        float(film->xResolution)/float(film->yResolution));
-    float screen[4];
+    Float lensradius = params.FindOneFloat("lensradius", 0.f);
+    Float focaldistance = params.FindOneFloat("focaldistance", 1e30f);
+    Float frame = params.FindOneFloat(
+        "frameaspectratio",
+        Float(film->fullResolution.x) / Float(film->fullResolution.y));
+    Bounds2f screen;
     if (frame > 1.f) {
-        screen[0] = -frame;
-        screen[1] =  frame;
-        screen[2] = -1.f;
-        screen[3] =  1.f;
-    }
-    else {
-        screen[0] = -1.f;
-        screen[1] =  1.f;
-        screen[2] = -1.f / frame;
-        screen[3] =  1.f / frame;
+        screen.pMin.x = -frame;
+        screen.pMax.x = frame;
+        screen.pMin.y = -1.f;
+        screen.pMax.y = 1.f;
+    } else {
+        screen.pMin.x = -1.f;
+        screen.pMax.x = 1.f;
+        screen.pMin.y = -1.f / frame;
+        screen.pMax.y = 1.f / frame;
     }
     int swi;
-    const float *sw = params.FindFloat("screenwindow", &swi);
-    if (sw && swi == 4)
-        memcpy(screen, sw, 4*sizeof(float));
-    (void) lensradius; // don't need this
-    (void) focaldistance; // don't need this
-    return new EnvironmentCamera(cam2world, shutteropen, shutterclose, film);
+    const Float *sw = params.FindFloat("screenwindow", &swi);
+    if (sw) {
+        if (swi == 4) {
+            screen.pMin.x = sw[0];
+            screen.pMax.x = sw[1];
+            screen.pMin.y = sw[2];
+            screen.pMax.y = sw[3];
+        } else
+            Error("\"screenwindow\" should have four values");
+    }
+    (void)lensradius;     // don't need this
+    (void)focaldistance;  // don't need this
+    return new EnvironmentCamera(cam2world, shutteropen, shutterclose, film,
+                                 medium);
 }
 
-
+}  // namespace pbrt

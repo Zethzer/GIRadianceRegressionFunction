@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,44 +32,42 @@
 
 
 // materials/matte.cpp*
-#include "stdafx.h"
 #include "materials/matte.h"
 #include "paramset.h"
 #include "reflection.h"
-#include "diffgeom.h"
+#include "interaction.h"
 #include "texture.h"
+#include "interaction.h"
+
+namespace pbrt {
 
 // MatteMaterial Method Definitions
-BSDF *MatteMaterial::GetBSDF(const DifferentialGeometry &dgGeom,
-                             const DifferentialGeometry &dgShading,
-                             MemoryArena &arena) const {
-    // Allocate _BSDF_, possibly doing bump mapping with _bumpMap_
-    DifferentialGeometry dgs;
-    if (bumpMap)
-        Bump(bumpMap, dgGeom, dgShading, &dgs);
-    else
-        dgs = dgShading;
-    BSDF *bsdf = BSDF_ALLOC(arena, BSDF)(dgs, dgGeom.nn);
+void MatteMaterial::ComputeScatteringFunctions(SurfaceInteraction *si,
+                                               MemoryArena &arena,
+                                               TransportMode mode,
+                                               bool allowMultipleLobes) const {
+    // Perform bump mapping with _bumpMap_, if present
+    if (bumpMap) Bump(bumpMap, si);
 
     // Evaluate textures for _MatteMaterial_ material and allocate BRDF
-    Spectrum r = Kd->Evaluate(dgs).Clamp();
-    float sig = Clamp(sigma->Evaluate(dgs), 0.f, 90.f);
+    si->bsdf = ARENA_ALLOC(arena, BSDF)(*si);
+    Spectrum r = Kd->Evaluate(*si).Clamp();
+    Float sig = Clamp(sigma->Evaluate(*si), 0, 90);
     if (!r.IsBlack()) {
-        if (sig == 0.)
-            bsdf->Add(BSDF_ALLOC(arena, Lambertian)(r));
+        if (sig == 0)
+            si->bsdf->Add(ARENA_ALLOC(arena, LambertianReflection)(r));
         else
-            bsdf->Add(BSDF_ALLOC(arena, OrenNayar)(r, sig));
+            si->bsdf->Add(ARENA_ALLOC(arena, OrenNayar)(r, sig));
     }
-    return bsdf;
 }
 
-
-MatteMaterial *CreateMatteMaterial(const Transform &xform,
-        const TextureParams &mp) {
-    Reference<Texture<Spectrum> > Kd = mp.GetSpectrumTexture("Kd", Spectrum(0.5f));
-    Reference<Texture<float> > sigma = mp.GetFloatTexture("sigma", 0.f);
-    Reference<Texture<float> > bumpMap = mp.GetFloatTextureOrNull("bumpmap");
+MatteMaterial *CreateMatteMaterial(const TextureParams &mp) {
+    std::shared_ptr<Texture<Spectrum>> Kd =
+        mp.GetSpectrumTexture("Kd", Spectrum(0.5f));
+    std::shared_ptr<Texture<Float>> sigma = mp.GetFloatTexture("sigma", 0.f);
+    std::shared_ptr<Texture<Float>> bumpMap =
+        mp.GetFloatTextureOrNull("bumpmap");
     return new MatteMaterial(Kd, sigma, bumpMap);
 }
 
-
+}  // namespace pbrt

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,27 +43,33 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // MixTexture Declarations
-template <typename T> class MixTexture : public Texture<T> {
-public:
+template <typename T>
+class MixTexture : public Texture<T> {
+  public:
     // MixTexture Public Methods
-    MixTexture(Reference<Texture<T> > t1, Reference<Texture<T> > t2,
-               Reference<Texture<float> > amt)
-        : tex1(t1), tex2(t2), amount(amt) { }
-    T Evaluate(const DifferentialGeometry &dg) const {
-        T t1 = tex1->Evaluate(dg), t2 = tex2->Evaluate(dg);
-        float amt = amount->Evaluate(dg);
-        return (1.f - amt) * t1 + amt * t2;
+    MixTexture(const std::shared_ptr<Texture<T>> &tex1,
+               const std::shared_ptr<Texture<T>> &tex2,
+               const std::shared_ptr<Texture<Float>> &amount)
+        : tex1(tex1), tex2(tex2), amount(amount) {}
+    T Evaluate(const SurfaceInteraction &si) const {
+        T t1 = tex1->Evaluate(si), t2 = tex2->Evaluate(si);
+        Float amt = amount->Evaluate(si);
+        return (1 - amt) * t1 + amt * t2;
     }
-private:
-    Reference<Texture<T> > tex1, tex2;
-    Reference<Texture<float> > amount;
+
+  private:
+    std::shared_ptr<Texture<T>> tex1, tex2;
+    std::shared_ptr<Texture<Float>> amount;
 };
 
-
-MixTexture<float> *CreateMixFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
+MixTexture<Float> *CreateMixFloatTexture(const Transform &tex2world,
+                                         const TextureParams &tp);
 MixTexture<Spectrum> *CreateMixSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+                                               const TextureParams &tp);
 
-#endif // PBRT_TEXTURES_MIX_H
+}  // namespace pbrt
+
+#endif  // PBRT_TEXTURES_MIX_H

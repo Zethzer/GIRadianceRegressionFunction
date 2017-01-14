@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,20 +32,20 @@
 
 
 // textures/constant.cpp*
-#include "stdafx.h"
 #include "textures/constant.h"
 
+namespace pbrt {
+
 // ConstantTexture Method Definitions
-ConstantTexture<float> *CreateConstantFloatTexture(const Transform &tex2world,
-        const TextureParams &tp) {
-    return new ConstantTexture<float>(tp.FindFloat("value", 1.f));
+ConstantTexture<Float> *CreateConstantFloatTexture(const Transform &tex2world,
+                                                   const TextureParams &tp) {
+    return new ConstantTexture<Float>(tp.FindFloat("value", 1.f));
 }
 
-
-
-ConstantTexture<Spectrum> *CreateConstantSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp) {
-    return new ConstantTexture<Spectrum>(tp.FindSpectrum("value", Spectrum(1.f)));
+ConstantTexture<Spectrum> *CreateConstantSpectrumTexture(
+    const Transform &tex2world, const TextureParams &tp) {
+    return new ConstantTexture<Spectrum>(
+        tp.FindSpectrum("value", Spectrum(1.f)));
 }
 
-
+}  // namespace pbrt

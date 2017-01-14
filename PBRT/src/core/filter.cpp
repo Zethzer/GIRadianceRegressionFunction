@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,11 +32,11 @@
 
 
 // core/filter.cpp*
-#include "stdafx.h"
 #include "filter.h"
 
+namespace pbrt {
+
 // Filter Method Definitions
-Filter::~Filter() {
-}
+Filter::~Filter() {}
 
-
+}  // namespace pbrt

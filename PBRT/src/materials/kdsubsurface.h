@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -38,37 +40,56 @@
 
 // materials/kdsubsurface.h*
 #include "pbrt.h"
+#include "reflection.h"
 #include "material.h"
+#include "bssrdf.h"
+
+namespace pbrt {
 
 // KdSubsurfaceMaterial Declarations
 class KdSubsurfaceMaterial : public Material {
-public:
+  public:
     // KdSubsurfaceMaterial Public Methods
-    KdSubsurfaceMaterial(Reference<Texture<Spectrum> > kd,
-            Reference<Texture<Spectrum> > kr,
-            Reference<Texture<float> > mfp,
-            Reference<Texture<float> > e,
-            Reference<Texture<float> > bump) {
-        Kd = kd;
-        Kr = kr;
-        meanfreepath = mfp;
-        eta = e;
-        bumpMap = bump;
+    KdSubsurfaceMaterial(Float scale,
+                         const std::shared_ptr<Texture<Spectrum>> &Kd,
+                         const std::shared_ptr<Texture<Spectrum>> &Kr,
+                         const std::shared_ptr<Texture<Spectrum>> &Kt,
+                         const std::shared_ptr<Texture<Spectrum>> &mfp, Float g,
+                         Float eta,
+                         const std::shared_ptr<Texture<Float>> &uRoughness,
+                         const std::shared_ptr<Texture<Float>> &vRoughness,
+                         const std::shared_ptr<Texture<Float>> &bumpMap,
+                         bool remapRoughness)
+        : scale(scale),
+          Kd(Kd),
+          Kr(Kr),
+          Kt(Kt),
+          mfp(mfp),
+          uRoughness(uRoughness),
+          vRoughness(vRoughness),
+          bumpMap(bumpMap),
+          eta(eta),
+          remapRoughness(remapRoughness),
+          table(100, 64) {
+        ComputeBeamDiffusionBSSRDF(g, eta, &table);
     }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom,
-                  const DifferentialGeometry &dgShading,
-                  MemoryArena &arena) const;
-    BSSRDF *GetBSSRDF(const DifferentialGeometry &dgGeom,
-                  const DifferentialGeometry &dgShading,
-                  MemoryArena &arena) const;
-private:
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // KdSubsurfaceMaterial Private Data
-    Reference<Texture<Spectrum> > Kd, Kr;
-    Reference<Texture<float> > meanfreepath, eta, bumpMap;
+    Float scale;
+    std::shared_ptr<Texture<Spectrum>> Kd, Kr, Kt, mfp;
+    std::shared_ptr<Texture<Float>> uRoughness, vRoughness;
+    std::shared_ptr<Texture<Float>> bumpMap;
+    Float eta;
+    bool remapRoughness;
+    BSSRDFTable table;
 };
 
+KdSubsurfaceMaterial *CreateKdSubsurfaceMaterial(const TextureParams &mp);
 
-KdSubsurfaceMaterial *CreateKdSubsurfaceMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_KDSUBSURFACE_H
+#endif  // PBRT_MATERIALS_KDSUBSURFACE_H

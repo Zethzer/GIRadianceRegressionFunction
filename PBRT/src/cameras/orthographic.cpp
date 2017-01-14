@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,143 +32,133 @@
 
 
 // cameras/orthographic.cpp*
-#include "stdafx.h"
 #include "cameras/orthographic.h"
 #include "paramset.h"
 #include "sampler.h"
-#include "montecarlo.h"
+#include "sampling.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // OrthographicCamera Definitions
-OrthoCamera::OrthoCamera(const AnimatedTransform &cam2world,
-        const float screenWindow[4], float sopen, float sclose,
-        float lensr, float focald, Film *f)
-    : ProjectiveCamera(cam2world, Orthographic(0., 1.), screenWindow,
-                       sopen, sclose, lensr, focald, f) {
-    // Compute differential changes in origin for ortho camera rays
-    dxCamera = RasterToCamera(Vector(1, 0, 0));
-    dyCamera = RasterToCamera(Vector(0, 1, 0));
-}
-
-
-float OrthoCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
-    // Generate raster and camera samples
-    Point Pras(sample.imageX, sample.imageY, 0);
-    Point Pcamera;
-    RasterToCamera(Pras, &Pcamera);
-    *ray = Ray(Pcamera, Vector(0,0,1), 0.f, INFINITY);
+Float OrthographicCamera::GenerateRay(const CameraSample &sample,
+                                      Ray *ray) const {
+    ProfilePhase prof(Prof::GenerateCameraRay);
+    // Compute raster and camera sample positions
+    Point3f pFilm = Point3f(sample.pFilm.x, sample.pFilm.y, 0);
+    Point3f pCamera = RasterToCamera(pFilm);
+    *ray = Ray(pCamera, Vector3f(0, 0, 1));
     // Modify ray for depth of field
-    if (lensRadius > 0.) {
+    if (lensRadius > 0) {
         // Sample point on lens
-        float lensU, lensV;
-        ConcentricSampleDisk(sample.lensU, sample.lensV, &lensU, &lensV);
-        lensU *= lensRadius;
-        lensV *= lensRadius;
+        Point2f pLens = lensRadius * ConcentricSampleDisk(sample.pLens);
 
         // Compute point on plane of focus
-        float ft = focalDistance / ray->d.z;
-        Point Pfocus = (*ray)(ft);
+        Float ft = focalDistance / ray->d.z;
+        Point3f pFocus = (*ray)(ft);
 
         // Update ray for effect of lens
-        ray->o = Point(lensU, lensV, 0.f);
-        ray->d = Normalize(Pfocus - ray->o);
+        ray->o = Point3f(pLens.x, pLens.y, 0);
+        ray->d = Normalize(pFocus - ray->o);
     }
-    ray->time = sample.time;
-    CameraToWorld(*ray, ray);
-    return 1.f;
+    ray->time = Lerp(sample.time, shutterOpen, shutterClose);
+    ray->medium = medium;
+    *ray = CameraToWorld(*ray);
+    return 1;
 }
 
-
-float OrthoCamera::GenerateRayDifferential(const CameraSample &sample,
-        RayDifferential *ray) const {
+Float OrthographicCamera::GenerateRayDifferential(const CameraSample &sample,
+                                                  RayDifferential *ray) const {
+    ProfilePhase prof(Prof::GenerateCameraRay);
     // Compute main orthographic viewing ray
 
-    // Generate raster and camera samples
-    Point Pras(sample.imageX, sample.imageY, 0);
-    Point Pcamera;
-    RasterToCamera(Pras, &Pcamera);
-    *ray = RayDifferential(Pcamera, Vector(0,0,1), 0., INFINITY);
+    // Compute raster and camera sample positions
+    Point3f pFilm = Point3f(sample.pFilm.x, sample.pFilm.y, 0);
+    Point3f pCamera = RasterToCamera(pFilm);
+    *ray = RayDifferential(pCamera, Vector3f(0, 0, 1));
 
     // Modify ray for depth of field
-    if (lensRadius > 0.) {
+    if (lensRadius > 0) {
         // Sample point on lens
-        float lensU, lensV;
-        ConcentricSampleDisk(sample.lensU, sample.lensV, &lensU, &lensV);
-        lensU *= lensRadius;
-        lensV *= lensRadius;
+        Point2f pLens = lensRadius * ConcentricSampleDisk(sample.pLens);
 
         // Compute point on plane of focus
-        float ft = focalDistance / ray->d.z;
-        Point Pfocus = (*ray)(ft);
+        Float ft = focalDistance / ray->d.z;
+        Point3f pFocus = (*ray)(ft);
 
         // Update ray for effect of lens
-        ray->o = Point(lensU, lensV, 0.f);
-        ray->d = Normalize(Pfocus - ray->o);
+        ray->o = Point3f(pLens.x, pLens.y, 0);
+        ray->d = Normalize(pFocus - ray->o);
     }
-    ray->time = sample.time;
-    // Compute ray differentials for _OrthoCamera_
+
+    // Compute ray differentials for _OrthographicCamera_
     if (lensRadius > 0) {
-        // Compute _OrthoCamera_ ray differentials with defocus blur
+        // Compute _OrthographicCamera_ ray differentials accounting for lens
 
         // Sample point on lens
-        float lensU, lensV;
-        ConcentricSampleDisk(sample.lensU, sample.lensV, &lensU, &lensV);
-        lensU *= lensRadius;
-        lensV *= lensRadius;
+        Point2f pLens = lensRadius * ConcentricSampleDisk(sample.pLens);
+        Float ft = focalDistance / ray->d.z;
 
-        float ft = focalDistance / ray->d.z;
-
-        Point pFocus = Pcamera + dxCamera + (ft * Vector(0, 0, 1));
-        ray->rxOrigin = Point(lensU, lensV, 0.f);
+        Point3f pFocus = pCamera + dxCamera + (ft * Vector3f(0, 0, 1));
+        ray->rxOrigin = Point3f(pLens.x, pLens.y, 0);
         ray->rxDirection = Normalize(pFocus - ray->rxOrigin);
 
-        pFocus = Pcamera + dyCamera + (ft * Vector(0, 0, 1));
-        ray->ryOrigin = Point(lensU, lensV, 0.f);
+        pFocus = pCamera + dyCamera + (ft * Vector3f(0, 0, 1));
+        ray->ryOrigin = Point3f(pLens.x, pLens.y, 0);
         ray->ryDirection = Normalize(pFocus - ray->ryOrigin);
-    }
-    else {
+    } else {
         ray->rxOrigin = ray->o + dxCamera;
         ray->ryOrigin = ray->o + dyCamera;
         ray->rxDirection = ray->ryDirection = ray->d;
     }
+    ray->time = Lerp(sample.time, shutterOpen, shutterClose);
     ray->hasDifferentials = true;
-    CameraToWorld(*ray, ray);
-    return 1.f;
+    ray->medium = medium;
+    *ray = CameraToWorld(*ray);
+    return 1;
 }
 
-
-OrthoCamera *CreateOrthographicCamera(const ParamSet &params,
-        const AnimatedTransform &cam2world, Film *film) {
+OrthographicCamera *CreateOrthographicCamera(const ParamSet &params,
+                                             const AnimatedTransform &cam2world,
+                                             Film *film, const Medium *medium) {
     // Extract common camera parameters from _ParamSet_
-    float shutteropen = params.FindOneFloat("shutteropen", 0.f);
-    float shutterclose = params.FindOneFloat("shutterclose", 1.f);
+    Float shutteropen = params.FindOneFloat("shutteropen", 0.f);
+    Float shutterclose = params.FindOneFloat("shutterclose", 1.f);
     if (shutterclose < shutteropen) {
         Warning("Shutter close time [%f] < shutter open [%f].  Swapping them.",
                 shutterclose, shutteropen);
-        swap(shutterclose, shutteropen);
+        std::swap(shutterclose, shutteropen);
     }
-    float lensradius = params.FindOneFloat("lensradius", 0.f);
-    float focaldistance = params.FindOneFloat("focaldistance", 1e30f);
-    float frame = params.FindOneFloat("frameaspectratio",
-        float(film->xResolution)/float(film->yResolution));
-    float screen[4];
+    Float lensradius = params.FindOneFloat("lensradius", 0.f);
+    Float focaldistance = params.FindOneFloat("focaldistance", 1e6f);
+    Float frame = params.FindOneFloat(
+        "frameaspectratio",
+        Float(film->fullResolution.x) / Float(film->fullResolution.y));
+    Bounds2f screen;
     if (frame > 1.f) {
-        screen[0] = -frame;
-        screen[1] =  frame;
-        screen[2] = -1.f;
-        screen[3] =  1.f;
-    }
-    else {
-        screen[0] = -1.f;
-        screen[1] =  1.f;
-        screen[2] = -1.f / frame;
-        screen[3] =  1.f / frame;
+        screen.pMin.x = -frame;
+        screen.pMax.x = frame;
+        screen.pMin.y = -1.f;
+        screen.pMax.y = 1.f;
+    } else {
+        screen.pMin.x = -1.f;
+        screen.pMax.x = 1.f;
+        screen.pMin.y = -1.f / frame;
+        screen.pMax.y = 1.f / frame;
     }
     int swi;
-    const float *sw = params.FindFloat("screenwindow", &swi);
-    if (sw && swi == 4)
-        memcpy(screen, sw, 4*sizeof(float));
-    return new OrthoCamera(cam2world, screen, shutteropen, shutterclose,
-        lensradius, focaldistance, film);
+    const Float *sw = params.FindFloat("screenwindow", &swi);
+    if (sw) {
+        if (swi == 4) {
+            screen.pMin.x = sw[0];
+            screen.pMax.x = sw[1];
+            screen.pMin.y = sw[2];
+            screen.pMax.y = sw[3];
+        } else
+            Error("\"screenwindow\" should have four values");
+    }
+    return new OrthographicCamera(cam2world, screen, shutteropen, shutterclose,
+                                  lensradius, focaldistance, film, medium);
 }
 
-
+}  // namespace pbrt

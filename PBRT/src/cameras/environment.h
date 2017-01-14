@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,19 +42,22 @@
 #include "camera.h"
 #include "film.h"
 
+namespace pbrt {
+
 // EnvironmentCamera Declarations
 class EnvironmentCamera : public Camera {
-public:
+  public:
     // EnvironmentCamera Public Methods
-    EnvironmentCamera(const AnimatedTransform &cam2world, float sopen,
-                      float sclose, Film *film)
-        : Camera(cam2world, sopen, sclose, film) {
-    }
-    float GenerateRay(const CameraSample &sample, Ray *) const;
+    EnvironmentCamera(const AnimatedTransform &CameraToWorld, Float shutterOpen,
+                      Float shutterClose, Film *film, const Medium *medium)
+        : Camera(CameraToWorld, shutterOpen, shutterClose, film, medium) {}
+    Float GenerateRay(const CameraSample &sample, Ray *) const;
 };
 
-
 EnvironmentCamera *CreateEnvironmentCamera(const ParamSet &params,
-        const AnimatedTransform &cam2world, Film *film);
+                                           const AnimatedTransform &cam2world,
+                                           Film *film, const Medium *medium);
 
-#endif // PBRT_CAMERAS_ENVIRONMENT_H
+}  // namespace pbrt
+
+#endif  // PBRT_CAMERAS_ENVIRONMENT_H

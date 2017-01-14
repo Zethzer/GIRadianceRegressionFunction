@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,22 +43,25 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // ConstantTexture Declarations
-template <typename T> class ConstantTexture : public Texture<T> {
-public:
+template <typename T>
+class ConstantTexture : public Texture<T> {
+  public:
     // ConstantTexture Public Methods
-    ConstantTexture(const T &v) { value = v; }
-    T Evaluate(const DifferentialGeometry &) const {
-        return value;
-    }
-private:
+    ConstantTexture(const T &value) : value(value) {}
+    T Evaluate(const SurfaceInteraction &) const { return value; }
+
+  private:
     T value;
 };
 
+ConstantTexture<Float> *CreateConstantFloatTexture(const Transform &tex2world,
+                                                   const TextureParams &tp);
+ConstantTexture<Spectrum> *CreateConstantSpectrumTexture(
+    const Transform &tex2world, const TextureParams &tp);
 
-ConstantTexture<float> *CreateConstantFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
-ConstantTexture<Spectrum> *CreateConstantSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+}  // namespace pbrt
 
-#endif // PBRT_TEXTURES_CONSTANT_H
+#endif  // PBRT_TEXTURES_CONSTANT_H

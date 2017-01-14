@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,36 +43,41 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // MarbleTexture Declarations
 class MarbleTexture : public Texture<Spectrum> {
-public:
+  public:
     // MarbleTexture Public Methods
-    ~MarbleTexture() {
-        delete mapping;
-    }
-    MarbleTexture(int oct, float roughness, float sc, float var,
-                  TextureMapping3D *map)
-        : octaves(oct), omega(roughness), scale(sc), variation(var),
-          mapping(map) { }
-    Spectrum Evaluate(const DifferentialGeometry &dg) const {
-        Vector dpdx, dpdy;
-        Point P = mapping->Map(dg, &dpdx, &dpdy);
-        P *= scale;
-        float marble = P.y + variation *
-                       FBm(P, scale * dpdx, scale * dpdy, omega, octaves);
-        float t = .5f + .5f * sinf(marble);
+    MarbleTexture(std::unique_ptr<TextureMapping3D> mapping, int octaves,
+                  Float omega, Float scale, Float variation)
+        : mapping(std::move(mapping)),
+          octaves(octaves),
+          omega(omega),
+          scale(scale),
+          variation(variation) {}
+    Spectrum Evaluate(const SurfaceInteraction &si) const {
+        Vector3f dpdx, dpdy;
+        Point3f p = mapping->Map(si, &dpdx, &dpdy);
+        p *= scale;
+        Float marble =
+            p.y +
+            variation * FBm(p, scale * dpdx, scale * dpdy, omega, octaves);
+        Float t = .5f + .5f * std::sin(marble);
         // Evaluate marble spline at _t_
-        static float c[][3] = { { .58f, .58f, .6f }, { .58f, .58f, .6f }, { .58f, .58f, .6f },
-            { .5f, .5f, .5f }, { .6f, .59f, .58f }, { .58f, .58f, .6f },
-            { .58f, .58f, .6f }, {.2f, .2f, .33f }, { .58f, .58f, .6f }, };
-#define NC  sizeof(c) / sizeof(c[0])
-#define NSEG (NC-3)
-        int first = Floor2Int(t * NSEG);
+        static Float c[][3] = {
+            {.58f, .58f, .6f}, {.58f, .58f, .6f}, {.58f, .58f, .6f},
+            {.5f, .5f, .5f},   {.6f, .59f, .58f}, {.58f, .58f, .6f},
+            {.58f, .58f, .6f}, {.2f, .2f, .33f},  {.58f, .58f, .6f},
+        };
+#define NC sizeof(c) / sizeof(c[0])
+#define NSEG (NC - 3)
+        int first = std::floor(t * NSEG);
         t = (t * NSEG - first);
         Spectrum c0 = Spectrum::FromRGB(c[first]);
-        Spectrum c1 = Spectrum::FromRGB(c[first+1]);
-        Spectrum c2 = Spectrum::FromRGB(c[first+2]);
-        Spectrum c3 = Spectrum::FromRGB(c[first+3]);
+        Spectrum c1 = Spectrum::FromRGB(c[first + 1]);
+        Spectrum c2 = Spectrum::FromRGB(c[first + 2]);
+        Spectrum c3 = Spectrum::FromRGB(c[first + 3]);
         // Bezier spline evaluated with de Castilejau's algorithm
         Spectrum s0 = (1.f - t) * c0 + t * c1;
         Spectrum s1 = (1.f - t) * c1 + t * c2;
@@ -80,17 +87,19 @@ public:
         // Extra scale of 1.5 to increase variation among colors
         return 1.5f * ((1.f - t) * s0 + t * s1);
     }
-private:
+
+  private:
     // MarbleTexture Private Data
-    int octaves;
-    float omega, scale, variation;
-    TextureMapping3D *mapping;
+    std::unique_ptr<TextureMapping3D> mapping;
+    const int octaves;
+    const Float omega, scale, variation;
 };
 
-
-Texture<float> *CreateMarbleFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
+Texture<Float> *CreateMarbleFloatTexture(const Transform &tex2world,
+                                         const TextureParams &tp);
 MarbleTexture *CreateMarbleSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+                                           const TextureParams &tp);
 
-#endif // PBRT_TEXTURES_MARBLE_H
+}  // namespace pbrt
+
+#endif  // PBRT_TEXTURES_MARBLE_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,34 +42,42 @@
 #include "pbrt.h"
 #include "material.h"
 
+namespace pbrt {
+
 // TranslucentMaterial Declarations
 class TranslucentMaterial : public Material {
-public:
+  public:
     // TranslucentMaterial Public Methods
-    TranslucentMaterial(Reference<Texture<Spectrum> > kd, Reference<Texture<Spectrum> > ks,
-            Reference<Texture<float> > rough,
-            Reference<Texture<Spectrum> > refl,
-            Reference<Texture<Spectrum> > trans,
-            Reference<Texture<float> > bump) {
+    TranslucentMaterial(const std::shared_ptr<Texture<Spectrum>> &kd,
+                        const std::shared_ptr<Texture<Spectrum>> &ks,
+                        const std::shared_ptr<Texture<Float>> &rough,
+                        const std::shared_ptr<Texture<Spectrum>> &refl,
+                        const std::shared_ptr<Texture<Spectrum>> &trans,
+                        const std::shared_ptr<Texture<Float>> &bump,
+                        bool remap) {
         Kd = kd;
         Ks = ks;
         roughness = rough;
         reflect = refl;
         transmit = trans;
         bumpMap = bump;
+        remapRoughness = remap;
     }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom, const
-        DifferentialGeometry &dgShading, MemoryArena &arena) const;
-private:
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // TranslucentMaterial Private Data
-    Reference<Texture<Spectrum> > Kd, Ks;
-    Reference<Texture<float> > roughness;
-    Reference<Texture<Spectrum> > reflect, transmit;
-    Reference<Texture<float> > bumpMap;
+    std::shared_ptr<Texture<Spectrum>> Kd, Ks;
+    std::shared_ptr<Texture<Float>> roughness;
+    std::shared_ptr<Texture<Spectrum>> reflect, transmit;
+    std::shared_ptr<Texture<Float>> bumpMap;
+    bool remapRoughness;
 };
 
+TranslucentMaterial *CreateTranslucentMaterial(const TextureParams &mp);
 
-TranslucentMaterial *CreateTranslucentMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_TRANSLUCENT_H
+#endif  // PBRT_MATERIALS_TRANSLUCENT_H

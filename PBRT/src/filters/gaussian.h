@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,26 +41,32 @@
 // filters/gaussian.h*
 #include "filter.h"
 
+namespace pbrt {
+
 // Gaussian Filter Declarations
 class GaussianFilter : public Filter {
-public:
+  public:
     // GaussianFilter Public Methods
-    GaussianFilter(float xw, float yw, float a)
-        : Filter(xw, yw), alpha(a), expX(expf(-alpha * xWidth * xWidth)),
-          expY(expf(-alpha * yWidth * yWidth)) { }
-    float Evaluate(float x, float y) const;
-private:
+    GaussianFilter(const Vector2f &radius, Float alpha)
+        : Filter(radius),
+          alpha(alpha),
+          expX(std::exp(-alpha * radius.x * radius.x)),
+          expY(std::exp(-alpha * radius.y * radius.y)) {}
+    Float Evaluate(const Point2f &p) const;
+
+  private:
     // GaussianFilter Private Data
-    const float alpha;
-    const float expX, expY;
+    const Float alpha;
+    const Float expX, expY;
 
     // GaussianFilter Utility Functions
-    float Gaussian(float d, float expv) const {
-        return max(0.f, float(expf(-alpha * d * d) - expv));
+    Float Gaussian(Float d, Float expv) const {
+        return std::max((Float)0, Float(std::exp(-alpha * d * d) - expv));
     }
 };
 
-
 GaussianFilter *CreateGaussianFilter(const ParamSet &ps);
 
-#endif // PBRT_FILTERS_GAUSSIAN_H
+}  // namespace pbrt
+
+#endif  // PBRT_FILTERS_GAUSSIAN_H

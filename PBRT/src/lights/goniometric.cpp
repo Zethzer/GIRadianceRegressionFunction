@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,64 +32,65 @@
 
 
 // lights/goniometric.cpp*
-#include "stdafx.h"
 #include "lights/goniometric.h"
 #include "paramset.h"
-#include "montecarlo.h"
-#include "imageio.h"
+#include "sampling.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // GonioPhotometricLight Method Definitions
-Spectrum GonioPhotometricLight::Sample_L(const Point &p, float pEpsilon,
-        const LightSample &ls, float time, Vector *wi, float *pdf, VisibilityTester *visibility) const {
-    *wi = Normalize(lightPos - p);
+Spectrum GonioPhotometricLight::Sample_Li(const Interaction &ref,
+                                          const Point2f &u, Vector3f *wi,
+                                          Float *pdf,
+                                          VisibilityTester *vis) const {
+    ProfilePhase _(Prof::LightSample);
+    *wi = Normalize(pLight - ref.p);
     *pdf = 1.f;
-    visibility->SetSegment(p, pEpsilon, lightPos, 0., time);
-    return Intensity * Scale(-*wi) / DistanceSquared(lightPos, p);
+    *vis =
+        VisibilityTester(ref, Interaction(pLight, ref.time, mediumInterface));
+    return I * Scale(-*wi) / DistanceSquared(pLight, ref.p);
 }
 
-
-GonioPhotometricLight::GonioPhotometricLight(const Transform &light2world,
-        const Spectrum &intensity, const string &texname)
-    : Light(light2world) {
-    lightPos = LightToWorld(Point(0,0,0));
-    Intensity = intensity;
-    // Create _mipmap_ for _GonioPhotometricLight_
-    int width, height;
-    RGBSpectrum *texels = ReadImage(texname, &width, &height);
-    if (texels) {
-        mipmap = new MIPMap<RGBSpectrum>(width, height, texels);
-        delete[] texels;
-    }
-    else mipmap = NULL;
+Spectrum GonioPhotometricLight::Power() const {
+    return 4 * Pi * I * Spectrum(mipmap ? mipmap->Lookup(Point2f(.5f, .5f), .5f)
+                                        : RGBSpectrum(1.f),
+                                 SpectrumType::Illuminant);
 }
 
-
-Spectrum GonioPhotometricLight::Power(const Scene *) const {
-    return 4.f * M_PI * Intensity *
-        Spectrum(mipmap ? mipmap->Lookup(.5f, .5f, .5f) : 1.f, SPECTRUM_ILLUMINANT);
+Float GonioPhotometricLight::Pdf_Li(const Interaction &,
+                                    const Vector3f &) const {
+    return 0.f;
 }
 
+Spectrum GonioPhotometricLight::Sample_Le(const Point2f &u1, const Point2f &u2,
+                                          Float time, Ray *ray,
+                                          Normal3f *nLight, Float *pdfPos,
+                                          Float *pdfDir) const {
+    ProfilePhase _(Prof::LightSample);
+    *ray = Ray(pLight, UniformSampleSphere(u1), Infinity, time,
+               mediumInterface.inside);
+    *nLight = (Normal3f)ray->d;
+    *pdfPos = 1.f;
+    *pdfDir = UniformSpherePdf();
+    return I * Scale(ray->d);
+}
 
-GonioPhotometricLight *CreateGoniometricLight(const Transform &light2world,
-        const ParamSet &paramSet) {
+void GonioPhotometricLight::Pdf_Le(const Ray &, const Normal3f &, Float *pdfPos,
+                                   Float *pdfDir) const {
+    ProfilePhase _(Prof::LightPdf);
+    *pdfPos = 0.f;
+    *pdfDir = UniformSpherePdf();
+}
+
+std::shared_ptr<GonioPhotometricLight> CreateGoniometricLight(
+    const Transform &light2world, const Medium *medium,
+    const ParamSet &paramSet) {
     Spectrum I = paramSet.FindOneSpectrum("I", Spectrum(1.0));
     Spectrum sc = paramSet.FindOneSpectrum("scale", Spectrum(1.0));
-    string texname = paramSet.FindOneFilename("mapname", "");
-    return new GonioPhotometricLight(light2world, I * sc, texname);
+    std::string texname = paramSet.FindOneFilename("mapname", "");
+    return std::make_shared<GonioPhotometricLight>(light2world, medium, I * sc,
+                                                   texname);
 }
 
-
-Spectrum GonioPhotometricLight::Sample_L(const Scene *scene, const LightSample &ls,
-        float u1, float u2, float time, Ray *ray, Normal *Ns, float *pdf) const {
-    *ray = Ray(lightPos, UniformSampleSphere(ls.uPos[0], ls.uPos[1]), 0.f, INFINITY, time);
-    *Ns = (Normal)ray->d;
-    *pdf = UniformSpherePdf();
-    return Intensity * Scale(ray->d);
-}
-
-
-float GonioPhotometricLight::Pdf(const Point &, const Vector &) const {
-    return 0.;
-}
-
-
+}  // namespace pbrt

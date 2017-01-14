@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -43,110 +45,108 @@
 #include "transform.h"
 #include "memory.h"
 
+namespace pbrt {
+
 // Texture Declarations
 class TextureMapping2D {
-public:
+  public:
     // TextureMapping2D Interface
-    virtual ~TextureMapping2D() { }
-    virtual void Map(const DifferentialGeometry &dg,
-                     float *s, float *t, float *dsdx, float *dtdx,
-                     float *dsdy, float *dtdy) const = 0;
+    virtual ~TextureMapping2D();
+    virtual Point2f Map(const SurfaceInteraction &si, Vector2f *dstdx,
+                        Vector2f *dstdy) const = 0;
 };
-
 
 class UVMapping2D : public TextureMapping2D {
-public:
+  public:
     // UVMapping2D Public Methods
-    UVMapping2D(float su = 1, float sv = 1, float du = 0, float dv = 0);
-    void Map(const DifferentialGeometry &dg, float *s, float *t,
-        float *dsdx, float *dtdx, float *dsdy, float *dtdy) const;
-private:
-    float su, sv, du, dv;
-};
+    UVMapping2D(Float su = 1, Float sv = 1, Float du = 0, Float dv = 0);
+    Point2f Map(const SurfaceInteraction &si, Vector2f *dstdx,
+                Vector2f *dstdy) const;
 
+  private:
+    const Float su, sv, du, dv;
+};
 
 class SphericalMapping2D : public TextureMapping2D {
-public:
+  public:
     // SphericalMapping2D Public Methods
-    SphericalMapping2D(const Transform &toSph)
-        : WorldToTexture(toSph) {
-    }
-    void Map(const DifferentialGeometry &dg, float *s, float *t,
-        float *dsdx, float *dtdx,
-        float *dsdy, float *dtdy) const;
-private:
-    void sphere(const Point &P, float *s, float *t) const;
-    Transform WorldToTexture;
-};
+    SphericalMapping2D(const Transform &WorldToTexture)
+        : WorldToTexture(WorldToTexture) {}
+    Point2f Map(const SurfaceInteraction &si, Vector2f *dstdx,
+                Vector2f *dstdy) const;
 
+  private:
+    Point2f sphere(const Point3f &P) const;
+    const Transform WorldToTexture;
+};
 
 class CylindricalMapping2D : public TextureMapping2D {
-public:
+  public:
     // CylindricalMapping2D Public Methods
-    CylindricalMapping2D(const Transform &toCyl)
-        : WorldToTexture(toCyl) {
-    }
-    void Map(const DifferentialGeometry &dg, float *s, float *t,
-        float *dsdx, float *dtdx, float *dsdy, float *dtdy) const;
-private:
-    // CylindricalMapping2D Private Methods
-    void cylinder(const Point &p, float *s, float *t) const {
-        Vector vec = Normalize(WorldToTexture(p) - Point(0,0,0));
-        *s = (M_PI + atan2f(vec.y, vec.x)) / (2.f * M_PI);
-        *t = vec.z;
-    }
-    Transform WorldToTexture;
-};
+    CylindricalMapping2D(const Transform &WorldToTexture)
+        : WorldToTexture(WorldToTexture) {}
+    Point2f Map(const SurfaceInteraction &si, Vector2f *dstdx,
+                Vector2f *dstdy) const;
 
+  private:
+    // CylindricalMapping2D Private Methods
+    Point2f cylinder(const Point3f &p) const {
+        Vector3f vec = Normalize(WorldToTexture(p) - Point3f(0, 0, 0));
+        return Point2f((Pi + std::atan2(vec.y, vec.x)) * Inv2Pi, vec.z);
+    }
+    const Transform WorldToTexture;
+};
 
 class PlanarMapping2D : public TextureMapping2D {
-public:
+  public:
     // PlanarMapping2D Public Methods
-    void Map(const DifferentialGeometry &dg, float *s, float *t,
-             float *dsdx, float *dtdx, float *dsdy, float *dtdy) const;
-    PlanarMapping2D(const Vector &vv1, const Vector &vv2,
-                    float dds = 0, float ddt = 0)
-        : vs(vv1), vt(vv2), ds(dds), dt(ddt) { }
-private:
-    const Vector vs, vt;
-    const float ds, dt;
-};
+    Point2f Map(const SurfaceInteraction &si, Vector2f *dstdx,
+                Vector2f *dstdy) const;
+    PlanarMapping2D(const Vector3f &vs, const Vector3f &vt, Float ds = 0,
+                    Float dt = 0)
+        : vs(vs), vt(vt), ds(ds), dt(dt) {}
 
+  private:
+    const Vector3f vs, vt;
+    const Float ds, dt;
+};
 
 class TextureMapping3D {
-public:
+  public:
     // TextureMapping3D Interface
-    virtual ~TextureMapping3D() { }
-    virtual Point Map(const DifferentialGeometry &dg,
-                      Vector *dpdx, Vector *dpdy) const = 0;
+    virtual ~TextureMapping3D();
+    virtual Point3f Map(const SurfaceInteraction &si, Vector3f *dpdx,
+                        Vector3f *dpdy) const = 0;
 };
-
 
 class IdentityMapping3D : public TextureMapping3D {
-public:
-    IdentityMapping3D(const Transform &x)
-        : WorldToTexture(x) { }
-    Point Map(const DifferentialGeometry &dg, Vector *dpdx,
-              Vector *dpdy) const;
-private:
-    Transform WorldToTexture;
+  public:
+    // IdentityMapping3D Public Methods
+    IdentityMapping3D(const Transform &WorldToTexture)
+        : WorldToTexture(WorldToTexture) {}
+    Point3f Map(const SurfaceInteraction &si, Vector3f *dpdx,
+                Vector3f *dpdy) const;
+
+  private:
+    const Transform WorldToTexture;
 };
 
-
-template <typename T> class Texture : public ReferenceCounted {
-public:
+template <typename T>
+class Texture {
+  public:
     // Texture Interface
-    virtual T Evaluate(const DifferentialGeometry &) const = 0;
-    virtual ~Texture() { }
+    virtual T Evaluate(const SurfaceInteraction &) const = 0;
+    virtual ~Texture() {}
 };
 
+Float Lanczos(Float, Float tau = 2);
+Float Noise(Float x, Float y = .5f, Float z = .5f);
+Float Noise(const Point3f &p);
+Float FBm(const Point3f &p, const Vector3f &dpdx, const Vector3f &dpdy,
+          Float omega, int octaves);
+Float Turbulence(const Point3f &p, const Vector3f &dpdx, const Vector3f &dpdy,
+                 Float omega, int octaves);
 
-float Lanczos(float, float tau=2);
-float Noise(float x, float y = .5f, float z = .5f);
-float Noise(const Point &P);
-float FBm(const Point &P, const Vector &dpdx, const Vector &dpdy,
-    float omega, int octaves);
-float Turbulence(const Point &P, const Vector &dpdx, const Vector &dpdy,
-    float omega, int octaves);
+}  // namespace pbrt
 
-#endif // PBRT_CORE_TEXTURE_H
+#endif  // PBRT_CORE_TEXTURE_H

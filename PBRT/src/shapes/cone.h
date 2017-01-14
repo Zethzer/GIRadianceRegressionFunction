@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,24 +41,31 @@
 // shapes/cone.h*
 #include "shape.h"
 
+namespace pbrt {
+
 // Cone Declarations
 class Cone : public Shape {
-public:
+  public:
     // Cone Public Methods
-    Cone(const Transform *o2w, const Transform *w2o, bool ro,
-         float height, float rad, float tm);
-    BBox ObjectBound() const;
-    bool Intersect(const Ray &ray, float *tHit, float *rayEpsilon,
-                   DifferentialGeometry *dg) const;
-    bool IntersectP(const Ray &ray) const;
-    float Area() const;
-protected:
+    Cone(const Transform *o2w, const Transform *w2o, bool reverseOrientation,
+         Float height, Float radius, Float phiMax);
+    Bounds3f ObjectBound() const;
+    bool Intersect(const Ray &ray, Float *tHit, SurfaceInteraction *isect,
+                   bool testAlphaTexture) const;
+    bool IntersectP(const Ray &ray, bool testAlphaTexture) const;
+    Float Area() const;
+    Interaction Sample(const Point2f &u, Float *pdf) const;
+
+  protected:
     // Cone Private Data
-    float radius, height, phiMax;
+    const Float radius, height, phiMax;
 };
 
+std::shared_ptr<Cone> CreateConeShape(const Transform *o2w,
+                                      const Transform *w2o,
+                                      bool reverseOrientation,
+                                      const ParamSet &params);
 
-Cone *CreateConeShape(const Transform *o2w, const Transform *w2o,
-        bool reverseOrientation, const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_SHAPES_CONE_H
+#endif  // PBRT_SHAPES_CONE_H

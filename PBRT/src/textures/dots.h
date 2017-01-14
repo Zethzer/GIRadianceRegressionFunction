@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,47 +43,51 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // DotsTexture Declarations
-template <typename T> class DotsTexture : public Texture<T> {
-public:
+template <typename T>
+class DotsTexture : public Texture<T> {
+  public:
     // DotsTexture Public Methods
-    ~DotsTexture() {
-        delete mapping;
-    }
-    DotsTexture(TextureMapping2D *m, Reference<Texture<T> > t1,
-                Reference<Texture<T> > t2)
-        : mapping(m), outsideDot(t1), insideDot(t2) {
-    }
-    T Evaluate(const DifferentialGeometry &dg) const {
+    DotsTexture(std::unique_ptr<TextureMapping2D> mapping,
+                const std::shared_ptr<Texture<T>> &outsideDot,
+                const std::shared_ptr<Texture<T>> &insideDot)
+        : mapping(std::move(mapping)),
+          outsideDot(outsideDot),
+          insideDot(insideDot) {}
+    T Evaluate(const SurfaceInteraction &si) const {
         // Compute cell indices for dots
-        float s, t, dsdx, dtdx, dsdy, dtdy;
-        mapping->Map(dg, &s, &t, &dsdx, &dtdx, &dsdy, &dtdy);
-        int sCell = Floor2Int(s + .5f), tCell = Floor2Int(t + .5f);
+        Vector2f dstdx, dstdy;
+        Point2f st = mapping->Map(si, &dstdx, &dstdy);
+        int sCell = std::floor(st[0] + .5f), tCell = std::floor(st[1] + .5f);
 
         // Return _insideDot_ result if point is inside dot
-        if (Noise(sCell+.5f, tCell+.5f) > 0) {
-            float radius = .35f;
-            float maxShift = 0.5f - radius;
-            float sCenter = sCell + maxShift *
-                Noise(sCell + 1.5f, tCell + 2.8f);
-            float tCenter = tCell + maxShift *
-                Noise(sCell + 4.5f, tCell + 9.8f);
-            float ds = s - sCenter, dt = t - tCenter;
-            if (ds*ds + dt*dt < radius*radius)
-                return insideDot->Evaluate(dg);
+        if (Noise(sCell + .5f, tCell + .5f) > 0) {
+            Float radius = .35f;
+            Float maxShift = 0.5f - radius;
+            Float sCenter =
+                sCell + maxShift * Noise(sCell + 1.5f, tCell + 2.8f);
+            Float tCenter =
+                tCell + maxShift * Noise(sCell + 4.5f, tCell + 9.8f);
+            Vector2f dst = st - Point2f(sCenter, tCenter);
+            if (dst.LengthSquared() < radius * radius)
+                return insideDot->Evaluate(si);
         }
-        return outsideDot->Evaluate(dg);
+        return outsideDot->Evaluate(si);
     }
-private:
+
+  private:
     // DotsTexture Private Data
-    TextureMapping2D *mapping;
-    Reference<Texture<T> > outsideDot, insideDot;
+    std::unique_ptr<TextureMapping2D> mapping;
+    std::shared_ptr<Texture<T>> outsideDot, insideDot;
 };
 
-
-DotsTexture<float> *CreateDotsFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
+DotsTexture<Float> *CreateDotsFloatTexture(const Transform &tex2world,
+                                           const TextureParams &tp);
 DotsTexture<Spectrum> *CreateDotsSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+                                                 const TextureParams &tp);
 
-#endif // PBRT_TEXTURES_DOTS_H
+}  // namespace pbrt
+
+#endif  // PBRT_TEXTURES_DOTS_H

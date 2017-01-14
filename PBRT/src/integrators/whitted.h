@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,22 +43,28 @@
 #include "integrator.h"
 #include "scene.h"
 
+namespace pbrt {
+
 // WhittedIntegrator Declarations
-class WhittedIntegrator : public SurfaceIntegrator {
-public:
+class WhittedIntegrator : public SamplerIntegrator {
+  public:
     // WhittedIntegrator Public Methods
-    Spectrum Li(const Scene *scene, const Renderer *renderer,
-        const RayDifferential &ray, const Intersection &isect, const Sample *sample,
-        RNG &rng, MemoryArena &arena) const;
-    WhittedIntegrator(int md) {
-        maxDepth = md;
-    }
-private:
+    WhittedIntegrator(int maxDepth, std::shared_ptr<const Camera> camera,
+                      std::shared_ptr<Sampler> sampler,
+                      const Bounds2i &pixelBounds)
+        : SamplerIntegrator(camera, sampler, pixelBounds), maxDepth(maxDepth) {}
+    Spectrum Li(const RayDifferential &ray, const Scene &scene,
+                Sampler &sampler, MemoryArena &arena, int depth) const;
+
+  private:
     // WhittedIntegrator Private Data
-    int maxDepth;
+    const int maxDepth;
 };
 
+WhittedIntegrator *CreateWhittedIntegrator(
+    const ParamSet &params, std::shared_ptr<Sampler> sampler,
+    std::shared_ptr<const Camera> camera);
 
-WhittedIntegrator *CreateWhittedSurfaceIntegrator(const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_INTEGRATORS_WHITTED_H
+#endif  // PBRT_INTEGRATORS_WHITTED_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,106 +32,113 @@
 
 
 // lights/projection.cpp*
-#include "stdafx.h"
 #include "lights/projection.h"
-#include "montecarlo.h"
+#include "sampling.h"
 #include "paramset.h"
 #include "imageio.h"
+#include "reflection.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // ProjectionLight Method Definitions
-ProjectionLight::ProjectionLight(const Transform &light2world,
-        const Spectrum &intensity, const string &texname,
-        float fov)
-    : Light(light2world) {
-    lightPos = LightToWorld(Point(0,0,0));
-    Intensity = intensity;
-    // Create _ProjectionLight_ MIP-map
-    int width, height;
-    RGBSpectrum *texels = ReadImage(texname, &width, &height);
+ProjectionLight::ProjectionLight(const Transform &LightToWorld,
+                                 const MediumInterface &mediumInterface,
+                                 const Spectrum &I, const std::string &texname,
+                                 Float fov)
+    : Light((int)LightFlags::DeltaPosition, LightToWorld, mediumInterface),
+      pLight(LightToWorld(Point3f(0, 0, 0))),
+      I(I) {
+    // Create _ProjectionLight_ MIP map
+    Point2i resolution;
+    std::unique_ptr<RGBSpectrum[]> texels = ReadImage(texname, &resolution);
     if (texels)
-        projectionMap = new MIPMap<RGBSpectrum>(width, height, texels);
-    else
-        projectionMap = NULL;
-    delete[] texels;
+        projectionMap.reset(new MIPMap<RGBSpectrum>(resolution, texels.get()));
 
     // Initialize _ProjectionLight_ projection matrix
-    float aspect = projectionMap ? float(width) / float(height) : 1.f;
-    if (aspect > 1.f)  {
-        screenX0 = -aspect; screenX1 = aspect;
-        screenY0 = -1.f;    screenY1 = 1.f;
-    }
-    else {
-        screenX0 = -1.f;            screenX1 = 1.f;
-        screenY0 = -1.f / aspect;   screenY1 = 1.f / aspect;
-    }
+    Float aspect =
+        projectionMap ? (Float(resolution.x) / Float(resolution.y)) : 1;
+    if (aspect > 1)
+        screenBounds = Bounds2f(Point2f(-aspect, -1), Point2f(aspect, 1));
+    else
+        screenBounds =
+            Bounds2f(Point2f(-1, -1 / aspect), Point2f(1, 1 / aspect));
     hither = 1e-3f;
     yon = 1e30f;
     lightProjection = Perspective(fov, hither, yon);
 
     // Compute cosine of cone surrounding projection directions
-    float opposite = tanf(Radians(fov) / 2.f);
-    float tanDiag = opposite * sqrtf(1.f + 1.f/(aspect*aspect));
-    cosTotalWidth = cosf(atanf(tanDiag));
+    Float opposite = std::tan(Radians(fov) / 2.f);
+    Float tanDiag = opposite * std::sqrt(1 + 1 / (aspect * aspect));
+    cosTotalWidth = std::cos(std::atan(tanDiag));
 }
 
-
-ProjectionLight::~ProjectionLight() { delete projectionMap; }
-Spectrum ProjectionLight::Sample_L(const Point &p, float pEpsilon,
-         const LightSample &ls, float time, Vector *wi,
-         float *pdf, VisibilityTester *visibility) const {
-    *wi = Normalize(lightPos - p);
-    *pdf = 1.f;
-    visibility->SetSegment(p, pEpsilon, lightPos, 0., time);
-    return Intensity * Projection(-*wi) /
-        DistanceSquared(lightPos, p);
+Spectrum ProjectionLight::Sample_Li(const Interaction &ref, const Point2f &u,
+                                    Vector3f *wi, Float *pdf,
+                                    VisibilityTester *vis) const {
+    ProfilePhase _(Prof::LightSample);
+    *wi = Normalize(pLight - ref.p);
+    *pdf = 1;
+    *vis =
+        VisibilityTester(ref, Interaction(pLight, ref.time, mediumInterface));
+    return I * Projection(-*wi) / DistanceSquared(pLight, ref.p);
 }
 
-
-Spectrum ProjectionLight::Projection(const Vector &w) const {
-    Vector wl = WorldToLight(w);
+Spectrum ProjectionLight::Projection(const Vector3f &w) const {
+    Vector3f wl = WorldToLight(w);
     // Discard directions behind projection light
-    if (wl.z < hither) return 0.;
+    if (wl.z < hither) return 0;
 
     // Project point onto projection plane and compute light
-    Point Pl = lightProjection(Point(wl.x, wl.y, wl.z));
-    if (Pl.x < screenX0 || Pl.x > screenX1 ||
-        Pl.y < screenY0 || Pl.y > screenY1) return 0.;
+    Point3f p = lightProjection(Point3f(wl.x, wl.y, wl.z));
+    if (!Inside(Point2f(p.x, p.y), screenBounds)) return 0.f;
     if (!projectionMap) return 1;
-    float s = (Pl.x - screenX0) / (screenX1 - screenX0);
-    float t = (Pl.y - screenY0) / (screenY1 - screenY0);
-    return Spectrum(projectionMap->Lookup(s, t), SPECTRUM_ILLUMINANT);
+    Point2f st = Point2f(screenBounds.Offset(Point2f(p.x, p.y)));
+    return Spectrum(projectionMap->Lookup(st), SpectrumType::Illuminant);
 }
 
-
-Spectrum ProjectionLight::Power(const Scene *) const {
-    return (projectionMap ? Spectrum(projectionMap->Lookup(.5f, .5f, .5f),
-                                     SPECTRUM_ILLUMINANT) : Spectrum(1.f)) *
-        Intensity * 2.f * M_PI * (1.f - cosTotalWidth);
+Spectrum ProjectionLight::Power() const {
+    return (projectionMap
+                ? Spectrum(projectionMap->Lookup(Point2f(.5f, .5f), .5f),
+                           SpectrumType::Illuminant)
+                : Spectrum(1.f)) *
+           I * 2 * Pi * (1.f - cosTotalWidth);
 }
 
+Float ProjectionLight::Pdf_Li(const Interaction &, const Vector3f &) const {
+    return 0.f;
+}
 
-ProjectionLight *CreateProjectionLight(const Transform &light2world,
-        const ParamSet &paramSet) {
+Spectrum ProjectionLight::Sample_Le(const Point2f &u1, const Point2f &u2,
+                                    Float time, Ray *ray, Normal3f *nLight,
+                                    Float *pdfPos, Float *pdfDir) const {
+    ProfilePhase _(Prof::LightSample);
+    Vector3f v = UniformSampleCone(u1, cosTotalWidth);
+    *ray = Ray(pLight, LightToWorld(v), Infinity, time, mediumInterface.inside);
+    *nLight = (Normal3f)ray->d;  /// same here
+    *pdfPos = 1.f;
+    *pdfDir = UniformConePdf(cosTotalWidth);
+    return I * Projection(ray->d);
+}
+
+void ProjectionLight::Pdf_Le(const Ray &ray, const Normal3f &, Float *pdfPos,
+                             Float *pdfDir) const {
+    ProfilePhase _(Prof::LightPdf);
+    *pdfPos = 0.f;
+    *pdfDir = (CosTheta(WorldToLight(ray.d)) >= cosTotalWidth)
+                  ? UniformConePdf(cosTotalWidth)
+                  : 0;
+}
+
+std::shared_ptr<ProjectionLight> CreateProjectionLight(
+    const Transform &light2world, const Medium *medium,
+    const ParamSet &paramSet) {
     Spectrum I = paramSet.FindOneSpectrum("I", Spectrum(1.0));
     Spectrum sc = paramSet.FindOneSpectrum("scale", Spectrum(1.0));
-    float fov = paramSet.FindOneFloat("fov", 45.);
-    string texname = paramSet.FindOneFilename("mapname", "");
-    return new ProjectionLight(light2world, I * sc, texname, fov);
+    Float fov = paramSet.FindOneFloat("fov", 45.);
+    std::string texname = paramSet.FindOneFilename("mapname", "");
+    return std::make_shared<ProjectionLight>(light2world, medium, I * sc,
+                                             texname, fov);
 }
 
-
-Spectrum ProjectionLight::Sample_L(const Scene *scene, const LightSample &ls,
-        float u1, float u2, float time, Ray *ray, Normal *Ns, float *pdf) const {
-    Vector v = UniformSampleCone(ls.uPos[0], ls.uPos[1], cosTotalWidth);
-    *ray = Ray(lightPos, LightToWorld(v), 0.f, INFINITY, time);
-    *Ns = (Normal)ray->d;
-    *pdf = UniformConePdf(cosTotalWidth);
-    return Intensity * Projection(ray->d);
-}
-
-
-float ProjectionLight::Pdf(const Point &, const Vector &) const {
-    return 0.;
-}
-
-
+}  // namespace pbrt

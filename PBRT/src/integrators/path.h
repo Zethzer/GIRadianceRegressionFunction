@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -39,27 +41,35 @@
 // integrators/path.h*
 #include "pbrt.h"
 #include "integrator.h"
+#include "lightdistrib.h"
+
+namespace pbrt {
 
 // PathIntegrator Declarations
-class PathIntegrator : public SurfaceIntegrator {
-public:
+class PathIntegrator : public SamplerIntegrator {
+  public:
     // PathIntegrator Public Methods
-    Spectrum Li(const Scene *scene, const Renderer *renderer,
-        const RayDifferential &ray, const Intersection &isect,
-        const Sample *sample, RNG &rng, MemoryArena &arena) const;
-    void RequestSamples(Sampler *sampler, Sample *sample, const Scene *scene);
-    PathIntegrator(int md) { maxDepth = md; }
-private:
+    PathIntegrator(int maxDepth, std::shared_ptr<const Camera> camera,
+                   std::shared_ptr<Sampler> sampler,
+                   const Bounds2i &pixelBounds, Float rrThreshold = 1,
+                   const std::string &lightSampleStrategy = "spatial");
+
+    void Preprocess(const Scene &scene, Sampler &sampler);
+    Spectrum Li(const RayDifferential &ray, const Scene &scene,
+                Sampler &sampler, MemoryArena &arena, int depth) const;
+
+  private:
     // PathIntegrator Private Data
-    int maxDepth;
-#define SAMPLE_DEPTH 3
-    LightSampleOffsets lightSampleOffsets[SAMPLE_DEPTH];
-    int lightNumOffset[SAMPLE_DEPTH];
-    BSDFSampleOffsets bsdfSampleOffsets[SAMPLE_DEPTH];
-    BSDFSampleOffsets pathSampleOffsets[SAMPLE_DEPTH];
+    const int maxDepth;
+    const Float rrThreshold;
+    const std::string lightSampleStrategy;
+    std::unique_ptr<LightDistribution> lightDistribution;
 };
 
+PathIntegrator *CreatePathIntegrator(const ParamSet &params,
+                                     std::shared_ptr<Sampler> sampler,
+                                     std::shared_ptr<const Camera> camera);
 
-PathIntegrator *CreatePathSurfaceIntegrator(const ParamSet &params);
+}  // namespace pbrt
 
-#endif // PBRT_INTEGRATORS_PATH_H
+#endif  // PBRT_INTEGRATORS_PATH_H

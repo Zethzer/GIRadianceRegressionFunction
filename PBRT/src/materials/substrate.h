@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,29 +42,38 @@
 #include "pbrt.h"
 #include "material.h"
 
+namespace pbrt {
+
 // SubstrateMaterial Declarations
 class SubstrateMaterial : public Material {
-public:
+  public:
     // SubstrateMaterial Public Methods
-    SubstrateMaterial(Reference<Texture<Spectrum> > kd, Reference<Texture<Spectrum> > ks,
-            Reference<Texture<float> > u, Reference<Texture<float> > v,
-            Reference<Texture<float> > bump) {
-        Kd = kd;
-        Ks = ks;
-        nu = u;
-        nv = v;
-        bumpMap = bump;
-    }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom, const DifferentialGeometry &dgShading, MemoryArena &arena) const;
-private:
+    SubstrateMaterial(const std::shared_ptr<Texture<Spectrum>> &Kd,
+                      const std::shared_ptr<Texture<Spectrum>> &Ks,
+                      const std::shared_ptr<Texture<Float>> &nu,
+                      const std::shared_ptr<Texture<Float>> &nv,
+                      const std::shared_ptr<Texture<Float>> &bumpMap,
+                      bool remapRoughness)
+        : Kd(Kd),
+          Ks(Ks),
+          nu(nu),
+          nv(nv),
+          bumpMap(bumpMap),
+          remapRoughness(remapRoughness) {}
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // SubstrateMaterial Private Data
-    Reference<Texture<Spectrum> > Kd, Ks;
-    Reference<Texture<float> > nu, nv;
-    Reference<Texture<float> > bumpMap;
+    std::shared_ptr<Texture<Spectrum>> Kd, Ks;
+    std::shared_ptr<Texture<Float>> nu, nv;
+    std::shared_ptr<Texture<Float>> bumpMap;
+    bool remapRoughness;
 };
 
+SubstrateMaterial *CreateSubstrateMaterial(const TextureParams &mp);
 
-SubstrateMaterial *CreateSubstrateMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_SUBSTRATE_H
+#endif  // PBRT_MATERIALS_SUBSTRATE_H

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -40,27 +42,35 @@
 #include "pbrt.h"
 #include "material.h"
 
+namespace pbrt {
+
 // PlasticMaterial Declarations
 class PlasticMaterial : public Material {
-public:
+  public:
     // PlasticMaterial Public Methods
-    PlasticMaterial(Reference<Texture<Spectrum> > kd,
-                    Reference<Texture<Spectrum> > ks,
-                    Reference<Texture<float> > rough,
-                    Reference<Texture<float> > bump)
-        : Kd(kd), Ks(ks), roughness(rough), bumpMap(bump) {
-    }
-    BSDF *GetBSDF(const DifferentialGeometry &dgGeom,
-                  const DifferentialGeometry &dgShading,
-                  MemoryArena &arena) const;
-private:
+    PlasticMaterial(const std::shared_ptr<Texture<Spectrum>> &Kd,
+                    const std::shared_ptr<Texture<Spectrum>> &Ks,
+                    const std::shared_ptr<Texture<Float>> &roughness,
+                    const std::shared_ptr<Texture<Float>> &bumpMap,
+                    bool remapRoughness)
+        : Kd(Kd),
+          Ks(Ks),
+          roughness(roughness),
+          bumpMap(bumpMap),
+          remapRoughness(remapRoughness) {}
+    void ComputeScatteringFunctions(SurfaceInteraction *si, MemoryArena &arena,
+                                    TransportMode mode,
+                                    bool allowMultipleLobes) const;
+
+  private:
     // PlasticMaterial Private Data
-    Reference<Texture<Spectrum> > Kd, Ks;
-    Reference<Texture<float> > roughness, bumpMap;
+    std::shared_ptr<Texture<Spectrum>> Kd, Ks;
+    std::shared_ptr<Texture<Float>> roughness, bumpMap;
+    const bool remapRoughness;
 };
 
+PlasticMaterial *CreatePlasticMaterial(const TextureParams &mp);
 
-PlasticMaterial *CreatePlasticMaterial(const Transform &xform,
-        const TextureParams &mp);
+}  // namespace pbrt
 
-#endif // PBRT_MATERIALS_PLASTIC_H
+#endif  // PBRT_MATERIALS_PLASTIC_H

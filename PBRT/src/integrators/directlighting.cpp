@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,105 +32,102 @@
 
 
 // integrators/directlighting.cpp*
-#include "stdafx.h"
 #include "integrators/directlighting.h"
-#include "intersection.h"
+#include "interaction.h"
 #include "paramset.h"
+#include "camera.h"
+#include "film.h"
+#include "stats.h"
+
+namespace pbrt {
 
 // DirectLightingIntegrator Method Definitions
-DirectLightingIntegrator::DirectLightingIntegrator(LightStrategy st, int md) {
-    maxDepth = md;
-    strategy = st;
-    lightSampleOffsets = NULL;
-    bsdfSampleOffsets = NULL;
-}
+void DirectLightingIntegrator::Preprocess(const Scene &scene,
+                                          Sampler &sampler) {
+    if (strategy == LightStrategy::UniformSampleAll) {
+        // Compute number of samples to use for each light
+        for (const auto &light : scene.lights)
+            nLightSamples.push_back(sampler.RoundCount(light->nSamples));
 
-
-DirectLightingIntegrator::~DirectLightingIntegrator() {
-    delete[] lightSampleOffsets;
-    delete[] bsdfSampleOffsets;
-}
-
-
-void DirectLightingIntegrator::RequestSamples(Sampler *sampler,
-        Sample *sample, const Scene *scene) {
-    if (strategy == SAMPLE_ALL_UNIFORM) {
-        // Allocate and request samples for sampling all lights
-        uint32_t nLights = scene->lights.size();
-        lightSampleOffsets = new LightSampleOffsets[nLights];
-        bsdfSampleOffsets = new BSDFSampleOffsets[nLights];
-        for (uint32_t i = 0; i < nLights; ++i) {
-            const Light *light = scene->lights[i];
-            int nSamples = light->nSamples;
-            if (sampler) nSamples = sampler->RoundSize(nSamples);
-            lightSampleOffsets[i] = LightSampleOffsets(nSamples, sample);
-            bsdfSampleOffsets[i] = BSDFSampleOffsets(nSamples, sample);
+        // Request samples for sampling all lights
+        for (int i = 0; i < maxDepth; ++i) {
+            for (size_t j = 0; j < scene.lights.size(); ++j) {
+                sampler.Request2DArray(nLightSamples[j]);
+                sampler.Request2DArray(nLightSamples[j]);
+            }
         }
-        lightNumOffset = -1;
-    }
-    else {
-        // Allocate and request samples for sampling one light
-        lightSampleOffsets = new LightSampleOffsets[1];
-        lightSampleOffsets[0] = LightSampleOffsets(1, sample);
-        lightNumOffset = sample->Add1D(1);
-        bsdfSampleOffsets = new BSDFSampleOffsets[1];
-        bsdfSampleOffsets[0] = BSDFSampleOffsets(1, sample);
     }
 }
 
-
-Spectrum DirectLightingIntegrator::Li(const Scene *scene,
-        const Renderer *renderer, const RayDifferential &ray,
-        const Intersection &isect, const Sample *sample, RNG &rng, MemoryArena &arena) const {
+Spectrum DirectLightingIntegrator::Li(const RayDifferential &ray,
+                                      const Scene &scene, Sampler &sampler,
+                                      MemoryArena &arena, int depth) const {
+    ProfilePhase p(Prof::SamplerIntegratorLi);
     Spectrum L(0.f);
-    // Evaluate BSDF at hit point
-    BSDF *bsdf = isect.GetBSDF(ray, arena);
-    Vector wo = -ray.d;
-    const Point &p = bsdf->dgShading.p;
-    const Normal &n = bsdf->dgShading.nn;
+    // Find closest ray intersection or return background radiance
+    SurfaceInteraction isect;
+    if (!scene.Intersect(ray, &isect)) {
+        for (const auto &light : scene.lights) L += light->Le(ray);
+        return L;
+    }
+
+    // Compute scattering functions for surface interaction
+    isect.ComputeScatteringFunctions(ray, arena);
+    if (!isect.bsdf)
+        return Li(isect.SpawnRay(ray.d), scene, sampler, arena, depth);
+    Vector3f wo = isect.wo;
     // Compute emitted light if ray hit an area light source
     L += isect.Le(wo);
-
-    // Compute direct lighting for _DirectLightingIntegrator_ integrator
-    if (scene->lights.size() > 0) {
-        // Apply direct lighting strategy
-        switch (strategy) {
-            case SAMPLE_ALL_UNIFORM:
-                L += UniformSampleAllLights(scene, renderer, arena, p, n, wo,
-                    isect.rayEpsilon, ray.time, bsdf, sample, rng,
-                    lightSampleOffsets, bsdfSampleOffsets);
-                break;
-            case SAMPLE_ONE_UNIFORM:
-                L += UniformSampleOneLight(scene, renderer, arena, p, n, wo,
-                    isect.rayEpsilon, ray.time, bsdf, sample, rng,
-                    lightNumOffset, lightSampleOffsets, bsdfSampleOffsets);
-                break;
-        }
+    if (scene.lights.size() > 0) {
+        // Compute direct lighting for _DirectLightingIntegrator_ integrator
+        if (strategy == LightStrategy::UniformSampleAll)
+            L += UniformSampleAllLights(isect, scene, arena, sampler,
+                                        nLightSamples);
+        else
+            L += UniformSampleOneLight(isect, scene, arena, sampler);
     }
-    if (ray.depth + 1 < maxDepth) {
-        Vector wi;
+    if (depth + 1 < maxDepth) {
+        Vector3f wi;
         // Trace rays for specular reflection and refraction
-        L += SpecularReflect(ray, bsdf, rng, isect, renderer, scene, sample,
-                             arena);
-        L += SpecularTransmit(ray, bsdf, rng, isect, renderer, scene, sample,
-                              arena);
+        L += SpecularReflect(ray, isect, scene, sampler, arena, depth);
+        L += SpecularTransmit(ray, isect, scene, sampler, arena, depth);
     }
     return L;
 }
 
-
-DirectLightingIntegrator *CreateDirectLightingIntegrator(const ParamSet &params) {
+DirectLightingIntegrator *CreateDirectLightingIntegrator(
+    const ParamSet &params, std::shared_ptr<Sampler> sampler,
+    std::shared_ptr<const Camera> camera) {
     int maxDepth = params.FindOneInt("maxdepth", 5);
     LightStrategy strategy;
-    string st = params.FindOneString("strategy", "all");
-    if (st == "one") strategy = SAMPLE_ONE_UNIFORM;
-    else if (st == "all") strategy = SAMPLE_ALL_UNIFORM;
+    std::string st = params.FindOneString("strategy", "all");
+    if (st == "one")
+        strategy = LightStrategy::UniformSampleOne;
+    else if (st == "all")
+        strategy = LightStrategy::UniformSampleAll;
     else {
-        Warning("Strategy \"%s\" for direct lighting unknown. "
-            "Using \"all\".", st.c_str());
-        strategy = SAMPLE_ALL_UNIFORM;
+        Warning(
+            "Strategy \"%s\" for direct lighting unknown. "
+            "Using \"all\".",
+            st.c_str());
+        strategy = LightStrategy::UniformSampleAll;
     }
-    return new DirectLightingIntegrator(strategy, maxDepth);
+    int np;
+    const int *pb = params.FindInt("pixelbounds", &np);
+    Bounds2i pixelBounds = camera->film->GetSampleBounds();
+    if (pb) {
+        if (np != 4)
+            Error("Expected four values for \"pixelbounds\" parameter. Got %d.",
+                  np);
+        else {
+            pixelBounds = Intersect(pixelBounds,
+                                    Bounds2i{{pb[0], pb[2]}, {pb[1], pb[3]}});
+            if (pixelBounds.Area() == 0)
+                Error("Degenerate \"pixelbounds\" specified.");
+        }
+    }
+    return new DirectLightingIntegrator(strategy, maxDepth, camera, sampler,
+                                        pixelBounds);
 }
 
-
+}  // namespace pbrt

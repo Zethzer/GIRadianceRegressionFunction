@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -31,143 +32,60 @@
 
 
 // core/light.cpp*
-#include "stdafx.h"
 #include "light.h"
 #include "scene.h"
-#include "montecarlo.h"
+#include "sampling.h"
+#include "stats.h"
 #include "paramset.h"
-#include "sh.h"
+
+namespace pbrt {
+
+STAT_COUNTER("Scene/Lights", numLights);
+STAT_COUNTER("Scene/AreaLights", numAreaLights);
 
 // Light Method Definitions
-Light::~Light() {
+Light::Light(int flags, const Transform &LightToWorld,
+             const MediumInterface &mediumInterface, int nSamples)
+    : flags(flags),
+      nSamples(std::max(1, nSamples)),
+      mediumInterface(mediumInterface),
+      LightToWorld(LightToWorld),
+      WorldToLight(Inverse(LightToWorld)) {
+    ++numLights;
 }
 
+Light::~Light() {}
 
-bool VisibilityTester::Unoccluded(const Scene *scene) const {
-    return !scene->IntersectP(r);
+bool VisibilityTester::Unoccluded(const Scene &scene) const {
+    return !scene.IntersectP(p0.SpawnRayTo(p1));
 }
 
+Spectrum VisibilityTester::Tr(const Scene &scene, Sampler &sampler) const {
+    Ray ray(p0.SpawnRayTo(p1));
+    Spectrum Tr(1.f);
+    while (true) {
+        SurfaceInteraction isect;
+        bool hitSurface = scene.Intersect(ray, &isect);
+        // Handle opaque surface along ray's path
+        if (hitSurface && isect.primitive->GetMaterial() != nullptr)
+            return Spectrum(0.0f);
 
-Spectrum VisibilityTester::Transmittance(const Scene *scene,
-        const Renderer *renderer, const Sample *sample,
-        RNG &rng, MemoryArena &arena) const {
-    return renderer->Transmittance(scene, RayDifferential(r), sample,
-                                   rng, arena);
-}
+        // Update transmittance for current ray segment
+        if (ray.medium) Tr *= ray.medium->Tr(ray, sampler);
 
-
-Spectrum Light::Le(const RayDifferential &) const {
-    return Spectrum(0.);
-}
-
-
-LightSampleOffsets::LightSampleOffsets(int count, Sample *sample) {
-    nSamples = count;
-    componentOffset = sample->Add1D(nSamples);
-    posOffset = sample->Add2D(nSamples);
-}
-
-
-LightSample::LightSample(const Sample *sample,
-        const LightSampleOffsets &offsets, uint32_t n) {
-    Assert(n < sample->n2D[offsets.posOffset]);
-    Assert(n < sample->n1D[offsets.componentOffset]);
-    uPos[0] = sample->twoD[offsets.posOffset][2*n];
-    uPos[1] = sample->twoD[offsets.posOffset][2*n+1];
-    uComponent = sample->oneD[offsets.componentOffset][n];
-    Assert(uPos[0] >= 0.f && uPos[0] < 1.f);
-    Assert(uPos[1] >= 0.f && uPos[1] < 1.f);
-    Assert(uComponent >= 0.f && uComponent < 1.f);
-}
-
-
-void Light::SHProject(const Point &p, float pEpsilon, int lmax,
-        const Scene *scene, bool computeLightVisibility, float time,
-        RNG &rng, Spectrum *coeffs) const {
-    for (int i = 0; i < SHTerms(lmax); ++i)
-        coeffs[i] = 0.f;
-    uint32_t ns = RoundUpPow2(nSamples);
-    uint32_t scramble1D = rng.RandomUInt();
-    uint32_t scramble2D[2] = { rng.RandomUInt(), rng.RandomUInt() };
-    float *Ylm = ALLOCA(float, SHTerms(lmax));
-    for (uint32_t i = 0; i < ns; ++i) {
-        // Compute incident radiance sample from _light_, update SH _coeffs_
-        float u[2], pdf;
-        Sample02(i, scramble2D, u);
-        LightSample lightSample(u[0], u[1], VanDerCorput(i, scramble1D));
-        Vector wi;
-        VisibilityTester vis;
-        Spectrum Li = Sample_L(p, pEpsilon, lightSample, time, &wi, &pdf, &vis);
-        if (!Li.IsBlack() && pdf > 0.f &&
-            (!computeLightVisibility || vis.Unoccluded(scene))) {
-            // Add light sample contribution to MC estimate of SH coefficients
-            SHEvaluate(wi, lmax, Ylm);
-            for (int j = 0; j < SHTerms(lmax); ++j)
-                coeffs[j] += Li * Ylm[j] / (pdf * ns);
-        }
+        // Generate next ray segment or return final transmittance
+        if (!hitSurface) break;
+        ray = isect.SpawnRayTo(p1);
     }
+    return Tr;
 }
 
+Spectrum Light::Le(const RayDifferential &ray) const { return Spectrum(0.f); }
 
-
-// ShapeSet Method Definitions
-ShapeSet::ShapeSet(const Reference<Shape> &s) {
-    vector<Reference<Shape> > todo;
-    todo.push_back(s);
-    while (todo.size()) {
-        Reference<Shape> sh = todo.back();
-        todo.pop_back();
-        if (sh->CanIntersect())
-            shapes.push_back(sh);
-        else
-            sh->Refine(todo);
-    }
-    if (shapes.size() > 64)
-        Warning("Area light geometry turned into %d shapes; "
-            "may be very inefficient.", (int)shapes.size());
-
-    // Compute total area of shapes in _ShapeSet_ and area CDF
-    sumArea = 0.f;
-    for (uint32_t i = 0; i < shapes.size(); ++i) {
-        float a = shapes[i]->Area();
-        areas.push_back(a);
-        sumArea += a;
-    }
-    areaDistribution = new Distribution1D(&areas[0], areas.size());
+AreaLight::AreaLight(const Transform &LightToWorld, const MediumInterface &medium,
+                     int nSamples)
+    : Light((int)LightFlags::Area, LightToWorld, medium, nSamples) {
+    ++numAreaLights;
 }
 
-
-ShapeSet::~ShapeSet() {
-    delete areaDistribution;
-}
-
-
-Point ShapeSet::Sample(const Point &p, const LightSample &ls,
-                       Normal *Ns) const {
-    int sn = areaDistribution->SampleDiscrete(ls.uComponent, NULL);
-    return shapes[sn]->Sample(p, ls.uPos[0], ls.uPos[1], Ns);
-}
-
-
-Point ShapeSet::Sample(const LightSample &ls, Normal *Ns) const {
-    int sn = areaDistribution->SampleDiscrete(ls.uComponent, NULL);
-    return shapes[sn]->Sample(ls.uPos[0], ls.uPos[1], Ns);
-}
-
-
-float ShapeSet::Pdf(const Point &p, const Vector &wi) const {
-    float pdf = 0.f;
-    for (uint32_t i = 0; i < shapes.size(); ++i)
-        pdf += areas[i] * shapes[i]->Pdf(p, wi);
-    return pdf / sumArea;
-}
-
-
-float ShapeSet::Pdf(const Point &p) const {
-    float pdf = 0.f;
-    for (uint32_t i = 0; i < shapes.size(); ++i)
-        pdf += areas[i] * shapes[i]->Pdf(p);
-    return pdf / (shapes.size() * sumArea);
-}
-
-
+}  // namespace pbrt

@@ -1,6 +1,7 @@
 
 /*
-    pbrt source code Copyright(c) 1998-2012 Matt Pharr and Greg Humphreys.
+    pbrt source code is Copyright(c) 1998-2016
+                        Matt Pharr, Greg Humphreys, and Wenzel Jakob.
 
     This file is part of pbrt.
 
@@ -30,6 +31,7 @@
  */
 
 #if defined(_MSC_VER)
+#define NOMINMAX
 #pragma once
 #endif
 
@@ -41,34 +43,34 @@
 #include "texture.h"
 #include "paramset.h"
 
+namespace pbrt {
+
 // WrinkledTexture Declarations
-template <typename T> class WrinkledTexture : public Texture<T> {
-public:
+template <typename T>
+class WrinkledTexture : public Texture<T> {
+  public:
     // WrinkledTexture Public Methods
-    ~WrinkledTexture() {
-        delete mapping;
+    WrinkledTexture(std::unique_ptr<TextureMapping3D> mapping, int octaves,
+                    Float omega)
+        : mapping(std::move(mapping)), octaves(octaves), omega(omega) {}
+    T Evaluate(const SurfaceInteraction &si) const {
+        Vector3f dpdx, dpdy;
+        Point3f p = mapping->Map(si, &dpdx, &dpdy);
+        return Turbulence(p, dpdx, dpdy, omega, octaves);
     }
-    WrinkledTexture(int oct, float roughness, TextureMapping3D *map) {
-        omega = roughness;
-        octaves = oct;
-        mapping = map;
-    }
-    T Evaluate(const DifferentialGeometry &dg) const {
-        Vector dpdx, dpdy;
-        Point P = mapping->Map(dg, &dpdx, &dpdy);
-        return Turbulence(P, dpdx, dpdy, omega, octaves);
-    }
-private:
+
+  private:
     // WrinkledTexture Private Data
+    std::unique_ptr<TextureMapping3D> mapping;
     int octaves;
-    float omega;
-    TextureMapping3D *mapping;
+    Float omega;
 };
 
+WrinkledTexture<Float> *CreateWrinkledFloatTexture(const Transform &tex2world,
+                                                   const TextureParams &tp);
+WrinkledTexture<Spectrum> *CreateWrinkledSpectrumTexture(
+    const Transform &tex2world, const TextureParams &tp);
 
-WrinkledTexture<float> *CreateWrinkledFloatTexture(const Transform &tex2world,
-        const TextureParams &tp);
-WrinkledTexture<Spectrum> *CreateWrinkledSpectrumTexture(const Transform &tex2world,
-        const TextureParams &tp);
+}  // namespace pbrt
 
-#endif // PBRT_TEXTURES_WRINKLED_H
+#endif  // PBRT_TEXTURES_WRINKLED_H
