@@ -1,0 +1,9 @@
+[submodule "PBRT/src/ext/openexr"]
+	path = PBRT/src/ext/openexr
+	url = https://github.com/wjakob/openexr
+[submodule "PBRT/src/ext/zlib"]
+	path = PBRT/src/ext/zlib
+	url = https://github.com/mitsuba-renderer/zlib
+[submodule "PBRT/src/ext/glog"]
+	path = PBRT/src/ext/glog
+	url = https://github.com/google/glog.git
