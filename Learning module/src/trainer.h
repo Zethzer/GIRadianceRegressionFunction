@@ -16,7 +16,9 @@
  * in order to create the NeuralNetwork.
  *
  * Then, the network can be trained using a DataSet, by sending
- * its path, and TrainingParameters.
+ * its path, and DataSetParameters.
+ *
+ * NeuralNetwork can also be saved.
  * */
 class Trainer
 {
