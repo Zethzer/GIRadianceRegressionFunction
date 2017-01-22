@@ -1,13 +1,22 @@
 <Config>
   <Network>
     <Architecture>12 20 10 3</Architecture>
+    <LayersActivationFunctions>HyperbolicTangent HyperbolicTangent Linear</LayersActivationFunctions>
     <InputsNames>position.x position.y position.z view.x view.y view.z source.x source.y source.z normal.x normal.ynormal.z</InputsNames>
     <OutputsNames>R G B</OutputsNames>
-    <ScalingMethod>MinimumMaximum</ScalingMethod>
-    <UnscalingMethod>NoUnscaling</UnscalingMethod>
+    <ScalingLayerMethod>NoScaling</ScalingLayerMethod>
+    <UnscalingLayerMethod>NoUnscaling</UnscalingLayerMethod>
   </Network>
-  <Learning>
-    <Method>LevenbergMarquardt</Method>
-    <MaxError>0.05</MaxError>
-  </Learning>
+  <DataSet>
+    <Splitting>
+      <SplittingMethod>Random</SplittingMethod>
+      <SelectionRatio>0.0</SelectionRatio>
+      <TestingRatio>0.3</TestingRatio>
+    </Splitting>
+    <Training>
+      <ScalingMethod>MinimumMaximum</ScalingMethod>
+      <TrainingMethod>LevenbergMarquardt</TrainingMethod>
+      <GradientNormGoal>0.05</GradientNormGoal>
+    </Training>
+  </DataSet>
 </Config>

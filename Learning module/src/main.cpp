@@ -3,7 +3,7 @@
 
 #include "../tinyxml2/tinyxml2.h"
 
-#include "learningmodule.h"
+#include "trainer.h"
 #include "configparser.h"
 
 bool extractArguments(int argc, char *argv[], std::string &training_data_set_path, std::string neural_network_save_path);
@@ -11,8 +11,8 @@ bool extractArguments(int argc, char *argv[], std::string &training_data_set_pat
 /*
  * Inputs :
  *
- * - DataSet path, .dat file
- * - NeuralNetwork save path .xml file
+ * -DataSet path (.dat file)
+ * -NeuralNetwork save path (.xml file)
  *
  * Output :
  *
@@ -26,25 +26,31 @@ int main(int argc, char *argv[])
                 neural_network_save_path;
 
     if(!extractArguments(argc, argv, training_data_set_path, neural_network_save_path))
+    {
+        std::cerr << "MAIN::ERROR : problem during extraction of arguments" << std::endl;
         return EXIT_FAILURE;
+    }
 
-    NeuralNetworkArchitecture neural_network_architecture;
-    LearningParameters learning_parameters;
+    NeuralNetworkParameters neural_network_parameters;
+    DataSetParameters data_set_parameters;
     ConfigParser config_parser;
-    config_parser.parseConfig("config.xml", neural_network_architecture, learning_parameters);
 
+    if(!config_parser.parseConfig("config.xml", neural_network_parameters, data_set_parameters))
+    {
+        std::cerr << "MAIN::ERROR : problem while parsing the config file" << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    LearningModule learning_module(neural_network_architecture, learning_parameters);
-    learning_module.trainNetwork(training_data_set_path);
-    learning_module.saveNetwork(neural_network_save_path);
+    Trainer trainer(neural_network_parameters);
+    trainer.trainNetwork(training_data_set_path, data_set_parameters);
+    trainer.saveNetwork(neural_network_save_path);
 
     return EXIT_SUCCESS;
 }
 
 /*
  * Check if arguments are correct
- * set optional argument to default if not set
- * */
+ */
 bool extractArguments(int argc, char *argv[], std::string &training_data_set_path, std::string neural_network_save_path)
 {
     if(argc < 3)
