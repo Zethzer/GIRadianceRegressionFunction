@@ -52,17 +52,18 @@ class PathIntegrator : public SamplerIntegrator {
     PathIntegrator(int maxDepth, std::shared_ptr<const Camera> camera,
                    std::shared_ptr<Sampler> sampler,
                    const Bounds2i &pixelBounds, Float rrThreshold = 1,
-                   const std::string &lightSampleStrategy = "spatial");
+                   const std::string &lightSampleStrategy = "spatial", bool indirect = false);
 
     void Preprocess(const Scene &scene, Sampler &sampler);
     Spectrum Li(const RayDifferential &ray, const Scene &scene,
-                Sampler &sampler, MemoryArena &arena, int depth) const;
+                Sampler &sampler, MemoryArena &arena, int depth = 0) const;
 
   private:
     // PathIntegrator Private Data
     const int maxDepth;
     const Float rrThreshold;
     const std::string lightSampleStrategy;
+    bool indirect_;
     std::unique_ptr<LightDistribution> lightDistribution;
 };
 

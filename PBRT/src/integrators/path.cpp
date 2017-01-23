@@ -50,11 +50,12 @@ PathIntegrator::PathIntegrator(int maxDepth,
                                std::shared_ptr<const Camera> camera,
                                std::shared_ptr<Sampler> sampler,
                                const Bounds2i &pixelBounds, Float rrThreshold,
-                               const std::string &lightSampleStrategy)
+                               const std::string &lightSampleStrategy, bool indirect)
     : SamplerIntegrator(camera, sampler, pixelBounds),
       maxDepth(maxDepth),
       rrThreshold(rrThreshold),
-      lightSampleStrategy(lightSampleStrategy) {}
+      lightSampleStrategy(lightSampleStrategy),
+      indirect_(indirect){}
 
 void PathIntegrator::Preprocess(const Scene &scene, Sampler &sampler) {
     lightDistribution =
@@ -87,6 +88,7 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
         SurfaceInteraction isect;
         bool foundIntersection = scene.Intersect(ray, &isect);
 
+
         // Possibly add emitted light at intersection
         if (bounces == 0 || specularBounce) {
             // Add emitted light at path vertex or from the environment
@@ -116,8 +118,8 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
 
         // Sample illumination from lights to find path contribution.
         // (But skip this for perfectly specular BSDFs.)
-        if (isect.bsdf->NumComponents(BxDFType(BSDF_ALL & ~BSDF_SPECULAR)) >
-            0) {
+        if ((!indirect_ || bounces != 0)
+                && isect.bsdf->NumComponents(BxDFType(BSDF_ALL & ~BSDF_SPECULAR)) > 0) {
             ++totalPaths;
             Spectrum Ld = beta * UniformSampleOneLight(isect, scene, arena,
                                                        sampler, false, distrib);

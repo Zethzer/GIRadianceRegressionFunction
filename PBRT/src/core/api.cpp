@@ -57,6 +57,7 @@
 #include "integrators/directlighting.h"
 #include "integrators/mlt.h"
 #include "integrators/path.h"
+#include "integrators/CO_path.h"
 #include "integrators/sppm.h"
 #include "integrators/volpath.h"
 #include "integrators/whitted.h"
@@ -1455,6 +1456,8 @@ Integrator *RenderOptions::MakeIntegrator() const {
         integrator = CreateMLTIntegrator(IntegratorParams, camera);
     } else if (IntegratorName == "sppm") {
         integrator = CreateSPPMIntegrator(IntegratorParams, camera);
+    }else if (IntegratorName == "CO_path") {
+        integrator = CreateCOPathIntegrator(IntegratorParams, sampler, camera);
     } else {
         Error("Integrator \"%s\" unknown.", IntegratorName.c_str());
         return nullptr;
