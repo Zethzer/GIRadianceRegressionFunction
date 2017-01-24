@@ -1,4 +1,6 @@
-#include "../neuralnetworkarchitecture.h"
+#include "../neuralnetworkparameters.h"
+#include "../datasetparameters.h"
+#include "../configparser.h"
 
 #include "iostream"
 
@@ -19,7 +21,7 @@ int main(int argc, char *argv[])
     std::cout << "hello world" << std::endl;
 }
 
-bool extractArguments( NeuralNetworkArchitecture &neural_network_architecture, Vector<Output> &outputs1, Vector<Output> &outputs2)
+bool extractArguments(NeuralNetworkParameters &neural_network_parameters, Vector<Output> &outputs1, Vector<Output> &outputs2)
 {
 
 }
@@ -31,7 +33,7 @@ bool extractArguments( NeuralNetworkArchitecture &neural_network_architecture, V
  * between them
  * and print the result
  * */
-void compare(const NeuralNetworkArchitecture &neural_network_architecture, const Vector<Output> &outputs1, const Vector<Output> &outputs2)
+void compare(const NeuralNetworkParameters &neural_network_parameters, const Vector<Output> &outputs1, const Vector<Output> &outputs2)
 {
     if(outputs1.size() != outputs2.size())
     {
@@ -40,19 +42,19 @@ void compare(const NeuralNetworkArchitecture &neural_network_architecture, const
         return;
     }
 
-    double *average = new double[neural_network_architecture.m_number_of_outputs],
-           *maximum = new double[neural_network_architecture.m_number_of_outputs],
-           *minimum = new double[neural_network_architecture.m_number_of_outputs];
+    double *average = new double[neural_network_parameters.m_number_of_outputs],
+           *maximum = new double[neural_network_parameters.m_number_of_outputs],
+           *minimum = new double[neural_network_parameters.m_number_of_outputs];
 
-    memset(&average[0], 0, neural_network_architecture.m_number_of_outputs * sizeof average[0]);
-    memset(&maximum[0], 0, neural_network_architecture.m_number_of_outputs * sizeof maximum[0]);
-    memset(&minimum[0], INFINITY, neural_network_architecture.m_number_of_outputs * sizeof minimum[0]);
+    memset(&average[0], 0, neural_network_parameters.m_number_of_outputs * sizeof average[0]);
+    memset(&maximum[0], 0, neural_network_parameters.m_number_of_outputs * sizeof maximum[0]);
+    memset(&minimum[0], INFINITY, neural_network_parameters.m_number_of_outputs * sizeof minimum[0]);
 
     for(size_t i = 0; i < outputs1.size(); ++i)
     {
-        double gaps[neural_network_architecture.m_number_of_outputs];
+        double gaps[neural_network_parameters.m_number_of_outputs];
 
-        for(size_t j = 0; j < neural_network_architecture.m_number_of_outputs; ++j)
+        for(size_t j = 0; j < neural_network_parameters.m_number_of_outputs; ++j)
         {
             gaps[0] = fabs(outputs1[i][0] - outputs2[i][0]);
             maximum[j] = std::max(maximum[j], gaps[j]);
@@ -61,21 +63,21 @@ void compare(const NeuralNetworkArchitecture &neural_network_architecture, const
         }
     }
 
-    for(size_t i = 0; i < neural_network_architecture.m_number_of_outputs; ++i)
+    for(size_t i = 0; i < neural_network_parameters.m_number_of_outputs; ++i)
         average[i] /= outputs1.size();
 
     std::cout << std::endl << "Results : "
 
     << std::endl << "minimum : ";
-    for(size_t i = 0; i < neural_network_architecture.m_number_of_outputs; ++i)
+    for(size_t i = 0; i < neural_network_parameters.m_number_of_outputs; ++i)
         std::cout << minimum[i] << ' ';
 
     std::cout << std::endl << "maximum : ";
-    for(size_t i = 0; i < neural_network_architecture.m_number_of_outputs; ++i)
+    for(size_t i = 0; i < neural_network_parameters.m_number_of_outputs; ++i)
         std::cout << maximum[i];
 
     std::cout << std::endl << "average : ";
-    for(size_t i = 0; i < neural_network_architecture.m_number_of_outputs; ++i)
+    for(size_t i = 0; i < neural_network_parameters.m_number_of_outputs; ++i)
         std::cout << average[i];
 
     std::cout << std::endl;
@@ -87,7 +89,7 @@ void compare(const NeuralNetworkArchitecture &neural_network_architecture, const
  * and save the inputs and outputs respectively in
  * vectors 'inputs' and 'outputs'
  * */
-void extractDatas(const NeuralNetworkArchitecture &neural_network_architecture, const std::string &data_set_path, Vector<Input> &inputs, Vector<Output> &outputs)
+void extractDatas(const NeuralNetworkParameters &neural_network_parameters, const std::string &data_set_path, Vector<Input> &inputs, Vector<Output> &outputs)
 {
     DataSet data_set;
     data_set.set_data_file_name(data_set_path);
@@ -95,16 +97,16 @@ void extractDatas(const NeuralNetworkArchitecture &neural_network_architecture, 
 
     const Matrix<double> datas = data_set.get_data();
 
-    if((neural_network_architecture.m_number_of_inputs + neural_network_architecture.m_number_of_outputs) != datas.get_columns_number())
+    if((neural_network_parameters.m_number_of_inputs + neural_network_parameters.m_number_of_outputs) != datas.get_columns_number())
     {
         std::cerr << "EXTRACTDATAS::ERROR network architecture and dataset are incompatible" << std::endl;
 
         return;
     }
 
-    for(size_t i = 0; i < neural_network_architecture.m_number_of_inputs; ++i)
+    /*for(size_t i = 0; i < neural_network_parameters.m_number_of_inputs; ++i)
             inputs.push_back(datas[i]);
 
-    for(size_t i = 0; i < neural_network_architecture.m_number_of_outputs; ++i)
-            outputs.push_back(datas[i]);
+    for(size_t i = 0; i < neural_network_parameters.m_number_of_outputs; ++i)
+            outputs.push_back(datas[i]);*/
 }

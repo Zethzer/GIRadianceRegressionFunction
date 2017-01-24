@@ -1,6 +1,12 @@
-#include "../neuralnetworkarchitecture.h"
+#include "opennn.h"
+#include "../opennn/neural_network.h"
+#include "../neuralnetworkparameters.h"
 
 using namespace OpenNN;
+
+Vector<Output> evaluate(const std::string &neural_network_path, Vector<Input> inputs);
+NeuralNetwork loadNeuralNetwork(const std::string &neural_network_path);
+Output evaluateInput(NeuralNetwork &neural_network, const Input &input);
 
 int main(int argc, char *argv[])
 {
