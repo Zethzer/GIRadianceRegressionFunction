@@ -1,4 +1,4 @@
-// integrators/CO_path.cpp*
+ // integrators/CO_path.cpp*
 #include "integrators/CO_path.h"
 #include "bssrdf.h"
 #include "camera.h"
