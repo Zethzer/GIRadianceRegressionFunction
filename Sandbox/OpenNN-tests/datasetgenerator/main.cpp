@@ -40,6 +40,7 @@ void generateDataSet(const NeuralNetworkParameters &neural_network_parameters, c
 
         for(size_t j = 0; j < neural_network_parameters.m_number_of_outputs; ++j)
         {
+            data[neural_network_parameters.m_number_of_inputs + j] = 0;
             for(size_t k = 0; k < neural_network_parameters.m_number_of_inputs; ++k)
             {
                 int factor = rand() % 2;

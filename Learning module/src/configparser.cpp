@@ -305,6 +305,7 @@ std::vector<std::string> ConfigParser::splitValues(const char *values)
         out.push_back(token);
         values_string.erase(0, pos + 1);
     }
+    out.push_back(values_string);
 
     return out;
 }

@@ -87,6 +87,8 @@ Vector<size_t> ConfigParser::parseNeuralNetworkArchitecture(XMLElement *p_networ
         size_t element;
         sscanf(architecture_strings[i].c_str(), "%zu", &element);
         network_architecture.push_back(element);
+
+        std::cout << element << ' ';
     }
 
     return network_architecture;
@@ -305,6 +307,7 @@ std::vector<std::string> ConfigParser::splitValues(const char *values)
         out.push_back(token);
         values_string.erase(0, pos + 1);
     }
+    out.push_back(values_string);
 
     return out;
 }
