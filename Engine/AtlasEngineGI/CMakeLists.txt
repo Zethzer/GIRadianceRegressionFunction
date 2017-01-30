@@ -58,7 +58,7 @@ elseif(UNIX)
 
         include_directories(${Qt5Widgets_INCLUDE_DIRS})
 
-        add_executable(${PROJECT_NAME} ${SRC_LIST})
+        add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
         target_link_libraries(${PROJECT_NAME} ${Qt4_LIBRARIES} ${OPENGL_LIBRARIES} libassimp.so)
 elseif(WIN32)
