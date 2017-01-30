@@ -2,7 +2,9 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#if defines(__APPLE__) || defined(_WIN32)
 #include <QSurfaceFormat>
+#endif
 
 #include "ui_mainwindow.h"
 
