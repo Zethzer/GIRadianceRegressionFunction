@@ -50,6 +50,9 @@ namespace pbrt {
 
 // FilmTilePixel Declarations
 struct FilmTilePixel {
+    Point3f position = Point3f(0.f, 0.f, 0.f);
+    Normal3f normal = Normal3f(0.f, 0.f, 0.f);
+
     Spectrum contribSum = 0.f;
     Float filterWeightSum = 0.f;
 };
@@ -86,6 +89,9 @@ class Film {
         Float filterWeightSum;
         AtomicFloat splatXYZ[3];
         Float pad;
+
+        Normal3f normal = Normal3f(0.f, 0.f, 0.f);
+        Point3f position = Point3f(0.f, 0.f, 0.f);
     };
     std::unique_ptr<Pixel[]> pixels;
     static PBRT_CONSTEXPR int filterTableWidth = 16;
@@ -119,7 +125,8 @@ class FilmTile {
         pixels = std::vector<FilmTilePixel>(std::max(0, pixelBounds.Area()));
     }
     void AddSample(const Point2f &pFilm, Spectrum L,
-                   Float sampleWeight = 1.) {
+                   Float sampleWeight = 1.,
+                   Point3f pos = Point3f(0.f, 0.f, 0.f), Normal3f norm = Normal3f(0.f, 0.f, 0.f)) {
         ProfilePhase _(Prof::AddFilmSample);
         if (L.y() > maxSampleLuminance)
             L *= maxSampleLuminance / L.y();
@@ -156,6 +163,8 @@ class FilmTile {
                 FilmTilePixel &pixel = GetPixel(Point2i(x, y));
                 pixel.contribSum += L * sampleWeight * filterWeight;
                 pixel.filterWeightSum += filterWeight;
+                pixel.position = pos;
+                pixel.normal = norm;
             }
         }
     }

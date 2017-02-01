@@ -62,11 +62,12 @@ void PathIntegrator::Preprocess(const Scene &scene, Sampler &sampler) {
         CreateLightSampleDistribution(lightSampleStrategy, scene);
 }
 
-Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
+SamplerIntegrator::LiResp PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
                             Sampler &sampler, MemoryArena &arena,
                             int depth) const {
     ProfilePhase p(Prof::SamplerIntegratorLi);
     Spectrum L(0.f), beta(1.f);
+    LiResp R;
     RayDifferential ray(r);
     bool specularBounce = false;
     int bounces;
@@ -87,6 +88,11 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
         // Intersect _ray_ with scene and store intersection in _isect_
         SurfaceInteraction isect;
         bool foundIntersection = scene.Intersect(ray, &isect);
+
+        if(bounces == 0) {
+            R.norm = isect.n;
+            R.pos = isect.p;
+        }
 
 
         // Possibly add emitted light at intersection
@@ -186,7 +192,8 @@ Spectrum PathIntegrator::Li(const RayDifferential &r, const Scene &scene,
         }
     }
     ReportValue(pathLength, bounces);
-    return L;
+    R.Li = L;
+    return R;
 }
 
 PathIntegrator *CreatePathIntegrator(const ParamSet &params,

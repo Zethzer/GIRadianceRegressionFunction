@@ -287,8 +287,10 @@ void SamplerIntegrator::Render(const Scene &scene) {
                     ++nCameraRays;
 
                     // Evaluate radiance along camera ray
+                    LiResp R;
                     Spectrum L(0.f);
-                    if (rayWeight > 0) L = Li(ray, scene, *tileSampler, arena);
+                    if (rayWeight > 0) R = Li(ray, scene, *tileSampler, arena);
+                    L = R.Li;
 
                     // Issue warning if unexpected radiance value returned
                     if (L.HasNaNs()) {
@@ -370,7 +372,8 @@ Spectrum SamplerIntegrator::SpecularReflect(
             rd.ryDirection =
                 wi - dwody + 2.f * Vector3f(Dot(wo, ns) * dndy + dDNdy * ns);
         }
-        return f * Li(rd, scene, sampler, arena, depth + 1) * AbsDot(wi, ns) /
+        LiResp R = Li(rd, scene, sampler, arena, depth + 1);
+        return f * R.Li * AbsDot(wi, ns) /
                pdf;
     } else
         return Spectrum(0.f);
@@ -420,7 +423,8 @@ Spectrum SamplerIntegrator::SpecularTransmit(
             rd.ryDirection =
                 wi + eta * dwody - Vector3f(mu * dndy + dmudy * ns);
         }
-        L = f * Li(rd, scene, sampler, arena, depth + 1) * AbsDot(wi, ns) / pdf;
+        LiResp R = Li(rd, scene, sampler, arena, depth + 1);
+        L = f * R.Li * AbsDot(wi, ns) / pdf;
     }
     return L;
 }

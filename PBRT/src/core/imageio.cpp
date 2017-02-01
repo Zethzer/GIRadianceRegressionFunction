@@ -40,6 +40,8 @@
 #include <ImfRgba.h>
 #include <ImfRgbaFile.h>
 
+#include <stdio.h>
+
 namespace pbrt {
 
 // ImageIO Local Declarations
@@ -55,6 +57,11 @@ static bool WriteImagePFM(const std::string &filename, const Float *rgb,
                           int xres, int yres);
 static RGBSpectrum *ReadImagePFM(const std::string &filename, int *xres,
                                  int *yres);
+
+static bool WriteImageData(const std::string &name, const Float *lum,
+                           const Float *pos, const Float *norm,
+                           int xRes, int yRes, int totalXRes, int totalYRes,
+                           int xOffset, int yOffset);
 
 // ImageIO Function Definitions
 std::unique_ptr<RGBSpectrum[]> ReadImage(const std::string &name,
@@ -79,7 +86,8 @@ std::unique_ptr<RGBSpectrum[]> ReadImage(const std::string &name,
 }
 
 void WriteImage(const std::string &name, const Float *rgb,
-                const Bounds2i &outputBounds, const Point2i &totalResolution) {
+                const Bounds2i &outputBounds, const Point2i &totalResolution,
+                const Float *pos, const Float *nor) {
     Vector2i resolution = outputBounds.Diagonal();
     if (HasExtension(name, ".exr")) {
         WriteImageEXR(name, rgb, resolution.x, resolution.y, totalResolution.x,
@@ -115,6 +123,9 @@ void WriteImage(const std::string &name, const Float *rgb,
                 Error("Error writing PNG \"%s\": %s", name.c_str(),
                       lodepng_error_text(error));
         }
+    } else if (HasExtension(name, ".data")) {
+        WriteImageData(name, rgb, pos, nor, resolution.x, resolution.y,
+                       totalResolution.x, totalResolution.y, outputBounds.pMin.x, outputBounds.pMin.y);
     } else {
         Error("Can't determine image file type from suffix of filename \"%s\"",
               name.c_str());
@@ -479,6 +490,22 @@ fail:
     Error("Error writing PFM file \"%s\"", filename.c_str());
     fclose(fp);
     return false;
+}
+
+static bool WriteImageData(const std::string &name, const Float *lum,
+                           const Float *pos, const Float *norm,
+                           int xRes, int yRes, int totalXRes, int totalYRes,
+                           int xOffset, int yOffset) {
+
+    FILE* file;
+        file = fopen(name.c_str(), "wb");
+        for (unsigned int i = 0; i < xRes * yRes; ++i){
+            fwrite(&pos[i*3], sizeof(Float), 3, file);
+            fwrite(&norm[i*3], sizeof(Float), 3, file);
+            fwrite(&lum[i*3], sizeof(Float), 3, file);
+        }
+        fclose(file);
+
 }
 
 }  // namespace pbrt

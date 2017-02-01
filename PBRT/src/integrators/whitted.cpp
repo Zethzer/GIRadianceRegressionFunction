@@ -41,15 +41,17 @@
 namespace pbrt {
 
 // WhittedIntegrator Method Definitions
-Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
-                               Sampler &sampler, MemoryArena &arena,
-                               int depth) const {
+SamplerIntegrator::LiResp WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
+            Sampler &sampler, MemoryArena &arena, int depth) const {
+
     Spectrum L(0.);
+    LiResp R;
     // Find closest ray intersection or return background radiance
     SurfaceInteraction isect;
     if (!scene.Intersect(ray, &isect)) {
         for (const auto &light : scene.lights) L += light->Le(ray);
-        return L;
+        R.Li = L;
+        return R;
     }
 
     // Compute emitted and reflected light at ray intersection point
@@ -83,7 +85,8 @@ Spectrum WhittedIntegrator::Li(const RayDifferential &ray, const Scene &scene,
         L += SpecularReflect(ray, isect, scene, sampler, arena, depth);
         L += SpecularTransmit(ray, isect, scene, sampler, arena, depth);
     }
-    return L;
+    R.Li = L;
+    return R;
 }
 
 WhittedIntegrator *CreateWhittedIntegrator(

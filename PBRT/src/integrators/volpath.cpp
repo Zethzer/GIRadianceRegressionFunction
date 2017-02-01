@@ -52,7 +52,7 @@ void VolPathIntegrator::Preprocess(const Scene &scene, Sampler &sampler) {
         CreateLightSampleDistribution(lightSampleStrategy, scene);
 }
 
-Spectrum VolPathIntegrator::Li(const RayDifferential &r, const Scene &scene,
+SamplerIntegrator::LiResp VolPathIntegrator::Li(const RayDifferential &r, const Scene &scene,
                                Sampler &sampler, MemoryArena &arena,
                                int depth) const {
     ProfilePhase p(Prof::SamplerIntegratorLi);
@@ -184,7 +184,9 @@ Spectrum VolPathIntegrator::Li(const RayDifferential &r, const Scene &scene,
         }
     }
     ReportValue(pathLength, bounces);
-    return L;
+    LiResp R;
+    R.Li = L;
+    return R;
 }
 
 VolPathIntegrator *CreateVolPathIntegrator(

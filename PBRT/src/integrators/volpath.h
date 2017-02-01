@@ -58,7 +58,7 @@ class VolPathIntegrator : public SamplerIntegrator {
           rrThreshold(rrThreshold),
           lightSampleStrategy(lightSampleStrategy) { }
     void Preprocess(const Scene &scene, Sampler &sampler);
-    Spectrum Li(const RayDifferential &ray, const Scene &scene,
+    LiResp Li(const RayDifferential &ray, const Scene &scene,
                 Sampler &sampler, MemoryArena &arena, int depth) const;
 
   private:

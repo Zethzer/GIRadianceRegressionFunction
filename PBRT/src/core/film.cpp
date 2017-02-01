@@ -125,7 +125,10 @@ void Film::MergeFilmTile(std::unique_ptr<FilmTile> tile) {
         Float xyz[3];
         tilePixel.contribSum.ToXYZ(xyz);
         for (int i = 0; i < 3; ++i) mergePixel.xyz[i] += xyz[i];
+
         mergePixel.filterWeightSum += tilePixel.filterWeightSum;
+        mergePixel.normal = tilePixel.normal;
+        mergePixel.position = tilePixel.position;
     }
 }
 
@@ -170,6 +173,8 @@ void Film::WriteImage(Float splatScale) {
     LOG(INFO) <<
         "Converting image to RGB and computing final weighted pixel values";
     std::unique_ptr<Float[]> rgb(new Float[3 * croppedPixelBounds.Area()]);
+    std::unique_ptr<Float[]> pos(new Float[3 * croppedPixelBounds.Area()]);
+    std::unique_ptr<Float[]> nor(new Float[3 * croppedPixelBounds.Area()]);
     int offset = 0;
     for (Point2i p : croppedPixelBounds) {
         // Convert pixel XYZ color to RGB
@@ -200,13 +205,22 @@ void Film::WriteImage(Float splatScale) {
         rgb[3 * offset] *= scale;
         rgb[3 * offset + 1] *= scale;
         rgb[3 * offset + 2] *= scale;
+
+        pos[3 *offset] = pixel.position.x;
+        pos[3 *offset + 1] = pixel.position.y;
+        pos[3 *offset + 2] = pixel.position.z;
+
+        nor[3 * offset] = pixel.normal.x;
+        nor[3 * offset + 1] = pixel.normal.y;
+        nor[3 * offset + 2] = pixel.normal.z;
+
         ++offset;
     }
 
     // Write RGB image
     LOG(INFO) << "Writing image " << filename << " with bounds " <<
         croppedPixelBounds;
-    pbrt::WriteImage(filename, &rgb[0], croppedPixelBounds, fullResolution);
+    pbrt::WriteImage(filename, &rgb[0], croppedPixelBounds, fullResolution, &pos[0], &nor[0]);
 }
 
 Film *CreateFilm(const ParamSet &params, std::unique_ptr<Filter> filter) {

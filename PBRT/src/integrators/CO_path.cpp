@@ -87,47 +87,52 @@ void COPathIntegrator::Render(const Scene &scene) {
                 Float rayWeight = camera->GenerateRayDifferential(cameraSample, &ray);
                 ++nCameraRays;
 
-                Spectrum L(0.0f);
+                LiResp R, Ri;
+
+                Ri.Li = Spectrum(0.f);
                 for(int i = 0; i < tileSampler->samplesPerPixel; ++i) {
 
                     // Evaluate radiance along new ray
-                    if (rayWeight > 0) L = PathIntegrator::Li(ray, scene, *tileSampler, arena, 0);
+                    if (rayWeight > 0) R = PathIntegrator::Li(ray, scene, *tileSampler, arena, 0);
 
                     // Issue warning if unexpected radiance value returned
-                    if (L.HasNaNs()) {
+                    if (R.Li.HasNaNs()) {
                         LOG(ERROR) << StringPrintf(
                                           "Not-a-number radiance value returned "
                                           "for pixel (%d, %d), sample %d. Setting to black.",
                                           pixel.x, pixel.y,
                                           (int)tileSampler->CurrentSampleNumber());
-                        L = Spectrum(0.f);
-                    } else if (L.y() < -1e-5) {
+                        R.Li = Spectrum(0.f);
+                    } else if (R.Li.y() < -1e-5) {
                         LOG(ERROR) << StringPrintf(
                                           "Negative luminance value, %f, returned "
                                           "for pixel (%d, %d), sample %d. Setting to black.",
-                                          L.y(), pixel.x, pixel.y,
+                                          R.Li.y(), pixel.x, pixel.y,
                                           (int)tileSampler->CurrentSampleNumber());
-                        L = Spectrum(0.f);
-                    } else if (std::isinf(L.y())) {
+                        R.Li = Spectrum(0.f);
+                    } else if (std::isinf(R.Li.y())) {
                         LOG(ERROR) << StringPrintf(
                                           "Infinite luminance value returned "
                                           "for pixel (%d, %d), sample %d. Setting to black.",
                                           pixel.x, pixel.y,
                                           (int)tileSampler->CurrentSampleNumber());
-                        L = Spectrum(0.f);
+                        R.Li = Spectrum(0.f);
                     }
 
                     VLOG(1) << "Intersection sample: " << cameraSample << " -> ray: " <<
-                               ray << " -> L = " << L;
+                               ray << " -> L = " << R.Li;
 
                     // Add camera ray's contribution to image
-                    filmTile->AddSample(cameraSample.pFilm, L, rayWeight);
+                    Ri.Li += R.Li;
+                    Ri.pos = R.pos;
+                    Ri.norm = R.norm;
 
                     // Free _MemoryArena_ memory from computing image sample
                     // value
                     arena.Reset();
                     tileSampler->StartNextSample();
                 }
+                filmTile->AddSample(cameraSample.pFilm, Ri.Li, 1.0f, Ri.pos, Ri.norm);
             }
             LOG(INFO) << "Finished image tile " << tileBounds;
 
