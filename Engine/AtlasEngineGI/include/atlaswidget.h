@@ -14,7 +14,7 @@
 
 #include "include/render/renderer.h"
 #include "include/data/scene.h"
-#include "include/loader/fileloader.h"
+#include "include/loader/objloader.h"
 
 #include "include/menu.h"
 #include <QOpenGLWidget>
@@ -66,7 +66,7 @@ private:
     Scene *m_current_scene;
     GLuint m_current_scene_index;
 
-    FileLoader m_file_loader;
+    OBJLoader m_obj_loader;
     MaterialLibrary m_material_library;
 };
 

@@ -257,6 +257,11 @@ void AtlasWidget::createRenderScene()
 {
     addScene();
 
+    m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
+
+    m_current_scene->addCamera(new Camera());
+    m_current_scene->addPointLight(new PointLight(glm::vec3(1.f), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
+
     /*SceneGraphRoot *r1 = new SceneGraphRoot("root", m_path);
 
     m_file_loader.load("/obj/testscenes/hdr.obj", r1, m_material_library);

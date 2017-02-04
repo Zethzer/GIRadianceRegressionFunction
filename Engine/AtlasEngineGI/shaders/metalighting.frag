@@ -227,7 +227,7 @@ void main()
     for(int i = 0; i < SPOTLIGHT; i++)
         lighting += CalcSpotLight(spotLights[i], FragPos, V, N, NdotV, F0, roughness, linearRoughness, color);
 #endif
-    lighting *= ambient;
+    //lighting *= ambient;
     
     Brightness = vec2(0.0);
     float brightness = max(dot(lighting, vec3(0.2126f, 0.7152f, 0.0722f)), 0);

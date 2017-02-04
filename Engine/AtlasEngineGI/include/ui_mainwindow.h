@@ -10,7 +10,8 @@
 #define UI_MAINWINDOW_H
 
 #include <QtCore/QVariant>
-#if defines(__APPLE__) || defined(_WIN32)
+#include <QtGlobal>
+#if QT_VERSION >= 0x050000
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
