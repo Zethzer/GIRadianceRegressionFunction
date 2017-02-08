@@ -1,6 +1,8 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 
+#include <vector>
+
 #include "openglincludes.h"
 #include "texture.h"
 
@@ -14,20 +16,22 @@ struct FramebufferTextureDatas
     GLuint filter_max;
     GLfloat border_color[4];
     GLboolean is_depth;
+    GLenum target;
 
-    FramebufferTextureDatas(const GLint &i_f, const GLenum &f, const GLenum &t, GLint c = GL_FALSE, GLuint f_min = GL_NEAREST, GLuint f_max = GL_NEAREST, glm::vec4 b_c = glm::vec4(0.f), GLboolean i_d = GL_FALSE) :
-        internal_format(i_f),
-        format(f),
-        type(t),
-        clamp(c),
-        filter_min(f_min),
-        filter_max(f_max),
-        is_depth(i_d)
+    FramebufferTextureDatas(const GLint &internal_format_, const GLenum &format_, const GLenum &type_, GLint clamp_ = GL_FALSE, GLuint filter_min_ = GL_NEAREST, GLuint filter_max_ = GL_NEAREST, const GLfloat border_color_[4] = default_border_color, GLboolean is_depth_ = GL_FALSE, GLenum target_ = GL_TEXTURE_2D) :
+        internal_format(internal_format_),
+        format(format_),
+        type(type_),
+        clamp(clamp_),
+        filter_min(filter_min_),
+        filter_max(filter_max_),
+        is_depth(is_depth_),
+        target(target_)
     {
-        border_color[0] = b_c.x;
-        border_color[1] = b_c.y;
-        border_color[2] = b_c.z;
-        border_color[3] = b_c.w;
+        border_color[0] = border_color_[0];
+        border_color[1] = border_color_[1];
+        border_color[2] = border_color_[2];
+        border_color[3] = border_color_[3];
     }
 };
 

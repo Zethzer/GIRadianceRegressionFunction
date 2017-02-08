@@ -2,7 +2,7 @@
 #include "include/data/scene.h"
 
 GeometryRenderProcess::GeometryRenderProcess() :
-    RenderProcess::RenderProcess(0)
+    RenderProcess(0)
 {
 
 }

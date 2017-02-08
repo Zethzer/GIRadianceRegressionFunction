@@ -34,17 +34,17 @@ if(APPLE)
 	include_directories(${OPENGL_INCLUDE_DIR})
 
 	#Qt5 inclusion
-	find_package(Qt5Core)
-	find_package(Qt5Gui)
-	find_package(Qt5Widgets)
-	find_package(Qt5OpenGL)
+        find_package(Qt5Core REQUIRED)
+        find_package(Qt5Gui REQUIRED)
+        find_package(Qt5Widgets REQUIRED)
+        find_package(Qt5OpenGL REQUIRED)
         include_directories(${Qt5Widgets_INCLUDE_DIRS})
 	add_definitions(${Qt5Widgets_DEFINITIONS})
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
 
         add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-	qt5_use_modules(${PROJECT_NAME} Core Gui Widgets OpenGL)
+        qt5_use_modules(${PROJECT_NAME} Core Gui Widgets OpenGL)
 
         target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${OPENGL_LIBRARIES})
 elseif(UNIX)
@@ -60,7 +60,7 @@ elseif(UNIX)
 
         add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-        target_link_libraries(${PROJECT_NAME} ${Qt4_LIBRARIES} ${OPENGL_LIBRARIES} libassimp.so)
+        target_link_libraries(${PROJECT_NAME} ${Qt4_LIBRARIES} ${OPENGL_LIBRARIES})
 elseif(WIN32)
     set(CMAKE_CXX_FLAGS "-std=c++11 -g -ggdb -O0 -Wall -Wextra")
     #OpenGL inclusion
@@ -81,8 +81,6 @@ elseif(WIN32)
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/glew)
 
     add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
-
-    qt5_use_modules(${PROJECT_NAME} Core Gui Widgets OpenGL)
 
     target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${OPENGL_LIBRARIES})
 endif()

@@ -2,11 +2,13 @@
 #include "include/data/scene.h"
 #include "include/data/quad.h"
 
-#include <QOpenGLFramebufferObject>
-#include <QtWidgets>
+#include <QLabel>
+#include <QCheckBox>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 
 HDRRenderProcess::HDRRenderProcess() :
-    RenderProcess::RenderProcess(3),
+    RenderProcess(3),
     m_HDR(GL_TRUE),
     m_adaptation(GL_FALSE),
     m_bloom(GL_FALSE),

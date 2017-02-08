@@ -8,13 +8,15 @@
 #include "lib/glm/gtc/matrix_transform.hpp"
 #include "lib/glm/gtc/type_ptr.hpp"
 
+static GLfloat default_border_color[4] = {0.f, 0.f, 0.f, 0.f};
+
 class Texture
 {
 public:
     Texture();
-    Texture(const GLint &internal_format, const GLsizei &width, const GLsizei &height, const GLenum &format, const GLenum &type, const GLvoid *data, GLuint clamp = GL_FALSE, GLuint filter_min = GL_NEAREST, GLuint filter_max = GL_NEAREST, std::string path = "", std::string shading_type = "", glm::vec4 border_color = glm::vec4(0.f), GLenum target = GL_TEXTURE_2D);
+    Texture(const GLint &internal_format, const GLsizei &width, const GLsizei &height, const GLenum &format, const GLenum &type, const GLvoid *data, GLuint clamp = GL_FALSE, GLuint filter_min = GL_NEAREST, GLuint filter_max = GL_NEAREST, std::string path = "", std::string shading_type = "", const GLfloat border_color[4] = default_border_color, GLenum target = GL_TEXTURE_2D);
     Texture(const std::string &directory, const GLchar *path, const std::string &shading_type);
-    void init(const GLint &internal_format, const GLsizei &width, const GLsizei &height, const GLenum &format, const GLenum &type, const GLvoid *data, GLuint clamp = GL_FALSE, GLuint filter_min = GL_NEAREST, GLuint filter_max = GL_NEAREST, std::string path = "", std::string shading_type = "", glm::vec4 border_color = glm::vec4(0.f), GLenum target = GL_TEXTURE_2D);
+    void init(const GLint &internal_format, const GLsizei &width, const GLsizei &height, const GLenum &format, const GLenum &type, const GLvoid *data, GLuint clamp = GL_FALSE, GLuint filter_min = GL_NEAREST, GLuint filter_max = GL_NEAREST, std::string path = "", std::string shading_type = "", const GLfloat border_color[4] = default_border_color, GLenum target = GL_TEXTURE_2D);
 
     void generateTexture(const GLvoid *data);
     void updateDimensions(const GLsizei width, const GLsizei height);

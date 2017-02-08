@@ -3,7 +3,7 @@
 #include "include/data/quad.h"
 
 LightingRenderProcess::LightingRenderProcess(const GLuint &nb_pointlights) :
-    RenderProcess::RenderProcess(5)
+    RenderProcess(5)
 {
     m_shader.initLighting(nb_pointlights);
 }

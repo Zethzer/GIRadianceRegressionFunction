@@ -78,7 +78,32 @@ void AtlasWidget::initializeGL()
 
     /*  SCENES MODIFICATION */
 
-    createRenderScene();
+    //createRenderScene();
+    GLuint tDepthCubeMap;
+    glGenTextures(1, &tDepthCubeMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP_ARB, tDepthCubeMap);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARB, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB, 0, GL_DEPTH_COMPONENT16_ARB, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X_ARB, 0, GL_DEPTH_COMPONENT16_ARB, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y_ARB, 0, GL_DEPTH_COMPONENT16_ARB, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_DEPTH_COMPONENT16_ARB, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_DEPTH_COMPONENT16_ARB, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_DEPTH_COMPONENT16_ARB, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    GLuint fbo;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, tDepthCubeMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if(status != GL_FRAMEBUFFER_COMPLETE)
+        std::cerr << "Ca ne marche pas bordel. " << status << std::endl;
 
     /*  END OF SCENES MODIFICATION */
 
@@ -145,28 +170,6 @@ void AtlasWidget::keyPressEvent(QKeyEvent * e)
         pause();
         break;
 
-    case Qt::Key_Up:
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        break;
-
-    case Qt::Key_Down:
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        break;
-
-    case Qt::Key_Right:
-        m_current_scene_index = (++m_current_scene_index == m_scenes.size())?0:m_current_scene_index;
-        m_current_scene = m_scenes[m_current_scene_index];
-        break;
-
-    case Qt::Key_Left:
-        m_current_scene_index = (m_current_scene_index == 0)?m_scenes.size() - 1:--m_current_scene_index;
-        m_current_scene = m_scenes[m_current_scene_index];
-        break;
-
-    case Qt::Key_R:
-        m_renderer.reloadShaders();
-        break;
-
     case Qt::Key_F:
         if(m_fullscreen)
         {
@@ -185,16 +188,28 @@ void AtlasWidget::keyPressEvent(QKeyEvent * e)
         m_fullscreen = !m_fullscreen;
         break;
 
-    case Qt::Key_H:
-        m_renderer.setResolution(200, 150);
+    case Qt::Key_O:
+        m_current_scene->moveLightFront();
         break;
 
-    case Qt::Key_B:
-        m_renderer.setResolution(1280, 800);
+    case Qt::Key_L:
+        m_current_scene->moveLightBehind();
         break;
 
-    case Qt::Key_N:
-        //m_renderer.switchAdaptation();
+    case Qt::Key_K:
+        m_current_scene->moveLightLeft();
+        break;
+
+    case Qt::Key_M:
+        m_current_scene->moveLightRight();
+        break;
+
+    case Qt::Key_I:
+        m_current_scene->moveLightDown();
+        break;
+
+    case Qt::Key_P:
+        m_current_scene->moveLightUp();
         break;
 
     default:
@@ -260,21 +275,7 @@ void AtlasWidget::createRenderScene()
     m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
 
     m_current_scene->addCamera(new Camera());
-    m_current_scene->addPointLight(new PointLight(glm::vec3(1.f), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
+    m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
 
-    /*SceneGraphRoot *r1 = new SceneGraphRoot("root", m_path);
-
-    m_file_loader.load("/obj/testscenes/hdr.obj", r1, m_material_library);
-
-    r1->setMaterial(m_material_library.getMaterial("white"), "Plane");
-    r1->setMaterial(m_material_library.getMaterial("glossy"), "Suzanne");
-    r1->setMaterial(m_material_library.getMaterial("red"), "Cube");
-    r1->setMaterial(m_material_library.getMaterial("yellow"), "Cone");
-    r1->setMaterial(m_material_library.getMaterial("red"), "Sphere");
-
-    m_current_scene->addPointLight(new PointLight(glm::vec3(1.f), 10.f, glm::vec3(2.f)));
-
-    m_current_scene->addSceneGraphRoot(r1);
-
-    m_current_scene->addCamera(new Camera());*/
+    //m_current_scene->scale(glm::vec3(10.f), "root");
 }

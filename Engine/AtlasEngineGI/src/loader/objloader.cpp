@@ -193,6 +193,8 @@ unsigned int OBJLoader::fillDataArrays(const std::string &obj_path, std::vector<
  * */
 void OBJLoader::addModels(MaterialLibrary &material_library, Scene *scene, const unsigned int &indices_num, const std::vector<glm::vec3> positions, const std::vector<glm::vec3> normals, const std::vector<glm::vec2> texture_coords, const std::string &obj_path, const std::string &path) const
 {
+    SceneGraphRoot *root = new SceneGraphRoot("root", path);
+
     IndexTable index_table(indices_num, 0, 0, positions.size());
 
     GLboolean first_mesh = true;
@@ -255,10 +257,10 @@ void OBJLoader::addModels(MaterialLibrary &material_library, Scene *scene, const
                         Mesh *mesh = new Mesh(vertices_vec, indices_vec);
                         Model *model = new Model(mesh, current_material);
 
-                        SceneGraphRoot *root = new SceneGraphRoot("", path);
-                        root->addModel(model);
+                        SceneGraphNode *node = new SceneGraphNode(material_name, path);
+                        node->addModel(model);
 
-                        scene->addSceneGraphRoot(root);
+                        root->addChild(node);
                     }
                 }
             }
@@ -272,8 +274,10 @@ void OBJLoader::addModels(MaterialLibrary &material_library, Scene *scene, const
     Mesh *mesh = new Mesh(vertices_vec, indices_vec);
     Model *model = new Model(mesh, current_material);
 
-    SceneGraphRoot *root = new SceneGraphRoot("", path);
-    root->addModel(model);
+    SceneGraphNode *node = new SceneGraphNode(material_name, path);
+    node->addModel(model);
+
+    root->addChild(node);
 
     scene->addSceneGraphRoot(root);
 }
