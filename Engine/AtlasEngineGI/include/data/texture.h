@@ -3,6 +3,8 @@
 
 #include "openglincludes.h"
 
+#include <QImage>
+
 #define GLM_FORCE_RADIANS
 #include "lib/glm/glm.hpp"
 #include "lib/glm/gtc/matrix_transform.hpp"
