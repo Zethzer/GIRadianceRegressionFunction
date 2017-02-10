@@ -1326,7 +1326,11 @@ void WeightedSquaredError::from_XML(const tinyxml2::XMLDocument& document)
 
       try
       {
+#ifdef __Cpp11__
          set_positives_weight(stof(string));
+#else
+         set_positives_weight(atof(string.c_str()));
+#endif
       }
       catch(const std::logic_error& e)
       {
@@ -1344,7 +1348,11 @@ void WeightedSquaredError::from_XML(const tinyxml2::XMLDocument& document)
 
       try
       {
+#ifdef __Cpp11__
          set_negatives_weight(stof(string));
+#else
+         set_negatives_weight(atof(string.c_str()));
+#endif
       }
       catch(const std::logic_error& e)
       {

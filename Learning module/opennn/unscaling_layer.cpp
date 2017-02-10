@@ -1723,11 +1723,17 @@ void UnscalingLayer::from_PMML(const tinyxml2::XMLElement* element,const Vector<
         {
             break;
         }
-
+#ifdef __Cpp11__
         double orig_begin = std::stod(string_orig_begin);
         double orig_end = std::stod(string_orig_end);
         double normalization_range_begin = std::stod(string_normalization_range_begin);
         double normalization_range_end = std::stod(string_normalization_range_end);
+#else
+        double orig_begin = std::atof(string_orig_begin.c_str());
+        double orig_end = std::atof(string_orig_end.c_str());
+        double normalization_range_begin = std::atof(string_normalization_range_begin.c_str());
+        double normalization_range_end = std::atof(string_normalization_range_end.c_str());
+#endif
 
         if(orig_begin > orig_end)
         {

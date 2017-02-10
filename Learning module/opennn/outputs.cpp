@@ -112,7 +112,7 @@ Outputs& Outputs::operator = (const Outputs& other_outputs)
 bool Outputs::operator == (const Outputs& other_outputs) const
 {
     if(/*items == other_outputs.items
-                                                   */ display == other_outputs.display)
+                                                           */ display == other_outputs.display)
     {
         return(true);
     }
@@ -1003,7 +1003,7 @@ void Outputs::from_XML(const tinyxml2::XMLDocument& document)
 
 // void to_PMML(tinyxml2::XMLElement*, const bool&, const bool&, const Vector<Statistics<double>>&) method
 
-void Outputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_probabilistic, const bool& is_data_unscaled, const Vector<Statistics<double>>& outputs_statistics)
+void Outputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_probabilistic, const bool& is_data_unscaled, const Vector<Statistics<double> >& outputs_statistics)
 {
     std::string element_name(element->Name());
 
@@ -1099,9 +1099,22 @@ void Outputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_probabilisti
             tinyxml2::XMLElement* neural_output = pmml_document->NewElement("NeuralOutput");
             element->LinkEndChild(neural_output);
 
+#ifdef __Cpp11__
             std::string neural_output_id = std::to_string(number_of_layers);
+#else
+            std::stringstream ss;
+            ss << number_of_layers;
+
+            std::string neural_output_id = ss.str();
+#endif
             neural_output_id.append(",");
+#ifdef __Cpp11__
             neural_output_id.append(std::to_string(i));
+#else
+            std::stringstream ss2;
+            ss2 << i;
+            neural_output_id.append(ss2.str());
+#endif
 
             neural_output->SetAttribute("outputNeuron",neural_output_id.c_str());
 
@@ -1145,7 +1158,7 @@ void Outputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_probabilisti
 
 // void write_PMML_data_dictionary(tinyxml2::XMLPrinter&, const bool& , const bool& is_data_unscaled = false, const Vector<Statistics<double>>& outputs_statistics = Vector<Statistics<double>>() ) method
 
-void Outputs::write_PMML_data_dictionary(tinyxml2::XMLPrinter& file_stream, const bool& is_probabilistic, const Vector<Statistics<double>>& outputs_statistics )
+void Outputs::write_PMML_data_dictionary(tinyxml2::XMLPrinter& file_stream, const bool& is_probabilistic, const Vector<Statistics<double> >& outputs_statistics )
 {
     const size_t outputs_number = get_outputs_number();
 
@@ -1243,9 +1256,21 @@ void Outputs::write_PMML_neural_outputs(tinyxml2::XMLPrinter& file_stream, size_
 
         file_stream.OpenElement("NeuralOutput");
 
+#ifdef __Cpp11__
         std::string neural_output_id = std::to_string(number_of_layers);
+#else
+        std::stringstream ss;
+        ss << number_of_layers;
+        std::string neural_output_id = ss.str();
+#endif
         neural_output_id.append(",");
+#ifdef __Cpp11__
         neural_output_id.append(std::to_string(i));
+#else
+        std::stringstream ss2;
+        ss2 << i;
+        neural_output_id.append(ss2.str());
+#endif
 
         file_stream.PushAttribute("outputNeuron",neural_output_id.c_str());
 

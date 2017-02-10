@@ -3775,19 +3775,35 @@ void MultilayerPerceptron::to_PMML(tinyxml2::XMLElement* neural_network) const
     // but is ignored when is defined for each layer
     switch(neural_network_activation_function)
     {
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::Threshold:
+#else
+    case Perceptron::Threshold:
+#endif
         neural_network->SetAttribute("activationFunction","threshold");
         break;
 
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::Logistic:
+#else
+    case Perceptron::Logistic:
+#endif
         neural_network->SetAttribute("activationFunction","logistic");
         break;
 
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::HyperbolicTangent:
+#else
+    case Perceptron::HyperbolicTangent:
+#endif
         neural_network->SetAttribute("activationFunction","tanh");
         break;
 
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::Linear:
+#else
+    case Perceptron::Linear:
+#endif
         neural_network->SetAttribute("activationFunction","identity");
         break;
     }
@@ -3810,19 +3826,35 @@ void MultilayerPerceptron::to_PMML(tinyxml2::XMLElement* neural_network) const
         {
             switch(current_layer.get_activation_function())
             {
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::Threshold:
+#else
+            case Perceptron::Threshold:
+#endif
                 neural_layer->SetAttribute("activationFunction","threshold");
                 break;
 
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::Logistic:
+#else
+            case Perceptron::Logistic:
+#endif
                 neural_layer->SetAttribute("activationFunction","logistic");
                 break;
 
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::HyperbolicTangent:
+#else
+            case Perceptron::HyperbolicTangent:
+#endif
                 neural_layer->SetAttribute("activationFunction","tanh");
                 break;
 
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::Linear:
+#else
+            case Perceptron::Linear:
+#endif
                 neural_layer->SetAttribute("activationFunction","identity");
                 break;
             }
@@ -3841,9 +3873,24 @@ void MultilayerPerceptron::to_PMML(tinyxml2::XMLElement* neural_network) const
 
             neuron->SetAttribute("bias",buffer.str().c_str());
 
+#ifdef __Cpp11__
             std::string neuron_id = std::to_string(layers_loop_i+1);
+#else
+            std::stringstream ss;
+            ss << layers_loop_i+1;
+
+            std::string neuron_id = ss.str();
+#endif
             neuron_id.append(",");
+
+#ifdef __Cpp11__
             neuron_id.append(std::to_string(neurons_loop_i));
+#else
+            std::stringstream ss2;
+            ss2 << neurons_loop_i;
+
+            neuron_id.append(ss2.str());
+#endif
 
             neuron->SetAttribute("id",neuron_id.c_str());
 
@@ -3855,9 +3902,24 @@ void MultilayerPerceptron::to_PMML(tinyxml2::XMLElement* neural_network) const
                 tinyxml2::XMLElement* con = pmml_document->NewElement("Con");
                 neuron->LinkEndChild(con);
 
+#ifdef __Cpp11__
                 std::string connection_from = std::to_string(layers_loop_i);
+#else
+                std::stringstream ss3;
+                ss3 << layers_loop_i;
+
+                std::string connection_from(ss3.str());
+#endif
                 connection_from.append(",");
+
+#ifdef __Cpp11__
                 connection_from.append(std::to_string(connections_loop_i));
+#else
+                std::stringstream ss4;
+                ss4 << connections_loop_i;
+
+                connection_from.append(ss4.str());
+#endif
 
                 con->SetAttribute("from",connection_from.c_str());
 
@@ -3915,19 +3977,35 @@ void MultilayerPerceptron::write_PMML(tinyxml2::XMLPrinter& file_stream, bool is
         {
             switch(current_layer.get_activation_function())
             {
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::Threshold:
+#else
+            case Perceptron::Threshold:
+#endif
                 file_stream.PushAttribute("activationFunction", "threshold");
                 break;
 
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::Logistic:
+#else
+            case Perceptron::Logistic:
+#endif
                 file_stream.PushAttribute("activationFunction", "logistic");
                 break;
 
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::HyperbolicTangent:
+#else
+            case Perceptron::HyperbolicTangent:
+#endif
                 file_stream.PushAttribute("activationFunction", "tanh");
                 break;
 
+#ifdef __Cpp11__
             case Perceptron::ActivationFunction::Linear:
+#else
+            case Perceptron::Linear:
+#endif
                 file_stream.PushAttribute("activationFunction", "identity");
                 break;
             }
@@ -3950,10 +4028,23 @@ void MultilayerPerceptron::write_PMML(tinyxml2::XMLPrinter& file_stream, bool is
 
             file_stream.PushAttribute("bias",buffer.str().c_str());
 
+#ifdef __Cpp11__
             std::string neuron_id = std::to_string(layers_loop_i+1);
-            neuron_id.append(",");
-            neuron_id.append(std::to_string(neurons_loop_i));
+#else
+            std::stringstream ss;
+            ss << layers_loop_i+1;
 
+            std::string neuron_id = ss.str();
+#endif
+            neuron_id.append(",");
+#ifdef __Cpp11__
+            neuron_id.append(std::to_string(neurons_loop_i));
+#else
+            std::stringstream ss2;
+            ss2 << neurons_loop_i;
+
+            neuron_id.append(ss2.str());
+#endif
             file_stream.PushAttribute("id",neuron_id.c_str());
 
             // Neuron connections
@@ -3963,9 +4054,23 @@ void MultilayerPerceptron::write_PMML(tinyxml2::XMLPrinter& file_stream, bool is
             {
                 file_stream.OpenElement("Con");
 
+#ifdef __Cpp11__
                 std::string connection_from = std::to_string(layers_loop_i);
+#else
+                std::stringstream ss3;
+                ss3 << layers_loop_i;
+
+                std::string connection_from = ss3.str();
+#endif
                 connection_from.append(",");
+#ifdef __Cpp11__
                 connection_from.append(std::to_string(connections_loop_i));
+#else
+                std::stringstream ss4;
+                ss4 << connections_loop_i;
+
+                connection_from.append(ss4.str());
+#endif
 
                 file_stream.PushAttribute("from",connection_from.c_str());
 
@@ -4017,9 +4122,9 @@ void MultilayerPerceptron::from_PMML(const tinyxml2::XMLElement* neural_network)
 
     const size_t number_of_layers = get_layers_number();
 
-    Vector<Vector<double>> new_layers_biases(number_of_layers);
+    Vector<Vector<double> > new_layers_biases(number_of_layers);
 
-    Vector<Matrix<double>> new_synaptic_weights(number_of_layers);
+    Vector<Matrix<double> > new_synaptic_weights(number_of_layers);
 
     // layers
     for(size_t layer_i = 0; layer_i < number_of_layers; layer_i++)
@@ -4042,19 +4147,35 @@ void MultilayerPerceptron::from_PMML(const tinyxml2::XMLElement* neural_network)
 
         if(activation_function_value == "tanh")
         {
+#ifdef __Cpp11__
             new_activation_function = Perceptron::ActivationFunction::HyperbolicTangent;
+#else
+            new_activation_function = Perceptron::HyperbolicTangent;
+#endif
         }
         else if(activation_function_value == "logistic")
         {
+#ifdef __Cpp11__
             new_activation_function = Perceptron::ActivationFunction::Logistic;
+#else
+            new_activation_function = Perceptron::Logistic;
+#endif
         }
         else if(activation_function_value == "identity")
         {
+#ifdef __Cpp11__
             new_activation_function = Perceptron::ActivationFunction::Linear;
+#else
+            new_activation_function = Perceptron::Linear;
+#endif
         }
         else if(activation_function_value == "threshold")
         {
+#ifdef __Cpp11__
             new_activation_function = Perceptron::ActivationFunction::Threshold;
+#else
+            new_activation_function = Perceptron::Threshold;
+#endif
         }
         else
         {
@@ -4103,7 +4224,11 @@ void MultilayerPerceptron::from_PMML(const tinyxml2::XMLElement* neural_network)
                 throw std::logic_error(buffer.str());
             }
 
+#ifdef __Cpp11__
             const double neuron_bias = std::stod(neuron_bias_string);
+#else
+            const double neuron_bias = std::atof(neuron_bias_string.c_str());
+#endif
 
             current_layer_new_biases.at(neuron_i) = neuron_bias;
 
@@ -4148,7 +4273,11 @@ void MultilayerPerceptron::from_PMML(const tinyxml2::XMLElement* neural_network)
                     throw std::logic_error(buffer.str());
                 }
 
+#ifdef __Cpp11__
                 const double connection_weight = std::stod(connection_weight_string);
+#else
+                const double connection_weight = std::atof(connection_weight_string.c_str());
+#endif
 
                 current_perceptron_connections.at(connection_i) = connection_weight;
 

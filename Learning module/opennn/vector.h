@@ -3773,8 +3773,6 @@ Vector<size_t> Vector<T>::sort_less_indices(void) const
 {
     Vector<size_t> indices(this->size());
 
-#ifdef __Cpp11__
-
     const Vector<size_t> less_rank = this->calculate_less_rank();
 
     for (size_t i = 0; i < this->size(); i++)
@@ -3782,12 +3780,6 @@ Vector<size_t> Vector<T>::sort_less_indices(void) const
         indices[less_rank[i]] = i;
     }
 
-#else
-
-    indices.initialize_sequential();
-    std::sort(indices.begin(), indices.end(), [this](size_t i1, size_t i2) {return (*this)[i1] < (*this)[i2];});
-
-#endif
 
     return(indices);
 }
@@ -3800,7 +3792,6 @@ Vector<size_t> Vector<T>::sort_greater_indices(void) const
 {
     Vector<size_t> indices(this->size());
 
-#ifdef __Cpp11__
 
     const Vector<size_t> greater_rank = this->calculate_greater_rank();
 
@@ -3808,13 +3799,6 @@ Vector<size_t> Vector<T>::sort_greater_indices(void) const
     {
         indices[greater_rank[i]] = i;
     }
-
-#else
-
-    indices.initialize_sequential();
-    std::sort(indices.begin(), indices.end(), [this](size_t i1, size_t i2) {return (*this)[i1] > (*this)[i2];});
-
-#endif
 
     return(indices);
 }
