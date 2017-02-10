@@ -45,12 +45,12 @@ void main()
     vec4 normal_L = bone_transform * vec4(normal, 0.0);
 #else
     vec4 pos_L = vec4(position, 1.0);
-    vec3 normal_L = transpose(inverse(mat3(view * model))) * normal;
+    vec3 normal_L = transpose(inverse(mat3(model))) * normal;
 #endif
 
     gl_Position = projection * view * model * pos_L;
 
-    FragPos = vec4(view * model * pos_L).xyz;
+    FragPos = vec4(model * pos_L).xyz;
     Normal = normal_L.xyz;
 
 #if defined(TEXTURE) || defined(NORMAL) || defined(SPECULAR)

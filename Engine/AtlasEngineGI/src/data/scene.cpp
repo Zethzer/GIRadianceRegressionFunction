@@ -149,7 +149,8 @@ void Scene::buildKdTree()
 void Scene::sendViewSpaceLightDatas(const Shader &shader) const
 {
     for(GLuint i = 0; i < m_lights.size(); ++i)
-        m_lights[i]->sendViewDatas(shader, m_cameras[m_current_camera]->getView());
+        //m_lights[i]->sendViewDatas(shader, m_cameras[m_current_camera]->getView());
+        m_lights[i]->sendDatas(shader);
 }
 
 SceneGraphNode *Scene::addSceneGraphNode(const std::string name, Model *model)
