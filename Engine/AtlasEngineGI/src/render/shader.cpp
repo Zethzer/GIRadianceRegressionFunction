@@ -7,24 +7,27 @@ Shader::Shader() :
 
 }
 
-Shader::Shader(const std::string &vertexPath, const std::string &fragmentPath, std::string path) :
+Shader::Shader(const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath, std::string path) :
     m_vertex_saved_path(vertexPath),
     m_fragment_saved_path(fragmentPath),
+    m_geometry_saved_path(geometryPath),
     m_initialised(GL_FALSE)
 {
     m_vertex_saved_path = path + m_vertex_saved_path;
     m_fragment_saved_path = path + m_fragment_saved_path;
+    m_geometry_saved_path = path + m_geometry_saved_path;
 
     std::string vertex_code,
-                fragment_code;
+                fragment_code,
+                geometry_code;
 
-    loadSourceFromFiles(vertex_code, fragment_code);
-    compileSourceCode(vertex_code.c_str(), fragment_code.c_str());
+    loadSourceFromFiles(vertex_code, fragment_code, geometry_code);
+    compileSourceCode(vertex_code.c_str(), fragment_code.c_str(), geometry_code.c_str());
 
     m_initialised = GL_TRUE;
 }
 
-void Shader::initGeometry(const ShaderType &shader_type)
+void Shader::initGeometryPass(const ShaderType &shader_type)
 {
     m_vertex_saved_path = "";
     m_fragment_saved_path = "";
@@ -38,7 +41,7 @@ void Shader::initGeometry(const ShaderType &shader_type)
     m_initialised = GL_TRUE;
 }
 
-void Shader::initLighting(const GLuint &nb_pointlights)
+void Shader::initLightingPass(const GLuint &nb_pointlights)
 {
     m_vertex_saved_path = "";
     m_fragment_saved_path = "";
@@ -53,20 +56,22 @@ void Shader::initLighting(const GLuint &nb_pointlights)
 
     m_initialised = GL_TRUE;
 }
-#include <QApplication>
-void Shader::init(const std::string &vertexPath, const std::string &fragmentPath, std::string path)
+
+void Shader::init(const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath, std::string path)
 {
     m_vertex_saved_path = vertexPath;
     m_fragment_saved_path = fragmentPath;
+    m_geometry_saved_path = geometryPath;
 
     //m_vertex_saved_path = path + m_vertex_saved_path;
     //m_fragment_saved_path = path + m_fragment_saved_path;
 
     std::string vertex_code,
-                fragment_code;
+                fragment_code,
+                geometry_code;
 
-    loadSourceFromFiles(vertex_code, fragment_code);
-    compileSourceCode(vertex_code.c_str(), fragment_code.c_str());
+    loadSourceFromFiles(vertex_code, fragment_code, geometry_code);
+    compileSourceCode(vertex_code.c_str(), fragment_code.c_str(), geometry_code.c_str());
 
     m_initialised = GL_TRUE;
 }
@@ -74,10 +79,11 @@ void Shader::init(const std::string &vertexPath, const std::string &fragmentPath
 void Shader::reload()
 {
     std::string vertex_code,
-                fragment_code;
+                fragment_code,
+                geometry_code;
 
-    loadSourceFromFiles(vertex_code, fragment_code);
-    compileSourceCode(vertex_code.c_str(), fragment_code.c_str());
+    loadSourceFromFiles(vertex_code, fragment_code, geometry_code);
+    compileSourceCode(vertex_code.c_str(), fragment_code.c_str(), geometry_code.c_str());
 }
 
 void Shader::use() const
@@ -89,17 +95,18 @@ void Shader::use() const
 }
 
 /*
- * Compile vertex and fragment shaders with source code given
+ * Compile vertex, fragment and gemoetry shaders with source code given
  * Link the shader program
  * */
-GLboolean Shader::compileSourceCode(const std::string &v_shader_string, const std::string &f_shader_string)
+GLboolean Shader::compileSourceCode(const std::string &v_shader_string, const std::string &f_shader_string, const std::string &g_shader_string)
 {
-    GLuint vertex, fragment;
+    GLuint vertex, fragment, geometry;
     GLint success;
     GLchar info_log[512];
 
     const GLchar    *v_shader_code = v_shader_string.c_str(),
-                    *f_shader_code = f_shader_string.c_str();
+                    *f_shader_code = f_shader_string.c_str(),
+                    *g_shader_code = g_shader_string.c_str();
 
     /*
      * Vertex shader compilation
@@ -131,6 +138,24 @@ GLboolean Shader::compileSourceCode(const std::string &v_shader_string, const st
         return GL_FALSE;
     }
 
+    if(!(g_shader_string == ""))
+    {
+        /*
+         * Geometry shader compialtion
+         * */
+        geometry = glCreateShader(GL_GEOMETRY_SHADER);
+        glShaderSource(geometry, 1, &g_shader_code, NULL);
+        glCompileShader(geometry);
+
+        glGetShaderiv(geometry, GL_COMPILE_STATUS, &success);
+        if(!success)
+        {
+            glGetShaderInfoLog(geometry, 512, NULL, info_log);
+            std::cerr << "ERROR::SHADER::GEOMETRY::COMPILATION_FAILED\n" << m_geometry_saved_path << " " <<info_log << std::endl;
+            return GL_FALSE;
+        }
+    }
+
     /*
      * Program linking
      * */
@@ -139,6 +164,8 @@ GLboolean Shader::compileSourceCode(const std::string &v_shader_string, const st
     m_program = glCreateProgram();
     glAttachShader(m_program, vertex);
     glAttachShader(m_program, fragment);
+    if(!(g_shader_string == ""))
+        glAttachShader(m_program, geometry);
     glLinkProgram(m_program);
 
     glGetProgramiv(m_program, GL_LINK_STATUS, &success);
@@ -151,6 +178,7 @@ GLboolean Shader::compileSourceCode(const std::string &v_shader_string, const st
 
     glDeleteShader(vertex);
     glDeleteShader(fragment);
+    glDeleteShader(geometry);
 
     return GL_TRUE;
 }
@@ -160,19 +188,22 @@ GLboolean Shader::compileSourceCode(const std::string &v_shader_string, const st
  * files paths must have been stored inside the Shader attributes
  * m_vertex_saved_path & m_fragment_saved_path
  * */
-GLboolean Shader::loadSourceFromFiles(std::string &vertex_code, std::string &fragment_code)
+GLboolean Shader::loadSourceFromFiles(std::string &vertex_code, std::string &fragment_code, std::string &geometry_code)
 {
     std::ifstream v_shader_file;
     std::ifstream f_shader_file;
+    std::ifstream g_shader_file;
 
     v_shader_file.exceptions(std::ifstream::badbit);
     f_shader_file.exceptions(std::ifstream::badbit);
+    g_shader_file.exceptions(std::ifstream::badbit);
     try
     {
         v_shader_file.open(m_vertex_saved_path.c_str());
         f_shader_file.open(m_fragment_saved_path.c_str());
+        g_shader_file.open(m_geometry_saved_path.c_str());
 
-        std::stringstream v_shader_stream, f_shader_stream;
+        std::stringstream v_shader_stream, f_shader_stream, g_shader_stream;
 
         if(m_defines.size() > 0)
         {
@@ -184,12 +215,15 @@ GLboolean Shader::loadSourceFromFiles(std::string &vertex_code, std::string &fra
 
         v_shader_stream << v_shader_file.rdbuf();
         f_shader_stream << f_shader_file.rdbuf();
+        g_shader_stream << g_shader_file.rdbuf();
 
         v_shader_file.close();
         f_shader_file.close();
+        g_shader_file.close();
 
         vertex_code = v_shader_stream.str();
         fragment_code = f_shader_stream.str();
+        geometry_code = g_shader_stream.str();
     }
     catch(std::ifstream::failure e)
     {

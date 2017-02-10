@@ -63,6 +63,10 @@ void Camera::move(const GLboolean keys[], const GLfloat &delta_time)
         m_position -= glm::cross(m_front, m_up) * speed;
     if(keys[Qt::Key_D])
         m_position += glm::cross(m_front, m_up) * speed;
+    if(keys[Qt::Key_A])
+        m_position -= m_up * speed;
+    if(keys[Qt::Key_E])
+        m_position += m_up * speed;
 }
 
 void Camera::orientate()

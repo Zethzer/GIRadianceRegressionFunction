@@ -24,7 +24,7 @@ void ShadowMapRenderProcess::init(const GLuint &width, const GLuint &height)
     depth_map_texture_datas.push_back(FramebufferTextureDatas(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_FLOAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, border_color, GL_TRUE, GL_TEXTURE_CUBE_MAP));
     m_dirlights_depth_maps_buffer.attachTextures(depth_map_texture_datas);
 
-    m_shader.init("shaders/depth.vert", "shaders/depth.frag");
+    m_shader.init("shaders/depth.vert", "shaders/depth.frag", "shaders/depth.gs");
 
     m_out_textures.push_back(m_dirlights_depth_maps_buffer.getTexture(0));
 }

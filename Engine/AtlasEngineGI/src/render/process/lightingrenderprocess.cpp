@@ -5,7 +5,7 @@
 LightingRenderProcess::LightingRenderProcess(const GLuint &nb_pointlights) :
     RenderProcess(5)
 {
-    m_shader.initLighting(nb_pointlights);
+    m_shader.initLightingPass(nb_pointlights);
 }
 
 void LightingRenderProcess::init(const GLuint &width, const GLuint &height)
