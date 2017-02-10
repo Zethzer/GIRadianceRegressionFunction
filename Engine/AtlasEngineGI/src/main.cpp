@@ -1,9 +1,6 @@
 #include "include/mainwindow.h"
 #include <QApplication>
 #include <QtGlobal>
-#if QT_VERSION >= 0x050000
-#include <QSurfaceFormat>
-#endif
 #include <QDesktopWidget>
 
 int main(int argc, char *argv[])
@@ -22,13 +19,10 @@ int main(int argc, char *argv[])
     QGLFormat glFormat;
     glFormat.setVersion(3, 3);
     glFormat.setProfile(QGLFormat::CoreProfile);
-    glFormat.setSampleBuffers(true);
+
+    QGLFormat::setDefaultFormat(glFormat);
 #endif
 
-    std::string path = argv[0];
-#if defined(__WIN32)
-    std::replace(path.begin(), path.end(), '\\', '/');
-#endif
     MainWindow w;
     w.show();
 

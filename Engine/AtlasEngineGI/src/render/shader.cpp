@@ -53,7 +53,7 @@ void Shader::initLighting(const GLuint &nb_pointlights)
 
     m_initialised = GL_TRUE;
 }
-
+#include <QApplication>
 void Shader::init(const std::string &vertexPath, const std::string &fragmentPath, std::string path)
 {
     m_vertex_saved_path = vertexPath;

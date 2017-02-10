@@ -13,7 +13,11 @@
 #include "include/render/process/shadowmaprenderprocess.h"
 
 AtlasWidget::AtlasWidget(QWidget * parent) :
+#if QT_VERSION >= 0x050000
     QOpenGLWidget(parent),
+#else
+    QGLWidget(parent),
+#endif
     m_menu(this, Qt::FramelessWindowHint),
     m_paused(false),
     m_last_frame(0.0),

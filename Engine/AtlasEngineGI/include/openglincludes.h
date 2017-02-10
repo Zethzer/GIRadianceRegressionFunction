@@ -5,7 +5,7 @@
 
 #ifdef __APPLE__
     #include <QGLWidget>
-#elif __unix__
+#elif __linux__
     #define GL_GLEXT_PROTOTYPES
     #include <GL/gl.h>
 #elif _WIN32

@@ -17,9 +17,18 @@
 #include "include/loader/objloader.h"
 
 #include "include/menu.h"
-#include <QOpenGLWidget>
 
+#if QT_VERSION >= 0x050000
+    #include <QOpenGLWidget>
+#else
+    #include <QtOpenGL/QGLWidget>
+#endif
+
+#if QT_VERSION >= 0x050000
 class AtlasWidget : public QOpenGLWidget
+#else
+class AtlasWidget : public QGLWidget
+#endif
 {
     Q_OBJECT
 public:

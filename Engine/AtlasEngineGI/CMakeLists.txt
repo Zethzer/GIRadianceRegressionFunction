@@ -7,8 +7,6 @@ cmake_minimum_required(VERSION 2.8)
 set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 
-set(CMAKE_AUTOMOC ON)
-
 #file(GLOB_RECURSE INCLUDE ${INCLUDE_DIR}/*)
 
 file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cpp)
@@ -36,12 +34,12 @@ if(APPLE)
 	include_directories(${OPENGL_INCLUDE_DIR})
 
 	#Qt5 inclusion
-        find_package(QtCore REQUIRED)
-        find_package(QtGui REQUIRED)
-        find_package(QtWidgets REQUIRED)
-        find_package(QtOpenGL REQUIRED)
-        include_directories(${QtWidgets_INCLUDE_DIRS})
-	add_definitions(${QtWidgets_DEFINITIONS})
+        find_package(Qt5Core REQUIRED)
+        find_package(Qt5Gui REQUIRED)
+        find_package(Qt5Widgets REQUIRED)
+        find_package(Qt5OpenGL REQUIRED)
+        include_directories(${Qt5Widgets_INCLUDE_DIRS})
+	add_definitions(${Qt5Widgets_DEFINITIONS})
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
 
         add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
@@ -58,7 +56,7 @@ elseif(UNIX)
         #OpenGL inclusion
         include_directories(${OPENGL_INCLUDE_DIR})
 
-        include_directories(${Qt5Widgets_INCLUDE_DIRS})
+        include_directories(${Qt4Widgets_INCLUDE_DIRS})
 
         add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
@@ -100,5 +98,6 @@ elseif(WIN32)
     set(ZLIBSTATICD_LIB lib/msvs2015/zlibstaticd)
 
     add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+
     target_link_libraries(${PROJECT_NAME} Qt5::WinMain Qt5::Widgets Qt5::Gui Qt5::OpenGL ${QT_LIBRARIES} ${GLEW_LIB} ${GLEW_STATIC_LIB} ${ASSIMP64_LIB} ${ASSIMP32_LIB} ${ZLIBSTATIC32_LIB} ${ZLIBSTATICD_LIB} ${OPENGL_LIBRARIES})
 endif()

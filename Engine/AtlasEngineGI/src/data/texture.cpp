@@ -1,5 +1,7 @@
 #include "include/data/texture.h"
 
+#include <QImage>
+
 Texture::Texture()
 {
 

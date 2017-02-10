@@ -2,7 +2,11 @@
 #include "include/data/scene.h"
 #include "include/data/lighting/pointlight.h"
 
+#if QT_VERSION >= 0x050000
 #include <QOpenGLFramebufferObject>
+#else
+#include <QGLFramebufferObject>
+#endif
 
 Renderer::Renderer() :
     m_quad(1.f),
@@ -52,8 +56,12 @@ void Renderer::drawScene(const Scene &scene, const GLfloat &render_time, const G
     m_current_pipeline->process(m_quad, scene, render_time, keys);
 
     glViewport(0, 0, m_width, m_height);
+#if QT_VERSION >= 0x050000
     QOpenGLFramebufferObject::bindDefault();
-    glClear(GL_COLOR_BUFFER_BIT);
+#else
+    QGLFramebufferObject::bindDefault();
+#endif
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     m_quad_shader.use();
     glActiveTexture(GL_TEXTURE0);
     m_current_pipeline->getOutTexture()->bind();
