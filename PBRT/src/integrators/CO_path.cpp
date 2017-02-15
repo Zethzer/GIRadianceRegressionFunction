@@ -123,7 +123,7 @@ void COPathIntegrator::Render(const Scene &scene) {
                                ray << " -> L = " << R.Li;
 
                     // Add camera ray's contribution to image
-                    Ri.Li += R.Li;
+                    Ri.Li += R.Li / tileSampler->samplesPerPixel;
                     Ri.pos = R.pos;
                     Ri.norm = R.norm;
 
