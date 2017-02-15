@@ -13,7 +13,11 @@
 #include "include/render/process/shadowmaprenderprocess.h"
 
 AtlasWidget::AtlasWidget(QWidget * parent) :
+#if QT_VERSION >= 0x050000
     QOpenGLWidget(parent),
+#else
+    QGLWidget(parent),
+#endif
     m_menu(this, Qt::FramelessWindowHint),
     m_paused(false),
     m_last_frame(0.0),
@@ -145,28 +149,6 @@ void AtlasWidget::keyPressEvent(QKeyEvent * e)
         pause();
         break;
 
-    case Qt::Key_Up:
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        break;
-
-    case Qt::Key_Down:
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        break;
-
-    case Qt::Key_Right:
-        m_current_scene_index = (++m_current_scene_index == m_scenes.size())?0:m_current_scene_index;
-        m_current_scene = m_scenes[m_current_scene_index];
-        break;
-
-    case Qt::Key_Left:
-        m_current_scene_index = (m_current_scene_index == 0)?m_scenes.size() - 1:--m_current_scene_index;
-        m_current_scene = m_scenes[m_current_scene_index];
-        break;
-
-    case Qt::Key_R:
-        m_renderer.reloadShaders();
-        break;
-
     case Qt::Key_F:
         if(m_fullscreen)
         {
@@ -185,16 +167,28 @@ void AtlasWidget::keyPressEvent(QKeyEvent * e)
         m_fullscreen = !m_fullscreen;
         break;
 
-    case Qt::Key_H:
-        m_renderer.setResolution(200, 150);
+    case Qt::Key_O:
+        m_current_scene->moveLightFront();
         break;
 
-    case Qt::Key_B:
-        m_renderer.setResolution(1280, 800);
+    case Qt::Key_L:
+        m_current_scene->moveLightBehind();
         break;
 
-    case Qt::Key_N:
-        //m_renderer.switchAdaptation();
+    case Qt::Key_K:
+        m_current_scene->moveLightLeft();
+        break;
+
+    case Qt::Key_M:
+        m_current_scene->moveLightRight();
+        break;
+
+    case Qt::Key_I:
+        m_current_scene->moveLightDown();
+        break;
+
+    case Qt::Key_P:
+        m_current_scene->moveLightUp();
         break;
 
     default:
@@ -257,19 +251,10 @@ void AtlasWidget::createRenderScene()
 {
     addScene();
 
-    /*SceneGraphRoot *r1 = new SceneGraphRoot("root", m_path);
+    m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
 
-    m_file_loader.load("/obj/testscenes/hdr.obj", r1, m_material_library);
-
-    r1->setMaterial(m_material_library.getMaterial("white"), "Plane");
-    r1->setMaterial(m_material_library.getMaterial("glossy"), "Suzanne");
-    r1->setMaterial(m_material_library.getMaterial("red"), "Cube");
-    r1->setMaterial(m_material_library.getMaterial("yellow"), "Cone");
-    r1->setMaterial(m_material_library.getMaterial("red"), "Sphere");
-
-    m_current_scene->addPointLight(new PointLight(glm::vec3(1.f), 10.f, glm::vec3(2.f)));
-
-    m_current_scene->addSceneGraphRoot(r1);
-
-    m_current_scene->addCamera(new Camera());*/
+    m_current_scene->addCamera(new Camera());
+    //m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
+    m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 100.f, glm::vec3(0.f, 15.f, 0.f)));
+    m_current_scene->scale(glm::vec3(10.f), "root");
 }

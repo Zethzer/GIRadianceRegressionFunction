@@ -1,8 +1,6 @@
 #include "include/mainwindow.h"
 #include <QApplication>
-#if defines(__APPLE__) || defined(_WIN32)
-#include <QSurfaceFormat>
-#endif
+#include <QtGlobal>
 #include <QDesktopWidget>
 
 int main(int argc, char *argv[])
@@ -11,7 +9,7 @@ int main(int argc, char *argv[])
 
     a.setOverrideCursor(QCursor(Qt::BlankCursor));
 
-#if defines(__APPLE__) || defined(_WIN32)
+#if QT_VERSION >= 0x050000
     QSurfaceFormat fmt;
     fmt.setVersion(3, 3);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
@@ -21,13 +19,10 @@ int main(int argc, char *argv[])
     QGLFormat glFormat;
     glFormat.setVersion(3, 3);
     glFormat.setProfile(QGLFormat::CoreProfile);
-    glFormat.setSampleBuffers(true);
+
+    QGLFormat::setDefaultFormat(glFormat);
 #endif
 
-    std::string path = argv[0];
-#if defined(__WIN32)
-    std::replace(path.begin(), path.end(), '\\', '/');
-#endif
     MainWindow w;
     w.show();
 

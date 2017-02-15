@@ -1,1 +1,0 @@
-This is the engine for real-time rendering.

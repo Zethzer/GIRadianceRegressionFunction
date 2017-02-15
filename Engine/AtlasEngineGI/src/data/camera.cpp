@@ -13,7 +13,7 @@ Camera::Camera() :
     m_position(glm::vec3(0.0f, 0.0f,  0.0f)),
     m_front(glm::vec3(1.0f, 0.0f, 0.0f)),
     m_up(glm::vec3(0.0f, 1.0f,  0.0f)),
-    m_near(1.f),
+    m_near(0.1f),
     m_far(100.f)
 {
 
@@ -63,6 +63,10 @@ void Camera::move(const GLboolean keys[], const GLfloat &delta_time)
         m_position -= glm::cross(m_front, m_up) * speed;
     if(keys[Qt::Key_D])
         m_position += glm::cross(m_front, m_up) * speed;
+    if(keys[Qt::Key_A])
+        m_position -= m_up * speed;
+    if(keys[Qt::Key_E])
+        m_position += m_up * speed;
 }
 
 void Camera::orientate()

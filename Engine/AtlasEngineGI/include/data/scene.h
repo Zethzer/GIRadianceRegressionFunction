@@ -31,7 +31,7 @@ class Scene
     //  Add
     SceneGraphNode *addSceneGraphNode(const std::string name, Model *model);
     inline void addSceneGraphRoot(SceneGraphRoot *s){m_roots.push_back(s);}
-    inline void addPointLight(PointLight *light){light->setIndex(m_nb_pointlights++);m_lights.push_back(light);}
+    inline void addPointLight(PointLight *light){light->setIndex(m_nb_pointlights++);m_lights.push_back(light); m_point_lights.push_back(light); m_current_pointlight = light;}
     inline void addCamera(Camera *c){m_cameras.push_back(c);}
     inline void addModel(Model *model){m_models[model->getShaderTypeIndex()].push_back(model);}
     
@@ -46,6 +46,7 @@ class Scene
     inline Camera *getCurrentCamera() const{return m_cameras[m_current_camera];}
     inline KdTree getKdTree() const{return m_kdtree;}
     inline Light *getLight(const GLuint &i) const{return m_lights[i];}
+    inline PointLight *getPointLight(const GLuint &i) const{return m_point_lights[i];}
     
     inline GLuint numberOfPointLights() const{return m_nb_pointlights;}
     inline GLuint numberOfModels(const GLuint &shader_index) const{return m_models[shader_index].size();}
@@ -56,6 +57,13 @@ class Scene
     inline void scale(const glm::vec3 &s, const std::string &node_name){for(GLuint i = 0; i < m_roots.size(); ++i)m_roots[i]->scale(s, node_name);}
     
     inline void updateCamera(const GLfloat &xoffset, const GLfloat &yoffset){m_cameras[m_current_camera]->setOffset(xoffset, yoffset);}
+
+    inline void moveLightUp() {m_current_pointlight->moveUp();}
+    inline void moveLightDown() {m_current_pointlight->moveDown();}
+    inline void moveLightRight() {m_current_pointlight->moveRight();}
+    inline void moveLightLeft() {m_current_pointlight->moveLeft();}
+    inline void moveLightFront() {m_current_pointlight->moveFront();}
+    inline void moveLightBehind() {m_current_pointlight->moveBehind();}
     
     void buildModelList();
     void buildKdTree();
@@ -65,9 +73,12 @@ class Scene
     protected:
     std::string m_path;
     std::vector<Light *> m_lights;
+    std::vector<PointLight *> m_point_lights;
     std::vector<Camera *> m_cameras;
     std::vector<SceneGraphRoot *> m_roots;
     std::vector<Model *> m_models[NB_SHADER_TYPES];
+
+    PointLight *m_current_pointlight;
     
     GLuint m_nb_pointlights;
     

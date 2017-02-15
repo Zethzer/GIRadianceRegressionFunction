@@ -73,11 +73,11 @@ class Shader
 {
 public:
     Shader();
-    Shader(const std::string &vertexPath, const std::string &fragmentPath, std::string path = "");
+    Shader(const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath, std::string path = "");
 
-    void init(const std::string &vertexPath, const std::string &fragmentPath, std::string path = "");
-    void initGeometry(const ShaderType &shader_type);
-    void initLighting(const GLuint &nb_pointlights);
+    void init(const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath = "", std::string path = "");
+    void initGeometryPass(const ShaderType &shader_type);
+    void initLightingPass(const GLuint &nb_pointlights);
     inline void initDefine(const std::string &index, const Define &define){m_defines.insert({index, define});}
 
     void reload();
@@ -92,8 +92,8 @@ public:
     inline void setDefined(const std::string &index, const GLboolean &defined){m_defines.at(index).defined = defined;}
 
 private:
-    GLboolean compileSourceCode(const std::string &v_shader_string, const std::string &f_shader_string);
-    GLboolean loadSourceFromFiles(std::string &vertex_code, std::string &fragment_code);
+    GLboolean compileSourceCode(const std::string &v_shader_string, const std::string &f_shader_string, const std::string &g_shader_string = "");
+    GLboolean loadSourceFromFiles(std::string &vertex_code, std::string &fragment_code, std::string &geometry_code);
     void generateGeometryCode(const ShaderType &shader_type, std::string &vertex_code, std::string &fragment_code);
     void generateLightingCode(std::string &vertex_code, std::string &fragment_code);
 
@@ -101,6 +101,7 @@ private:
 
     std::string m_vertex_saved_path;
     std::string m_fragment_saved_path;
+    std::string m_geometry_saved_path;
 
     GLuint m_nb_pointlights;
 

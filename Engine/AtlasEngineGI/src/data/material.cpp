@@ -4,7 +4,7 @@
 
 Material::Material() :
     m_color(glm::vec3(1.0, 0.0, 1.0)),
-    m_roughness(0.1f),
+    m_roughness(1.f),
     m_metalness(1.f),
     m_refraction(1.2f),
     m_textures(0)

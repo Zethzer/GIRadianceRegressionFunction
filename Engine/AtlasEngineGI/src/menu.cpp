@@ -1,8 +1,15 @@
-#include "menu.h"
+#if QT_VERSION >= 0x050000
 #include <QtWidgets>
+#else
+#include <QWidget>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#endif
 #include <QApplication>
 
-#include "menuelement.h"
+#include "include/menu.h"
+#include "include/menuelement.h"
 
 Menu::Menu(QWidget * parent, Qt::WindowFlags f) :
     QDialog(parent, f)
@@ -14,7 +21,7 @@ Menu::Menu(QWidget * parent, Qt::WindowFlags f) :
     QPushButton *quit_button = new QPushButton(tr("Quit"));
 
     connect(resume_button, SIGNAL(clicked()), this->parent(), SLOT(unPause()));
-    connect(resume_button, &QAbstractButton::clicked, this, &QWidget::close);
+    //connect(resume_button, &QAbstractButton::clicked, this, &QWidget::close);
     connect(graphics_button, SIGNAL(clicked()), this, SLOT(graphicsMenu()));
     connect(quit_button, SIGNAL(clicked()), qApp, SLOT(quit()));
 
@@ -58,7 +65,7 @@ void Menu::setGraphicsMenu()
     QFrame *buttons_frame = new QFrame;
     buttons_frame->setLayout(horizontal_buttons_layout);
 
-    for(GLuint i = 0; i < m_graphics_elements.size(); ++i)
+    for(int i = 0; i < m_graphics_elements.size(); ++i)
         vertical_layout->addWidget(m_graphics_elements[i]);
     vertical_layout->addWidget(buttons_frame);
     QWidget *graphics_widget = new QWidget;

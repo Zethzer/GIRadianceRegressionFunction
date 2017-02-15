@@ -29,6 +29,7 @@ class Material
     //  Setters
     void copy(const Material &material);
     inline void copy(const Material *material){copy(*material);}
+    inline void setColor(const glm::vec3 &color){m_color = color;}
     
     private:
     glm::vec3 m_color;
@@ -68,6 +69,7 @@ struct MaterialLibrary
         materials[name] = material;
     }
     
+    inline GLboolean hasMaterial(const std::string &name) const{return materials.find(name) != materials.end();}
     inline Material *getMaterial(const std::string &name) const{return materials.at(name);}
 };
 

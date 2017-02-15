@@ -12,11 +12,6 @@ RenderProcess::RenderProcess(const GLuint &num_inputs_textures) :
 
 RenderProcess::~RenderProcess()
 {
-    //for(GLuint i = 0; i < m_previous_processes.size(); ++i)
-    //    delete m_previous_processes[i];
-
-    //m_previous_processes.clear();
-
     if(m_in_links != 0)
         delete[] m_in_links;
 }

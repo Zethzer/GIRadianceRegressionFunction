@@ -10,7 +10,8 @@
 #define UI_MAINWINDOW_H
 
 #include <QtCore/QVariant>
-#if defines(__APPLE__) || defined(_WIN32)
+#include <QtGlobal>
+#if QT_VERSION >= 0x050000
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
@@ -41,17 +42,33 @@ public:
     void setupUi(QMainWindow *AtlasEngine)
     {
         if (AtlasEngine->objectName().isEmpty())
+#if QT_VERSION >= 0x050000
             AtlasEngine->setObjectName(QStringLiteral("AtlasEngine"));
+#else
+            AtlasEngine->setObjectName(QString("AtlasEngine"));
+#endif
         AtlasEngine->resize(800, 600);
         centralWidget = new QWidget(AtlasEngine);
+#if QT_VERSION >= 0x050000
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
+#else
+        centralWidget->setObjectName(QString("centralWidget"));
+#endif
         gridLayout = new QGridLayout(centralWidget);
         gridLayout->setSpacing(6);
         gridLayout->setContentsMargins(11, 11, 11, 11);
+#if QT_VERSION >= 0x050000
         gridLayout->setObjectName(QStringLiteral("gridLayout"));
+#else
+        gridLayout->setObjectName(QString("gridLayout"));
+#endif
         gridLayout->setContentsMargins(0, 0, 0, 0);
         openGLWidget = new AtlasWidget(centralWidget);
+#if QT_VERSION >= 0x050000
         openGLWidget->setObjectName(QStringLiteral("openGLWidget"));
+#else
+        openGLWidget->setObjectName(QString("openGLWidget"));
+#endif
         openGLWidget->setEnabled(true);
         QSizePolicy sizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         sizePolicy.setHorizontalStretch(0);

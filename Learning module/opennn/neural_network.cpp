@@ -3266,8 +3266,13 @@ tinyxml2::XMLDocument* NeuralNetwork::to_PMML(void) const
 
     const bool is_probabilistic = has_probabilistic_layer();
 
+#ifdef __Cpp11__
     const bool is_data_scaled = has_scaling_layer() && (scaling_layer_pointer->get_scaling_method() != ScalingLayer::ScalingMethod::NoScaling);
     const bool is_data_unscaled = has_unscaling_layer() && (unscaling_layer_pointer->get_unscaling_method() != UnscalingLayer::UnscalingMethod::NoUnscaling);
+#else
+    const bool is_data_scaled = has_scaling_layer() && (scaling_layer_pointer->get_scaling_method() != ScalingLayer::NoScaling);
+    const bool is_data_unscaled = has_unscaling_layer() && (unscaling_layer_pointer->get_unscaling_method() != UnscalingLayer::NoUnscaling);
+#endif
 
 
     // Data dictionary markup
@@ -3290,7 +3295,7 @@ tinyxml2::XMLDocument* NeuralNetwork::to_PMML(void) const
 
     if(is_data_scaled)
     {
-        Vector<Statistics<double>> inputs_statistics = get_scaling_layer_pointer()->get_statistics();
+        Vector<Statistics<double> > inputs_statistics = get_scaling_layer_pointer()->get_statistics();
         inputs_pointer->to_PMML(data_dictionary, is_data_scaled, inputs_statistics);
     }
     else
@@ -3300,7 +3305,7 @@ tinyxml2::XMLDocument* NeuralNetwork::to_PMML(void) const
 
     if(is_data_unscaled)
     {
-        Vector<Statistics<double>> outputs_statistics = get_unscaling_layer_pointer()->get_statistics();
+        Vector<Statistics<double> > outputs_statistics = get_unscaling_layer_pointer()->get_statistics();
         outputs_pointer->to_PMML(data_dictionary,is_probabilistic, is_data_unscaled , outputs_statistics);
     }
     else
@@ -3380,7 +3385,11 @@ tinyxml2::XMLDocument* NeuralNetwork::to_PMML(void) const
 
     if(is_probabilistic)
     {
+#ifdef __Cpp11__
         if(probabilistic_layer_pointer->get_probabilistic_method() == ProbabilisticLayer::ProbabilisticMethod::Softmax)
+#else
+        if(probabilistic_layer_pointer->get_probabilistic_method() == ProbabilisticLayer::Softmax)
+#endif
         {
             tinyxml2::XMLElement* probabilistic_layer = neural_network->LastChildElement("NeuralLayer");
 
@@ -3505,8 +3514,13 @@ void NeuralNetwork::write_PMML(const std::string& file_name) const
 
     const bool is_probabilistic = has_probabilistic_layer();
 
+#ifdef __Cpp11__
     const bool is_data_scaled = has_scaling_layer() && (scaling_layer_pointer->get_scaling_method() != ScalingLayer::ScalingMethod::NoScaling);
     const bool is_data_unscaled = has_unscaling_layer() && (unscaling_layer_pointer->get_unscaling_method() != UnscalingLayer::UnscalingMethod::NoUnscaling);
+#else
+    const bool is_data_scaled = has_scaling_layer() && (scaling_layer_pointer->get_scaling_method() != ScalingLayer::NoScaling);
+    const bool is_data_unscaled = has_unscaling_layer() && (unscaling_layer_pointer->get_unscaling_method() != UnscalingLayer::NoUnscaling);
+#endif
 
     // Data dictionary
 
@@ -3527,11 +3541,11 @@ void NeuralNetwork::write_PMML(const std::string& file_name) const
     file_stream.PushAttribute("numberOfFields", (unsigned)number_of_fields);
 
 
-    Vector<Statistics<double>> inputs_statistics = get_scaling_layer_pointer()->get_statistics();
+    Vector<Statistics<double> > inputs_statistics = get_scaling_layer_pointer()->get_statistics();
 
     inputs_pointer->write_PMML_data_dictionary(file_stream, inputs_statistics);
 
-    Vector<Statistics<double>> outputs_statistics = get_unscaling_layer_pointer()->get_statistics();
+    Vector<Statistics<double> > outputs_statistics = get_unscaling_layer_pointer()->get_statistics();
 
     outputs_pointer->write_PMML_data_dictionary(file_stream,is_probabilistic, outputs_statistics);
 
@@ -3634,19 +3648,35 @@ void NeuralNetwork::write_PMML(const std::string& file_name) const
 
     switch(neural_network_activation_function)
     {
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::Threshold:
+#else
+    case Perceptron::Threshold:
+#endif
         file_stream.PushAttribute("activationFunction","threshold");
         break;
 
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::Logistic:
+#else
+    case Perceptron::Logistic:
+#endif
         file_stream.PushAttribute("activationFunction","logistic");
         break;
 
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::HyperbolicTangent:
+#else
+    case Perceptron::HyperbolicTangent:
+#endif
         file_stream.PushAttribute("activationFunction","tanh");
         break;
 
+#ifdef __Cpp11__
     case Perceptron::ActivationFunction::Linear:
+#else
+    case Perceptron::Linear:
+#endif
         file_stream.PushAttribute("activationFunction","identity");
         break;
     }
@@ -3690,8 +3720,11 @@ void NeuralNetwork::write_PMML(const std::string& file_name) const
 
 
     // Neural network - neural layers markups
-
+#ifdef __Cpp11__
     const bool is_softmax_normalization_method = (is_probabilistic && (probabilistic_layer_pointer->get_probabilistic_method() == ProbabilisticLayer::ProbabilisticMethod::Softmax));
+#else
+    const bool is_softmax_normalization_method = (is_probabilistic && (probabilistic_layer_pointer->get_probabilistic_method() == ProbabilisticLayer::Softmax));
+#endif
 
     multilayer_perceptron_pointer->write_PMML(file_stream, is_softmax_normalization_method);
 
@@ -3873,8 +3906,8 @@ void NeuralNetwork::from_PMML(const tinyxml2::XMLDocument& document)
         throw std::logic_error(buffer.str());
     }
 
-    Vector<Statistics<double>> inputs_statistics;
-    Vector<Statistics<double>> outputs_statistics;
+    Vector<Statistics<double> > inputs_statistics;
+    Vector<Statistics<double> > outputs_statistics;
 
     Vector<std::string> output_classification_fields;
 
@@ -3994,9 +4027,13 @@ void NeuralNetwork::from_PMML(const tinyxml2::XMLDocument& document)
 
                     throw std::logic_error(buffer.str());
                 }
-
+#ifdef __Cpp11__
                 const double left_margin = std::stod(left_margin_string);
                 const double right_margin = std::stod(right_margin_string);
+#else
+                const double left_margin = std::atof(left_margin_string.c_str());
+                const double right_margin = std::atof(right_margin_string.c_str());
+#endif
 
                 if(right_margin < left_margin)
                 {
@@ -4265,7 +4302,11 @@ void NeuralNetwork::from_PMML(const tinyxml2::XMLDocument& document)
         }
         else
         {
+#ifdef __Cpp11__
             scaling_layer_pointer->set_scaling_method(ScalingLayer::ScalingMethod::NoScaling);
+#else
+            scaling_layer_pointer->set_scaling_method(ScalingLayer::NoScaling);
+#endif
         }
     }
 
@@ -4283,7 +4324,11 @@ void NeuralNetwork::from_PMML(const tinyxml2::XMLDocument& document)
 
             if(probabilistic_layer_normalization_method == "softmax" )
             {
+#ifdef __Cpp11__
                 probabilistic_layer_pointer->set_probabilistic_method(ProbabilisticLayer::ProbabilisticMethod::Softmax);
+#else
+                probabilistic_layer_pointer->set_probabilistic_method(ProbabilisticLayer::Softmax);
+#endif
             }
             else
             {
@@ -4297,7 +4342,11 @@ void NeuralNetwork::from_PMML(const tinyxml2::XMLDocument& document)
         else
         {
             // Add binary and competitive probabilistic outputs
+#ifdef __Cpp11__
             probabilistic_layer_pointer->set_probabilistic_method(ProbabilisticLayer::ProbabilisticMethod::NoProbabilistic);
+#else
+            probabilistic_layer_pointer->set_probabilistic_method(ProbabilisticLayer::NoProbabilistic);
+#endif
         }
     }
 
@@ -4324,7 +4373,11 @@ void NeuralNetwork::from_PMML(const tinyxml2::XMLDocument& document)
             }
             else
             {
+#ifdef __Cpp11__
                 unscaling_layer_pointer->set_unscaling_method(UnscalingLayer::UnscalingMethod::NoUnscaling);
+#else
+                unscaling_layer_pointer->set_unscaling_method(UnscalingLayer::NoUnscaling);
+#endif
             }
         }
     }

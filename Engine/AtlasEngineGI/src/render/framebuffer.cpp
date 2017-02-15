@@ -55,7 +55,6 @@ void Framebuffer::attachTextures(const std::vector<FramebufferTextureDatas> &tex
     if(texture_datas.size() > 0)
     {
         m_num_textures = texture_datas.size();
-        //m_textures = new Texture[m_num_textures];
         m_texture_datas = texture_datas;
 
         GLuint *attachments;
@@ -78,12 +77,15 @@ void Framebuffer::attachTextures(const std::vector<FramebufferTextureDatas> &tex
                 width = custom_widths[i];
                 height = custom_heights[i];
             }
-            //m_textures[i].init(texture_datas[i].internal_format, width, height, texture_datas[i].format, texture_datas[i].type, NULL, texture_datas[i].clamp, texture_datas[i].filter_max, texture_datas[i].filter_min);
-            m_textures.push_back(new Texture(texture_datas[i].internal_format, width, height, texture_datas[i].format, texture_datas[i].type, NULL, texture_datas[i].clamp, texture_datas[i].filter_max, texture_datas[i].filter_min));
+
+            m_textures.push_back(new Texture(texture_datas[i].internal_format, width, height, texture_datas[i].format, texture_datas[i].type, NULL, texture_datas[i].clamp, texture_datas[i].filter_max, texture_datas[i].filter_min, "", "", texture_datas[i].border_color, texture_datas[i].target));
 
             if(texture_datas[i].is_depth)
             {
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_textures[i]->getId(), 0);
+                if(texture_datas[i].target == GL_TEXTURE_2D)
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_textures[i]->getId(), 0);
+                else
+                    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_textures[i]->getId(), 0);
                 glDrawBuffer(GL_NONE);
                 glReadBuffer(GL_NONE);
             }
@@ -102,8 +104,9 @@ void Framebuffer::attachTextures(const std::vector<FramebufferTextureDatas> &tex
             delete[] attachments;
         }
 
-        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cerr << "Framebuffer::attachTextures::Framebuffer not complete!" << std::endl;
+        GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        if(status != GL_FRAMEBUFFER_COMPLETE)
+            std::cerr << "Framebuffer::attachTextures::Framebuffer not complete: " << status << std::endl;
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }

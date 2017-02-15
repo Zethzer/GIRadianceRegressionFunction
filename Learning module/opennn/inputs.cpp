@@ -1063,7 +1063,7 @@ void Inputs::from_XML(const tinyxml2::XMLDocument& document)
 
 // void to_PMML(tinyxml2::XMLElement*, const bool&, const Vector<Statistics<double>>&) method
 
-void Inputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_data_scaled, const Vector<Statistics<double>>& inputs_statistics ) const
+void Inputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_data_scaled, const Vector<Statistics<double> >& inputs_statistics ) const
 {
     std::string element_name(element->Name());
 
@@ -1117,7 +1117,14 @@ void Inputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_data_scaled, 
             tinyxml2::XMLElement* neural_input = pmml_document->NewElement("NeuralInput");
             element->LinkEndChild(neural_input);
 
+#ifdef __Cpp11__
             neural_input->SetAttribute("id",("0," + std::to_string(i)).c_str());
+#else
+            std::stringstream ss;
+            ss << i;
+
+            neural_input->SetAttribute("id",("0," + ss.str()).c_str());
+#endif
 
             // Derived field
             tinyxml2::XMLElement* derived_field = pmml_document->NewElement("DerivedField");
@@ -1146,7 +1153,7 @@ void Inputs::to_PMML(tinyxml2::XMLElement* element, const bool& is_data_scaled, 
 
 // void write_PMML_data_dictionary(tinyxml2::XMLPrinter, const bool& is_data_scaled = false, const Vector<Statistics<double>>& inputs_statistics = Vector<Statistics<double>>() ) method
 
-void Inputs::write_PMML_data_dictionary(tinyxml2::XMLPrinter& file_stream, const Vector<Statistics<double>>& inputs_statistics ) const
+void Inputs::write_PMML_data_dictionary(tinyxml2::XMLPrinter& file_stream, const Vector<Statistics<double> >& inputs_statistics ) const
 {
     const size_t inputs_number = get_inputs_number();
 
@@ -1201,7 +1208,14 @@ void Inputs::write_PMML_neural_inputs(tinyxml2::XMLPrinter& file_stream, const b
     {
         file_stream.OpenElement("NeuralInput");
 
+#ifdef __Cpp11__
         file_stream.PushAttribute("id",("0," + std::to_string(i)).c_str());
+#else
+        std::stringstream ss;
+        ss << i;
+
+        file_stream.PushAttribute("id",("0," + ss.str()).c_str());
+#endif
 
         file_stream.OpenElement("DerivedField");
 

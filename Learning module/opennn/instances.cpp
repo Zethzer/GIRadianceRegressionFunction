@@ -1000,15 +1000,24 @@ tinyxml2::XMLDocument* Instances::to_XML(void) const
        tinyxml2::XMLText* use_text = document->NewText(write_use(i).c_str());
        use_element->LinkEndChild(use_text);
 */
-
+#ifdef __Cpp11__
        std::string item_use_string(std::to_string((size_t) get_use(i)));
+#else
+       std::stringstream ss;
+       ss << (size_t)get_use(i);
+       std::string item_use_string = ss.str();
+#endif
 
        items_uses.append(item_use_string);
 
        items_uses.append(" ");
    }
 
+#ifdef __Cpp11__
    items_uses.pop_back();
+#else
+   items_uses = items_uses.substr(0, items_uses.size() - 1);
+#endif
 
    tinyxml2::XMLText* items_uses_text = document->NewText(items_uses.c_str());
    element->LinkEndChild(items_uses_text);
@@ -1056,14 +1065,24 @@ void Instances::write_XML(tinyxml2::XMLPrinter& file_stream) const
 
     for(size_t i = 0; i < instances_number; i++)
     {
+#ifdef __Cpp11__
         std::string item_use_string(std::to_string((size_t) get_use(i)));
+#else
+        std::stringstream ss;
+        ss << (size_t)get_use(i);
+        std::string item_use_string = ss.str();
+#endif
 
         items_uses.append(item_use_string);
 
         items_uses.append(" ");
     }
 
+#ifdef __Cpp11__
     items_uses.pop_back();
+#else
+    items_uses = items_uses.substr(0, items_uses.size() - 1);
+#endif
 
     file_stream.OpenElement("ItemsUses");
 

@@ -875,7 +875,13 @@ tinyxml2::XMLDocument* MissingValues::to_XML(void) const
 
             const size_t instance_index = items[i].instance_index + 1;
 
+#ifdef __Cpp11__
             instances_indices_text.append(std::to_string(instance_index));
+#else
+            std::stringstream ss;
+            ss << instance_index;
+            instances_indices_text.append(ss.str());
+#endif
 
             instances_indices_text.append(" ");
 
@@ -883,21 +889,35 @@ tinyxml2::XMLDocument* MissingValues::to_XML(void) const
 
             const size_t variable_index = items[i].variable_index + 1;
 
+#ifdef __Cpp11__
             variables_indices_text.append(std::to_string(variable_index));
+#else
+            std::stringstream ss2;
+            ss2 << variable_index;
+            variables_indices_text.append(ss2.str());
+#endif
 
             variables_indices_text.append(" ");
         }
 
         // Insert instances indices
 
+#ifdef __Cpp11__
         instances_indices_text.pop_back();
+#else
+        instances_indices_text = instances_indices_text.substr(0, instances_indices_text.size() - 1);
+#endif
 
         text = document->NewText(instances_indices_text.c_str());
         instances_indices_element->LinkEndChild(text);
 
         // Insert variables indices
 
+#ifdef __Cpp11__
         variables_indices_text.pop_back();
+#else
+        variables_indices_text = variables_indices_text.substr(0, variables_indices_text.size() - 1);
+#endif
 
         text = document->NewText(variables_indices_text.c_str());
         variables_indices_element->LinkEndChild(text);
@@ -1018,7 +1038,13 @@ void MissingValues::write_XML(tinyxml2::XMLPrinter& file_stream) const
 
         const size_t instance_index = items[i].instance_index + 1;
 
+#ifdef __Cpp11__
         instances_indices_text.append(std::to_string(instance_index));
+#else
+        std::stringstream ss;
+        ss << instance_index;
+        instances_indices_text.append(ss.str());
+#endif
 
         instances_indices_text.append(" ");
 
@@ -1026,13 +1052,24 @@ void MissingValues::write_XML(tinyxml2::XMLPrinter& file_stream) const
 
         const size_t variable_index = items[i].variable_index + 1;
 
+#ifdef __Cpp11__
         variables_indices_text.append(std::to_string(variable_index));
+#else
+        std::stringstream ss2;
+        ss2 << variable_index;
+        variables_indices_text.append(ss2.str());
+#endif
 
         variables_indices_text.append(" ");
     }
 
+#ifdef __Cpp11__
     instances_indices_text.pop_back();
     variables_indices_text.pop_back();
+#else
+    instances_indices_text = instances_indices_text.substr(0, instances_indices_text.size() - 1);
+    variables_indices_text = variables_indices_text.substr(0, variables_indices_text.size() - 1);
+#endif
 
     // Instances indices
 

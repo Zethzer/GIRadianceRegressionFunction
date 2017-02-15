@@ -27,6 +27,13 @@ public:
     inline GLfloat getLinear() const{return m_linear;}
     inline GLfloat getQuadratic() const{return m_quadratic;}
 
+    inline void moveRight() {m_position.x += 0.1f;}
+    inline void moveLeft() {m_position.x -= 0.1f;}
+    inline void moveUp() {m_position.y += 0.1f;}
+    inline void moveDown() {m_position.y -= 0.1f;}
+    inline void moveFront() {m_position.z += 0.1f;}
+    inline void moveBehind() {m_position.z -= 0.1f;}
+
 protected:
     glm::vec3 m_position;
 

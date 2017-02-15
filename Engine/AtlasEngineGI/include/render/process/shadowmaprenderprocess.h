@@ -35,7 +35,11 @@ private:
 
     Shader m_shader;
 
-    Framebuffer m_dirlights_depth_maps_buffer;
+    Framebuffer m_pointlight_depth_maps_buffer;
+
+    GLuint m_fbo;
+    GLuint m_shadowMap;
+    GLuint m_depth;
 };
 
 #endif // SHADOWMAPPROCESS_H

@@ -2,8 +2,11 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#if defines(__APPLE__) || defined(_WIN32)
+#include <QtGlobal>
+#if QT_VERSION >= 0x050000
 #include <QSurfaceFormat>
+#else
+#include <QGLFormat>
 #endif
 
 #include "ui_mainwindow.h"

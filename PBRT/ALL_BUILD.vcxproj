@@ -1,0 +1,242 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGUID>{6C524ED3-16D9-303B-A7E1-94C3EABDD89F}</ProjectGUID>
+    <WindowsTargetPlatformVersion>10.0.14393.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>x64</Platform>
+    <ProjectName>ALL_BUILD</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+    <PropertyGroup>
+      <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+      <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+      <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+      <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+      <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\zlib;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Imath;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Half;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Iex;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\IlmImf;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog;D:\Github\GIRadianceRegressionFunction\PBRT\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\core;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\zlib;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Imath;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Half;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Iex;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\IlmImf;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog;D:\Github\GIRadianceRegressionFunction\PBRT\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\core;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\zlib;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Imath;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Half;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Iex;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\IlmImf;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog;D:\Github\GIRadianceRegressionFunction\PBRT\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\core;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\zlib;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Imath;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Half;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\Iex;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\IlmImf;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\IlmBase\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\openexr\OpenEXR\config;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\ext\glog;D:\Github\GIRadianceRegressionFunction\PBRT\src;D:\Github\GIRadianceRegressionFunction\PBRT\src\core;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -HD:/Github/GIRadianceRegressionFunction/PBRT -BD:/Github/GIRadianceRegressionFunction/PBRT --check-stamp-file D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInitialize.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCCompiler.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCXXCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeGenericSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\WindowsPaths.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeRCCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeRCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCXXInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Compiler\MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.c.in;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindBISON.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindFLEX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -HD:/Github/GIRadianceRegressionFunction/PBRT -BD:/Github/GIRadianceRegressionFunction/PBRT --check-stamp-file D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInitialize.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCCompiler.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCXXCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeGenericSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\WindowsPaths.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeRCCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeRCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCXXInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Compiler\MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.c.in;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindBISON.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindFLEX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -HD:/Github/GIRadianceRegressionFunction/PBRT -BD:/Github/GIRadianceRegressionFunction/PBRT --check-stamp-file D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInitialize.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCCompiler.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCXXCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeGenericSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\WindowsPaths.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeRCCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeRCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCXXInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Compiler\MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.c.in;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindBISON.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindFLEX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -HD:/Github/GIRadianceRegressionFunction/PBRT -BD:/Github/GIRadianceRegressionFunction/PBRT --check-stamp-file D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:/Github/GIRadianceRegressionFunction/PBRT/CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInitialize.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCCompiler.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeCXXCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeSystemSpecificInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeGenericSystem.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\WindowsPaths.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\3.7.0-rc1\CMakeRCCompiler.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeRCInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCXXInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Compiler\MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\Platform\Windows-MSVC.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.c.in;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindBISON.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindFLEX.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindThreads.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckLibraryExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckSymbolExists.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CheckIncludeFile.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageHandleStandardArgs.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\FindPackageMessage.cmake;D:\Program Files\CMake\share\cmake-3.7\Modules\CMakeParseArguments.cmake;D:\Github\GIRadianceRegressionFunction\PBRT\CMakeLists.txt;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\Github\GIRadianceRegressionFunction\PBRT\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/ZERO_CHECK.vcxproj">
+      <Project>90943003-D89C-381C-8CF7-9C6A691A1DD0</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/IlmBase/Half/Half.vcxproj">
+      <Project>A7E70DC2-E7AD-3AAF-B2E2-AB67CFB07FBA</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/IlmBase/Iex/Iex.vcxproj">
+      <Project>7B2C5A1B-CA01-36DE-9AE7-2287DAD486C8</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/IlmBase/IexMath/IexMath.vcxproj">
+      <Project>9F117DD6-712C-31D6-8252-702AC037AB14</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/OpenEXR/IlmImf/IlmImf.vcxproj">
+      <Project>860D208E-07AE-3EA0-BA22-9D998C3BFB6F</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/IlmBase/IlmThread/IlmThread.vcxproj">
+      <Project>CB092B21-3212-3BCB-9EB1-28B902D1985C</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/IlmBase/Imath/Imath.vcxproj">
+      <Project>75B0904C-3B2F-3E02-A708-0E38D740EFCD</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/OpenEXR/IlmImf/b44ExpLogTable.vcxproj">
+      <Project>D8D466CE-F69C-32D0-ABE9-53230507F7B0</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/bsdftest.vcxproj">
+      <Project>68DD13A5-CC34-3BE3-B20A-EE7C9596AFC3</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/cyhair2pbrt.vcxproj">
+      <Project>C69D4A79-B64C-3930-83A2-C695AFE0F42A</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/glog/demangle_unittest.vcxproj">
+      <Project>2B94E4C6-7A3E-3AAF-AEA7-838FB52F3701</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/OpenEXR/IlmImf/dwaLookups.vcxproj">
+      <Project>A066D18C-AE44-3009-B3B5-46544C3AED49</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/IlmBase/Half/eLut.vcxproj">
+      <Project>280AE7BB-2560-3666-BB3A-8FEBA303BED4</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/glog/glog.vcxproj">
+      <Project>973F205D-1014-3531-9944-88C6E866028C</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/imgtool.vcxproj">
+      <Project>AE52F8DF-4BAB-35C2-9046-B8DC8C54080E</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/glog/logging_unittest.vcxproj">
+      <Project>A4A8EE71-EC51-327F-AE1B-EA6BEF436045</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/obj2pbrt.vcxproj">
+      <Project>748554A5-572F-33D8-9632-EAA7885DF2C9</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/pbrt.vcxproj">
+      <Project>7D9EA91B-AED5-30AA-892D-1196507646BD</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/pbrt_exe.vcxproj">
+      <Project>CF3B2975-4498-3B73-A207-931FE9635F06</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/pbrt_test.vcxproj">
+      <Project>ED2C5295-1897-356B-8C2A-CEE04413D4F7</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/glog/stl_logging_unittest.vcxproj">
+      <Project>24CECB09-4BDE-3ADD-9BBD-408337EB7767</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/openexr/IlmBase/Half/toFloat.vcxproj">
+      <Project>609D6F01-729E-3847-BEF5-7095B1D860F3</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/glog/utilities_unittest.vcxproj">
+      <Project>23AB32D2-D6E4-3AB8-BA20-A67A9D65621E</Project>
+    </ProjectReference>
+    <ProjectReference Include="D:/Github/GIRadianceRegressionFunction/PBRT/src/ext/zlib/zlibstatic.vcxproj">
+      <Project>88A6CCFE-DB5E-32C5-8744-152AE2B5AE8C</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
