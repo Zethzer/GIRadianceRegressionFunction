@@ -115,3 +115,23 @@ typedef RGBSpectrum Spectrum;
 ```
 Again, don't forget to recompile after making this change.
 
+### Modification ###
+
+For our project we needed to add some modification to pbrt. This version
+can now create picture using only the indirect lightning composant, make picture with
+a fibonnaci based camera and write binary file.
+
+The new integrator can be used with the title "CO_path", he is similar with an simple path
+integrator. The difference is he only take one point of the scene per pixel and calculate its
+illumination with the indirect composant of the incidental light.
+
+The new camera is based on Fibonnacci spiral and can be used with the title "fibonnaci"
+
+The new file type is a binary file wich contain the position, normal and color of one point in
+the scene for each pixel in the image resolution.
+The data are formed as :
+
+ (Pos_x, Pos_y, Pos_z), (Norm_x, Norm_y, Norm_z), (Light_x, Light_y, Light_z)
+
+Each number is a signed float, and the data follow this pattern for each point of the image.
+
