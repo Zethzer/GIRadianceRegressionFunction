@@ -1183,6 +1183,8 @@ Vector< Matrix<double> > PerceptronLayer::calculate_combinations_Hessian_form(co
 
    Vector< Matrix<double> > combination_Hessian_form(perceptrons_number);
 
+   /// Activation function variable.
+
    for(size_t i = 0; i < perceptrons_number; i++)
    {
       combination_Hessian_form[i].set(inputs_number, inputs_number, 0.0);

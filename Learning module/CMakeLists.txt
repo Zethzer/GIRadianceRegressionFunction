@@ -6,6 +6,7 @@ aux_source_directory(src SRC_LIST)
 set (CMAKE_CXX_STANDARD 11)
 SET(CPACK_GENERATOR "TGZ")
 
+
 add_subdirectory(tinyxml2)
 add_subdirectory(opennn)
 include_directories(opennn)

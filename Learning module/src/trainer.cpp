@@ -65,30 +65,45 @@ void Trainer::trainNetwork(const std::string &data_set_path, const DataSetParame
 
         training_strategy.set_main_type(data_set_parameters.m_training_parameters.m_training_method);
 
-        if(data_set_parameters.m_training_parameters.m_training_method == TrainingMethod::QUASI_NEWTON_METHOD)
+        switch(data_set_parameters.m_training_parameters.m_training_method)
+        {
+        case TrainingMethod::QUASI_NEWTON_METHOD:
         {
             QuasiNewtonMethod *quasi_Newton_method_pointer = training_strategy.get_quasi_Newton_method_pointer();
             quasi_Newton_method_pointer->set_gradient_norm_goal(data_set_parameters.m_training_parameters.m_gradient_norm_goal);
         }
-        else if(data_set_parameters.m_training_parameters.m_training_method == TrainingMethod::LEVENBERG_MARQUARDT_ALGORITHM)
+            break;
+
+        case TrainingMethod::LEVENBERG_MARQUARDT_ALGORITHM:
         {
             LevenbergMarquardtAlgorithm *levenberq_marquardt_pointer = training_strategy.get_Levenberg_Marquardt_algorithm_pointer();
             levenberq_marquardt_pointer->set_gradient_norm_goal(data_set_parameters.m_training_parameters.m_gradient_norm_goal);
         }
-        else if(data_set_parameters.m_training_parameters.m_training_method == TrainingMethod::GRADIENT_DESCENT)
+            break;
+
+        case TrainingMethod::GRADIENT_DESCENT:
         {
             GradientDescent *gradient_descent_pointer = training_strategy.get_gradient_descent_pointer();
             gradient_descent_pointer->set_gradient_norm_goal(data_set_parameters.m_training_parameters.m_gradient_norm_goal);
         }
-        else if(data_set_parameters.m_training_parameters.m_training_method == TrainingMethod::CONJUGATE_GRADIENT)
+            break;
+
+        case TrainingMethod::CONJUGATE_GRADIENT:
         {
             ConjugateGradient *conjugate_gradient_pointer = training_strategy.get_conjugate_gradient_pointer();
             conjugate_gradient_pointer->set_gradient_norm_goal(data_set_parameters.m_training_parameters.m_gradient_norm_goal);
         }
-        else if(data_set_parameters.m_training_parameters.m_training_method == TrainingMethod::NEWTON_METHOD)
+            break;
+
+        case TrainingMethod::NEWTON_METHOD:
         {
             NewtonMethod *newton_method_pointer = training_strategy.get_Newton_method_pointer();
             newton_method_pointer->set_gradient_norm_goal(data_set_parameters.m_training_parameters.m_gradient_norm_goal);
+        }
+            break;
+
+        default:
+            break;
         }
 
 

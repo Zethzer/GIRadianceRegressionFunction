@@ -6,7 +6,7 @@
 #include "trainer.h"
 #include "configparser.h"
 
-bool extractArguments(int argc, char *argv[], std::string &training_data_set_path, std::string neural_network_save_path);
+bool extractArguments(int argc, char *argv[], std::string &training_data_set_path, std::string &neural_network_save_path);
 
 /*
  * Inputs :
@@ -25,22 +25,26 @@ int main(int argc, char *argv[])
     std::string training_data_set_path,
                 neural_network_save_path;
 
+    // 1- Extract arguments of the program
     if(!extractArguments(argc, argv, training_data_set_path, neural_network_save_path))
     {
         std::cerr << "MAIN::ERROR : problem during extraction of arguments" << std::endl;
         return EXIT_FAILURE;
     }
 
+
     NeuralNetworkParameters neural_network_parameters;
     DataSetParameters data_set_parameters;
     ConfigParser config_parser;
 
+    // 2- Extract NeuralNetwork and DataSet parameters from the config.xml file
     if(!config_parser.parseConfig("config.xml", neural_network_parameters, data_set_parameters))
     {
         std::cerr << "MAIN::ERROR : problem while parsing the config file" << std::endl;
         return EXIT_FAILURE;
     }
 
+    // 3- Process training
     Trainer trainer(neural_network_parameters);
     trainer.trainNetwork(training_data_set_path, data_set_parameters);
     trainer.saveNetwork(neural_network_save_path);
@@ -48,10 +52,12 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+
+
 /*
  * Check if arguments are correct
  */
-bool extractArguments(int argc, char *argv[], std::string &training_data_set_path, std::string neural_network_save_path)
+bool extractArguments(int argc, char *argv[], std::string &training_data_set_path, std::string &neural_network_save_path)
 {
     if(argc < 3)
     {
