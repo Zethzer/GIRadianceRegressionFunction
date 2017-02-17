@@ -7,8 +7,6 @@ cmake_minimum_required(VERSION 2.8)
 set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 
-#file(GLOB_RECURSE INCLUDE ${INCLUDE_DIR}/*)
-
 file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cpp)
 file(GLOB_RECURSE HEADERS ${INCLUDE_DIR}/*.h)
 
@@ -21,32 +19,34 @@ list(REMOVE_DUPLICATES INCLUDE_DIRS)
 
 include_directories(${INCLUDE_DIRS})
 
-#aux_source_directory(${SOURCE_DIR} SRC_LIST)
-
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-if(APPLE)
-	set(CMAKE_CXX_FLAGS "-std=c++11 -g -ggdb -O0 -Wall -Wextra")
-	#OpenGL inclusion
-	find_package(OpenGL)
-	include_directories(${OPENGL_INCLUDE_DIR})
+#TinyXML 2 inclusion
+include_directories(lib/tinyxml2)
+add_subdirectory(lib/tinyxml2)
 
-	#Qt5 inclusion
+if(APPLE)
+        set(CMAKE_CXX_FLAGS "-std=c++11 -g -ggdb -O0 -Wall -Wextra")
+        #OpenGL inclusion
+        find_package(OpenGL)
+        include_directories(${OPENGL_INCLUDE_DIR})
+
+        #Qt5 inclusion
         find_package(Qt5Core REQUIRED)
         find_package(Qt5Gui REQUIRED)
         find_package(Qt5Widgets REQUIRED)
         find_package(Qt5OpenGL REQUIRED)
         include_directories(${Qt5Widgets_INCLUDE_DIRS})
-	add_definitions(${Qt5Widgets_DEFINITIONS})
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
+        add_definitions(${Qt5Widgets_DEFINITIONS})
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
 
         add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
         qt5_use_modules(${PROJECT_NAME} Core Gui Widgets OpenGL)
 
-        target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${OPENGL_LIBRARIES})
+        target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${OPENGL_LIBRARIES} tinyxml2)
 elseif(UNIX)
         set(CMAKE_CXX_FLAGS "-std=c++11 -g -ggdb -O0 -Wall -Wextra")
         find_package(OpenGL REQUIRED)
@@ -60,16 +60,12 @@ elseif(UNIX)
 
         add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-        target_link_libraries(${PROJECT_NAME} ${Qt4_LIBRARIES} ${OPENGL_LIBRARIES})
+        target_link_libraries(${PROJECT_NAME} ${Qt4_LIBRARIES} ${OPENGL_LIBRARIES} tinyxml2)
 elseif(WIN32)
     set(CMAKE_CXX_FLAGS "-std=c++11 -g -ggdb -O0")
     #OpenGL inclusion
     find_package(OpenGL)
     include_directories(${OPENGL_INCLUDE_DIR})
-
-    # Assimp
-    set(ASSIMP64_LIB lib/msvs2015/assimp)
-    set(ASSIMP32_LIB lib/msvs2015/assimp32)
 
     #Qt5 inclusion
     set(CMAKE_PREFIX_PATH "D:\\Program Files\\Qt\\5.7\\msvc2015_64\\")
@@ -93,11 +89,7 @@ elseif(WIN32)
     set(GLEW_LIB lib/msvs2015/glew32)
     set(GLEW_STATIC_LIB lib/msvs2015/glew32s)
 
-    # ZlibStatic
-    set(ZLIBSTATIC32_LIB lib/msvs2015/zlibstatic32)
-    set(ZLIBSTATICD_LIB lib/msvs2015/zlibstaticd)
-
     add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-    target_link_libraries(${PROJECT_NAME} Qt5::WinMain Qt5::Widgets Qt5::Gui Qt5::OpenGL ${QT_LIBRARIES} ${GLEW_LIB} ${GLEW_STATIC_LIB} ${ASSIMP64_LIB} ${ASSIMP32_LIB} ${ZLIBSTATIC32_LIB} ${ZLIBSTATICD_LIB} ${OPENGL_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME} Qt5::WinMain Qt5::Widgets Qt5::Gui Qt5::OpenGL ${QT_LIBRARIES} ${GLEW_LIB} ${GLEW_STATIC_LIB} ${OPENGL_LIBRARIES} tinyxml2)
 endif()
