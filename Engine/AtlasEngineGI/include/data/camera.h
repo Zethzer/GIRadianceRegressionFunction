@@ -12,6 +12,7 @@
 #include "lib/glm/gtc/type_ptr.hpp"
 
 class Shader;
+struct AABB;
 
 class Camera
 {
@@ -22,7 +23,7 @@ class Camera
     
     void init(const glm::vec3& pos, const glm::vec3& front, const glm::vec3& up, const GLfloat& speed, const GLfloat& fov);
     
-    virtual void move(const GLboolean keys[1024], const GLfloat &delta_time);
+    virtual void move(const GLboolean keys[1024], const GLfloat &delta_time, const AABB &box);
     virtual void orientate();
     void sendDatas(const Shader &shader, const GLfloat &screen_width, const GLfloat &screen_height);
     

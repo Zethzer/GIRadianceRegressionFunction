@@ -47,27 +47,21 @@ class Scene
     inline KdTree getKdTree() const{return m_kdtree;}
     inline Light *getLight(const GLuint &i) const{return m_lights[i];}
     inline PointLight *getPointLight(const GLuint &i) const{return m_point_lights[i];}
+    inline AABB getAABB() const{return m_AABB;}
     
     inline GLuint numberOfPointLights() const{return m_nb_pointlights;}
     inline GLuint numberOfModels(const GLuint &shader_index) const{return m_models[shader_index].size();}
     
     //  Others
-    inline void translate(const glm::vec3 &t, const std::string &node_name){for(GLuint i = 0; i < m_roots.size(); ++i)m_roots[i]->translate(t, node_name);}
-    inline void rotate(const glm::vec3 &r, const std::string &node_name){for(GLuint i = 0; i < m_roots.size(); ++i)m_roots[i]->rotate(glm::radians(r), node_name);}
-    inline void scale(const glm::vec3 &s, const std::string &node_name){for(GLuint i = 0; i < m_roots.size(); ++i)m_roots[i]->scale(s, node_name);}
+    inline void translate(const glm::vec3 &t, const std::string &node_name){for(GLuint i = 0; i < m_roots.size(); ++i)m_roots[i]->translate(t, node_name); buildAABB();}
+    inline void rotate(const glm::vec3 &r, const std::string &node_name){for(GLuint i = 0; i < m_roots.size(); ++i)m_roots[i]->rotate(glm::radians(r), node_name); buildAABB();}
+    inline void scale(const glm::vec3 &s, const std::string &node_name){for(GLuint i = 0; i < m_roots.size(); ++i)m_roots[i]->scale(s, node_name); buildAABB();}
     
     inline void updateCamera(const GLfloat &xoffset, const GLfloat &yoffset){m_cameras[m_current_camera]->setOffset(xoffset, yoffset);}
-
-    inline void moveLightUp() {m_current_pointlight->moveUp();}
-    inline void moveLightDown() {m_current_pointlight->moveDown();}
-    inline void moveLightRight() {m_current_pointlight->moveRight();}
-    inline void moveLightLeft() {m_current_pointlight->moveLeft();}
-    inline void moveLightFront() {m_current_pointlight->moveFront();}
-    inline void moveLightBehind() {m_current_pointlight->moveBehind();}
     
     void buildModelList();
     void buildKdTree();
-    
+    void buildAABB();
     
     
     protected:
@@ -89,7 +83,7 @@ class Scene
     
     GLfloat &m_render_time;
     
-    AABB m_box;
+    AABB m_AABB;
     KdTree m_kdtree;
 };
 

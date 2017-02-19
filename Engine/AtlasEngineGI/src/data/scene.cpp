@@ -40,7 +40,10 @@ void Scene::draw(const Shaders &shaders, const GLboolean (&keys)[1024], const GL
 {
     Camera *current_camera = m_cameras[m_current_camera];
     current_camera->orientate();
-    current_camera->move(keys, render_time);
+    current_camera->move(keys, render_time, m_AABB);
+
+    for(size_t i = 0; i < m_point_lights.size(); ++i)
+        m_point_lights[i]->move(keys, render_time, m_AABB);
 
     //  Loop on every shader type
     //  Loop and draw every mesh that uses this shader
@@ -68,7 +71,10 @@ void Scene::draw(const Shader &shader, const GLboolean (&keys)[1024], const GLfl
 {
     Camera *current_camera = m_cameras[m_current_camera];
     current_camera->orientate();
-    current_camera->move(keys, render_time);
+    current_camera->move(keys, render_time, m_AABB);
+
+    for(size_t i = 0; i < m_point_lights.size(); ++i)
+        m_point_lights[i]->move(keys, render_time, m_AABB);
 
     //  Loop on every shader type
     //  Loop and draw every mesh that uses this shader
@@ -98,20 +104,20 @@ void Scene::buildKdTree()
 {
     std::vector<Triangle *> T;
 
-    for(GLuint i = 0; i < NB_SHADER_TYPES; ++i)
+    for(size_t i = 0; i < NB_SHADER_TYPES; ++i)
     {
-        for(GLuint j = 0, m = 0; j < m_models[i].size(); ++j)
+        for(size_t j = 0, m = 0; j < m_models[i].size(); ++j)
         {
             Model* actual_model = m_models[i][j];
 
             //  Pour tous les meshes du model
-            for(GLuint k = 0; k < actual_model->numberOfMeshes(); ++k)
+            for(size_t k = 0; k < actual_model->numberOfMeshes(); ++k)
             {
                 Mesh* actual_mesh = actual_model->getMesh(k);
-                GLuint number_of_triangles = actual_mesh->numIndices();
+                size_t number_of_triangles = actual_mesh->numIndices();
 
                 //  Pour tous les triangles du mesh
-                for(GLuint l = 0; l < number_of_triangles; l += 3, ++m)
+                for(size_t l = 0; l < number_of_triangles; l += 3, ++m)
                 {
                     Triangle *t = actual_mesh->getTriangle(k, k+1, k+2);
                     t->mesh = j;
@@ -123,9 +129,9 @@ void Scene::buildKdTree()
                     T.push_back(t);
 
                     //  Recherche des extrémités de la bounding box de la scène
-                    m_box.clipPoint(t->v1->Position);
-                    m_box.clipPoint(t->v2->Position);
-                    m_box.clipPoint(t->v3->Position);
+                    m_AABB.clipPoint(t->v1->Position);
+                    m_AABB.clipPoint(t->v2->Position);
+                    m_AABB.clipPoint(t->v3->Position);
                 }
             }
         }
@@ -136,10 +142,10 @@ void Scene::buildKdTree()
     GLuint E_size;
     m_kdtree.createEventList(E_size, E);
     //  Construction de l'arbre
-    m_kdtree.m_root = m_kdtree.RecBuild(T, m_box, E_size, E);
+    m_kdtree.m_root = m_kdtree.RecBuild(T, m_AABB, E_size, E);
     //m_kdtree.m_root = m_kdtree.medbuild(T, B, 4);
 
-    m_kdtree.setRootBox(m_box);
+    m_kdtree.setRootBox(m_AABB);
 
     //m_kdtree.setupMesh();   //  Affichage
 
@@ -161,4 +167,12 @@ SceneGraphNode *Scene::addSceneGraphNode(const std::string name, Model *model)
     m_models[model->getMaterial()->getShaderTypeIndex()].push_back(model);
 
     return scene_graph_node;
+}
+
+void Scene::buildAABB()
+{
+    for(size_t i = 0; i < NB_SHADER_TYPES; ++i)
+        for(size_t j = 0; j < m_models[i].size(); ++j)
+            for(size_t k = 0; k < m_models[i][j]->numberOfMeshes(); ++k)
+                m_AABB.clipBox(m_models[i][j]->getMesh(k)->getAABB());
 }

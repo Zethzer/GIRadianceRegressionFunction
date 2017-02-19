@@ -12,6 +12,8 @@
 #include "include/render/process/hdrrenderprocess.h"
 #include "include/render/process/shadowmaprenderprocess.h"
 
+#include "include/loader/neuralnetworkloader.h"
+
 AtlasWidget::AtlasWidget(QWidget * parent) :
 #if QT_VERSION >= 0x050000
     QOpenGLWidget(parent),
@@ -87,7 +89,13 @@ void AtlasWidget::initializeGL()
     /*  END OF SCENES MODIFICATION */
 
     for(GLuint i = 0; i < m_scenes.size(); ++i)
+    {
         m_scenes[i]->buildModelList();
+        m_scenes[i]->buildAABB();
+        Camera *new_camera = new Camera();
+        new_camera->setPosition(m_scenes[i]->getAABB().getCenter());
+        m_scenes[i]->addCamera(new_camera);
+    }
 
     /*  PIPELINES MODIFICATIONS */
 
@@ -167,30 +175,6 @@ void AtlasWidget::keyPressEvent(QKeyEvent * e)
         m_fullscreen = !m_fullscreen;
         break;
 
-    case Qt::Key_O:
-        m_current_scene->moveLightFront();
-        break;
-
-    case Qt::Key_L:
-        m_current_scene->moveLightBehind();
-        break;
-
-    case Qt::Key_K:
-        m_current_scene->moveLightLeft();
-        break;
-
-    case Qt::Key_M:
-        m_current_scene->moveLightRight();
-        break;
-
-    case Qt::Key_I:
-        m_current_scene->moveLightDown();
-        break;
-
-    case Qt::Key_P:
-        m_current_scene->moveLightUp();
-        break;
-
     default:
         if(e->key() >= 0 && e->key() < 1024)
             m_keys[e->key()] = true;
@@ -249,11 +233,14 @@ void AtlasWidget::pause()
 
 void AtlasWidget::createRenderScene()
 {
+    NeuralNetworkLoader neural_network_loader;
+    NeuralNetwork neural_network;
+    neural_network_loader.loadFile("neuralnetwork.xml", neural_network);
+
     addScene();
 
     m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
 
-    m_current_scene->addCamera(new Camera());
     //m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
     m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 100.f, glm::vec3(0.f, 15.f, 0.f)));
     m_current_scene->scale(glm::vec3(10.f), "root");

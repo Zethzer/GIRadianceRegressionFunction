@@ -1,5 +1,6 @@
 #include "include/data/camera.h"
 #include "include/render/shader.h"
+#include "include/data/geometry/mesh.h"
 
 Camera::Camera() :
     m_current_offset_x(0.0f),
@@ -52,21 +53,26 @@ void Camera::init(const glm::vec3 &pos, const glm::vec3 &front, const glm::vec3 
     m_speed = speed;
 }
 
-void Camera::move(const GLboolean keys[], const GLfloat &delta_time)
+void Camera::move(const GLboolean keys[], const GLfloat &delta_time, const AABB &box)
 {
     float speed = m_speed * delta_time;
+    glm::vec3 new_pos = m_position;
+
     if(keys[Qt::Key_Z])
-        m_position += m_front * speed;
+        new_pos += m_front * speed;
     if(keys[Qt::Key_S])
-        m_position -= m_front * speed;
+        new_pos -= m_front * speed;
     if(keys[Qt::Key_Q])
-        m_position -= glm::cross(m_front, m_up) * speed;
+        new_pos -= glm::cross(m_front, m_up) * speed;
     if(keys[Qt::Key_D])
-        m_position += glm::cross(m_front, m_up) * speed;
+        new_pos += glm::cross(m_front, m_up) * speed;
     if(keys[Qt::Key_A])
-        m_position -= m_up * speed;
+        new_pos -= m_up * speed;
     if(keys[Qt::Key_E])
-        m_position += m_up * speed;
+        new_pos += m_up * speed;
+
+    //if(box.isPointInside(new_pos))
+        m_position = new_pos;
 }
 
 void Camera::orientate()

@@ -27,6 +27,23 @@ struct AABB
         V[0] = glm::min(P, V[0]);
         V[1] = glm::max(P, V[1]);
     }
+
+    void clipBox(const AABB &box)
+    {
+        clipPoint(box.V[0]);
+        clipPoint(box.V[1]);
+    }
+
+    bool isPointInside(const glm::vec3 &P) const
+    {
+        return (P.x > V[0].x && P.y > V[0].y && P.z > V[0].z && P.x < V[1].x && P.y < V[1].y && P.z < V[1].z);
+    }
+
+    glm::vec3 getCenter() const
+    {
+        glm::vec3 diff = V[1] - V[0];
+        return diff * 0.5f + V[1];
+    }
 };
 
 struct Vertex
@@ -91,12 +108,13 @@ class Mesh
     virtual void draw() const;
     virtual void setupBuffers();
 
-    void computeAABB();
+    void buildAABB();
     
     //  Getters
-    inline GLuint numIndices() const{return m_indices.size();}
-    inline GLuint numVertices() const{return m_vertices.size();}
-    inline GLuint getIndex(const GLuint &i) const{return m_indices[i];}
+    inline size_t numIndices() const{return m_indices.size();}
+    inline size_t numVertices() const{return m_vertices.size();}
+    inline size_t getIndex(const GLuint &i) const{return m_indices[i];}
+    inline AABB getAABB() const{return m_AABB;}
     inline Vertex getVertex(const GLuint &i) const{return m_vertices[i];}
     inline Triangle *getTriangle(const GLuint &i1, const GLuint &i2, const GLuint &i3){return new Triangle(&m_vertices[i1], &m_vertices[i2], &m_vertices[i3]);}
     
@@ -108,7 +126,7 @@ class Mesh
     
     GLboolean m_has_normal_map;
     
-    AABB m_box;
+    AABB m_AABB;
 };
 
 #endif // MESH_H

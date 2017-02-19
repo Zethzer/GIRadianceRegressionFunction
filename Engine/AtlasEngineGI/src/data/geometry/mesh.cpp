@@ -19,7 +19,7 @@ Mesh::Mesh(const std::vector<Vertex> &vertices, const std::vector<GLuint> &indic
     m_vertices = vertices;
     m_indices = indices;
 
-    computeAABB();
+    buildAABB();
 
     setupBuffers();
 }
@@ -65,8 +65,8 @@ void Mesh::setupBuffers()
     glBindVertexArray(0);
 }
 
-void Mesh::computeAABB()
+void Mesh::buildAABB()
 {
-    for(GLuint i = 0; i < m_vertices.size(); ++i)
-        m_box.clipPoint(m_vertices[i].Position);
+    for(size_t i = 0; i < m_vertices.size(); ++i)
+        m_AABB.clipPoint(m_vertices[i].Position);
 }

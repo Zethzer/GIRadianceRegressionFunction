@@ -10,6 +10,7 @@
 #include "lib/glm/gtc/type_ptr.hpp"
 
 class Shader;
+struct AABB;
 
 class PointLight : public Light
 {
@@ -21,18 +22,13 @@ public:
     virtual void sendViewDatas(const Shader &shader, const glm::mat4 &view) const;
     virtual void sendDatas(const Shader &shader) const;
 
+    void move(const GLboolean keys[], const GLfloat &delta_time, const AABB &box);
+
     //  Getters
     inline glm::vec3 getPosition() const{return m_position;}
     inline GLfloat getConstant() const{return m_constant;}
     inline GLfloat getLinear() const{return m_linear;}
     inline GLfloat getQuadratic() const{return m_quadratic;}
-
-    inline void moveRight() {m_position.x += 0.1f;}
-    inline void moveLeft() {m_position.x -= 0.1f;}
-    inline void moveUp() {m_position.y += 0.1f;}
-    inline void moveDown() {m_position.y -= 0.1f;}
-    inline void moveFront() {m_position.z += 0.1f;}
-    inline void moveBehind() {m_position.z -= 0.1f;}
 
 protected:
     glm::vec3 m_position;
@@ -40,6 +36,7 @@ protected:
     GLfloat m_constant;
     GLfloat m_linear;
     GLfloat m_quadratic;
+    GLfloat m_speed;
 };
 
 #endif // POINTLIGHT_H
