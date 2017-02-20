@@ -15,6 +15,7 @@
 #include "include/render/renderer.h"
 #include "include/data/scene.h"
 #include "include/loader/objloader.h"
+#include "include/loader/pbrtloader.h"
 
 #include "include/menu.h"
 
@@ -76,6 +77,7 @@ private:
     GLuint m_current_scene_index;
 
     OBJLoader m_obj_loader;
+	PBRTLoader m_pbrt_loader;
     MaterialLibrary m_material_library;
 };
 
