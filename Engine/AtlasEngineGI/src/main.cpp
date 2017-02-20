@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
 
 #if QT_VERSION >= 0x050000
     QSurfaceFormat fmt;
-    fmt.setVersion(3, 3);
+    fmt.setVersion(4, 3);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
 
     QSurfaceFormat::setDefaultFormat(fmt);

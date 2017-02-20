@@ -33,8 +33,7 @@ void ComputeShaderProcess::init(const GLuint &width, const GLuint &height)
      * */
     m_out_texture = Texture(GL_RGBA32F, width, height, GL_RGBA, GL_FLOAT,
                             NULL, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR);
-    m_out_texture2 = Texture(GL_RGBA32F, width, height, GL_RGBA, GL_FLOAT,
-                            NULL, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR);
+    
     m_tex_w = width;
     m_tex_h = height;
 
@@ -47,24 +46,23 @@ void ComputeShaderProcess::init(const GLuint &width, const GLuint &height)
     glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &work_grp_cnt[0]);
     glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &work_grp_cnt[1]);
     glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &work_grp_cnt[2]);
-    printf ("max global (total) work group size x:%i y:%i z:%i\n",
-    work_grp_cnt[0], work_grp_cnt[1], work_grp_cnt[2]);
+    //printf ("max global (total) work group size x:%i y:%i z:%i\n",
+    //work_grp_cnt[0], work_grp_cnt[1], work_grp_cnt[2]);
 
     int work_grp_size[3];
     // Maximum local work group (one shader's slice)
     glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &work_grp_size[0]);
     glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &work_grp_size[1]);
     glGetIntegeri_v (GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &work_grp_size[2]);
-    printf ("max local (in one shader) work group sizes x:%i y:%i z:%i\n",
-    work_grp_size[0], work_grp_size[1], work_grp_size[2]);
+    //printf ("max local (in one shader) work group sizes x:%i y:%i z:%i\n",
+    //work_grp_size[0], work_grp_size[1], work_grp_size[2]);
 
     // Maximum compute shader invocations (x * y * z)
-	//glGetIntegerv(GL_MAX_COMPUTE_LOCAL_INVOCATIONS, &work_grp_inv);
+	//glGetIntegerv(GL_MAX_COMPUTE_LOCAL_INVOCATIONS, &work_grp_inv); // LINUX
 	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
-    printf ("max computer shader invocations %i\n", work_grp_inv);
+    //printf ("max computer shader invocations %i\n", work_grp_inv);
 
     m_out_textures.push_back(&m_out_texture);
-    //m_out_textures.push_back(&m_out_texture2);
 
 }
 
@@ -80,8 +78,6 @@ void ComputeShaderProcess::resize(const GLuint &width, const GLuint &height)
     m_out_texture = Texture(GL_RGBA32F, width, height, GL_RGBA, GL_FLOAT,
                             NULL, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR);
 
-//    m_out_texture2 = Texture(GL_RGBA32F, width, height, GL_RGBA, GL_FLOAT,
-//                            NULL, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR);
     m_tex_w = width;
     m_tex_h = height;
 }
@@ -125,12 +121,11 @@ void ComputeShaderProcess::process(const Quad &quad, const Scene &scene, const G
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, structBuffer);
 
     m_out_texture.bindImage(0);
-    //m_out_texture2.bindImage(1);
 
     // Launch compute shader
     m_shader.use();
 
-    glDispatchCompute(m_tex_w, m_tex_h, 1);
+    glDispatchCompute(nextPowerOfTwo(m_tex_w/localWorkGroupSize), nextPowerOfTwo(m_tex_h/localWorkGroupSize), 1);
 
     // Prevent samplign before all writes to image are done
     glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);

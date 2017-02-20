@@ -177,6 +177,13 @@ double[MAX_STATISTICS_SIZE] UnscalingLayerCalculateOutputs(double inputs[MAX_STA
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
+/*
+* Inputs
+* */
+// camera position
+uniform vec3 camera_position;
+uniform vec3 point_light_position;
+
 // NeuralNetwork (SSBO)
 layout(std430, binding=4) buffer neural_network
 {

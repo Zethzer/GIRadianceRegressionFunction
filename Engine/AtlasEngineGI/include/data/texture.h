@@ -22,6 +22,9 @@ public:
     void updateDimensions(const GLsizei width, const GLsizei height);
     void generateMipmaps() const;
     inline void bind() const{glBindTexture(m_target, m_id);}
+	
+	// Compute shader function 
+	inline void bindImage(GLuint unit) const { glBindImageTexture(unit, m_id, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F); }
 
     //  Getters
     inline GLuint getId()const {return m_id;}

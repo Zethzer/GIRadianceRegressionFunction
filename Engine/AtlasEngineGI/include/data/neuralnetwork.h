@@ -24,7 +24,7 @@
 #define HyperbolicTangent 1
 
 #define MAX_INPUTS_SIZE 12
-#define MAX_STATISTICS_SIZE x
+#define MAX_STATISTICS_SIZE 20
 #define MAX_MULTILAYER_SIZE 4
 #define MAX_LAYER_SIZE 20
 

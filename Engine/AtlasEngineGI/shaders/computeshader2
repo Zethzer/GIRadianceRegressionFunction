@@ -9,14 +9,16 @@ layout(std430, binding=4) buffer Couleur
   dvec4 coul[]; // array of structures
 };
 
-layout(local_size_x = 1, local_size_y = 1) in;
+uniform vec3 couleur1;
+
+layout(local_size_x = 32, local_size_y = 32) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
-double[4] fonctionFDP() {
+double[4] fonctionCouleur() {
   double[4] a;
   a[0] = 1.0;
-  a[1] = 0.0;
-  a[2] = 0.0;
+  a[1] = .0;
+  a[2] = 1.0;
   a[3] = 1.0;
   
   return a;
@@ -24,7 +26,7 @@ double[4] fonctionFDP() {
 
 void main() {
 
-  double[4] a = fonctionFDP();
+  double[4] a = fonctionCouleur();
   // base pixel colour for image
   vec4 pixel = vec4(0.0, 0.0, 0.0, 1.0);
   
@@ -32,6 +34,7 @@ void main() {
   ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
   
   pixel = vec4(a[0], a[1], a[2], a[3]);
+  pixel = vec4(couleur1, 1.0);
 
   // output to a secific pixel in the image
   imageStore (img_output, pixel_coords, pixel);
