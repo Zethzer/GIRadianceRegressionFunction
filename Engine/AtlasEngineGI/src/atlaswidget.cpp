@@ -235,7 +235,7 @@ void AtlasWidget::createRenderScene()
 {
     NeuralNetworkLoader neural_network_loader;
     NeuralNetwork neural_network;
-    neural_network_loader.loadFile("neuralnetwork.xml", neural_network);
+    //neural_network_loader.loadFile("neuralnetwork.xml", neural_network);
 
     addScene();
 

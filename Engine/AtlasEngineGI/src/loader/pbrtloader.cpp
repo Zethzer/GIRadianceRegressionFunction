@@ -74,21 +74,33 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 			material_library.addMaterial(current_material, nameMaterial);
 		}
 		if (!strcmp(word.c_str(), "Shape")) {
-			std::string remaining;
-			bool values = false;
-			std::string param = extractNextParameter(line, remaining, &values);
-			// Parser les valeurs
+			std::string remaining = line, param, values;
+			bool hasValues = false;
+			int pos = remaining.find_first_of("\"");
+			while (pos != std::string::npos){
+				param = extractNextParameter(remaining, values, &hasValues, &pos);
+			}
 		}
 	}
 }
 
-std::string PBRTLoader::extractNextParameter(std::string &line, std::string &remaining, bool *values) const {
+std::string PBRTLoader::extractNextParameter(std::string &line, std::string &valuesString, bool *values, int *pos) const {
 	std::string temp = line.substr(line.find_first_of("\"") + 1);
-	remaining = temp.substr(temp.find_first_of("\"") + 1);
-	if (remaining.at(1) == '[') {
+	line = temp.substr(temp.find_first_of("\"") + 1);
+	if (line.at(1) == '[') {
 		*values = true;
+		valuesString = extractValues(line);
 	}
-	remaining = remaining.substr(remaining.find_first_of("\""));
+	int position = line.find_first_of("\"");
+	*pos = position;
+	if(position != std::string::npos)
+		line = line.substr(position);
 	temp = temp.substr(0, temp.find_first_of("\""));
+	return temp;
+}
+
+std::string PBRTLoader::extractValues(std::string &line) const {
+	std::string temp = line.substr(line.find_first_of("[") + 1);
+	temp = temp.substr(0, temp.find_first_of("]"));
 	return temp;
 }

@@ -1,6 +1,7 @@
 #include "include/data/lighting/pointlight.h"
 #include "include/render/shader.h"
 #include "include/data/geometry/mesh.h"
+#include <QKeyEvent>
 
 PointLight::PointLight(const glm::vec3 &color, const GLfloat &intensity, const glm::vec3 &position) :
     Light(color, intensity),
