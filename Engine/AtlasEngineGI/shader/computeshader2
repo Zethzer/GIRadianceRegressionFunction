@@ -1,0 +1,38 @@
+#version 430 compatibility
+#extension GL_ARB_compute_shader : enable
+#extension GL_ARB_compute_storage_buffer_shader : enable
+#extension GL_NV_shader_buffer_load : enable
+#extension GL_NV_gpu_shader5 : enable
+
+layout(std430, binding=4) buffer Couleur
+{
+  dvec4 coul[]; // array of structures
+};
+
+layout(local_size_x = 1, local_size_y = 1) in;
+layout(rgba32f, binding = 0) uniform image2D img_output;
+
+double[4] fonctionFDP() {
+  double[4] a;
+  a[0] = 1.0;
+  a[1] = 0.0;
+  a[2] = 0.0;
+  a[3] = 1.0;
+  
+  return a;
+}
+
+void main() {
+
+  double[4] a = fonctionFDP();
+  // base pixel colour for image
+  vec4 pixel = vec4(0.0, 0.0, 0.0, 1.0);
+  
+  // get index in global work group i.e x,y, position
+  ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+  
+  pixel = vec4(a[0], a[1], a[2], a[3]);
+
+  // output to a secific pixel in the image
+  imageStore (img_output, pixel_coords, pixel);
+}
