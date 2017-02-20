@@ -10,11 +10,12 @@ SET(CPACK_GENERATOR "TGZ")
 add_subdirectory(tinyxml2)
 add_subdirectory(opennn)
 include_directories(opennn)
+include_directories(boost)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -g -ggdb -O0 -Wall -Wextra")
 
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 
-target_link_libraries(${PROJECT_NAME} opennn tinyxml2)
+target_link_libraries(${PROJECT_NAME} opennn tinyxml2 boost)
 
 include(CPack)

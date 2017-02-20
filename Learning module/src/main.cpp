@@ -6,6 +6,8 @@
 #include "trainer.h"
 #include "configparser.h"
 
+#include "../boost/filesystem.hpp"
+
 bool extractArguments(int argc, char *argv[], std::string &training_data_set_path, std::string &neural_network_save_path);
 
 /*
@@ -22,7 +24,7 @@ bool extractArguments(int argc, char *argv[], std::string &training_data_set_pat
  */
 int main(int argc, char *argv[])
 {
-    std::string training_data_set_path,
+    /*std::string training_data_set_path,
                 neural_network_save_path;
 
     // 1- Extract arguments of the program
@@ -49,7 +51,14 @@ int main(int argc, char *argv[])
     trainer.trainNetwork(training_data_set_path, data_set_parameters);
     trainer.saveNetwork(neural_network_save_path);
 
-    return EXIT_SUCCESS;
+    return EXIT_SUCCESS;*/
+
+    for(boost::filesystem::directory_iterator itr(path_ss); itr!=directory_iterator(); ++itr)
+    {
+        std::cout << itr->path().filename() << ' '; // display filename only
+        if (boost::filesystem::is_regular_file(itr->status())) std::cout << " [" << boost::filesystem::file_size(itr->path()) << ']';
+        std::cout << '\n';
+    }
 }
 
 
