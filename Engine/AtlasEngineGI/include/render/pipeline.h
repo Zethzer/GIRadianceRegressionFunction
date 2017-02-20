@@ -20,7 +20,7 @@ public:
     void process(const Quad &quad, const Scene &scene, const GLfloat &render_time, const GLboolean (&keys)[1024]) const;
 
     //  Getter
-    inline Texture *getOutTexture() const{return m_processes.back()->getOutTexture(0);}
+	inline Texture *getOutTexture() const { return m_processes[1]->getOutTexture(2); }//return m_processes.back()->getOutTexture(0); } //
     std::vector<MenuElement *> getMenuElements() const{return m_menu_elements;}
 
     //  Setter
