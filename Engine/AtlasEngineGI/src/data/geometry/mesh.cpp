@@ -18,20 +18,6 @@ Mesh::Mesh(const std::vector<Vertex> &vertices, const std::vector<GLuint> &indic
 {
     m_vertices = vertices;
     m_indices = indices;
-	
-	std::cout << "Indices: ";
-	for (int i = 0; i < m_indices.size(); ++i)
-		std::cout << m_indices[i] << " ";
-	std::cout << std::endl;
-	for (int i = 0; i < m_vertices.size(); ++i) {
-		std::cout << "Vertex:" << std::endl;
-		std::cout << "Position: ";
-		std::cout << "{ " << m_vertices[i].Position.x << " " << m_vertices[i].Position.y << " " << m_vertices[i].Position.z << " }" << std::endl;
-		std::cout << "Normal: ";
-		std::cout << "{ " << m_vertices[i].Normal.x << " " << m_vertices[i].Normal.y << " " << m_vertices[i].Normal.z << " }" << std::endl;
-		std::cout << "TexCoords: ";
-		std::cout << "{ " << m_vertices[i].TexCoords.x << " " << m_vertices[i].TexCoords.y << " }" << std::endl;
-	}
 
     buildAABB();
 

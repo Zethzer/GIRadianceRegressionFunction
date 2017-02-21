@@ -6,7 +6,6 @@
 #include "pointlight.h"
 
 PBRTLoader::PBRTLoader() {
-	countVertex = 0;
 }
 
 void PBRTLoader::loadFile(const std::string &pbrt_path, Scene *scene, MaterialLibrary &material_library) {
@@ -23,10 +22,7 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 	std::vector<glm::vec3> normals;         //  Contiendra toutes les normales
 	std::vector<glm::vec2> texture_coords;  //  Contiendra les coordonnées de texture de tous les vertices
 	// Material
-	Material *current_material = new Material();
-	float color1;
-	float color2;
-	float color3;
+	Material *current_material;
 	// Light
 	glm::vec3 lightColors;
 	glm::vec3 lightPosition;
@@ -57,35 +53,31 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 		iss.clear();
 		iss.str(line);
 		iss >> word;
-		std::cout << "Debug node " << countNode << ": " << std::endl;
 		// Propriétés des matériaux
 		if (!strcmp(word.c_str(), "MakeNamedMaterial")) {
-			std::string nameMaterial;
-			for (int i = 0; i < 10; ++i) {
-				iss >> word;
-				// Creation du nom du materiau pour la material library
-				if (i == 0) {
-					std::string subWordTemp = word.c_str();
-					for (int w = 0; w < subWordTemp.length() - 2; ++w)
-						nameMaterial += subWordTemp[w + 1];
-				}
-			}
+			std::string nameMaterial = extractSimpleParameter(line);
 			// Extraction des couleurs du matériaux
-			float color1 = atof(word.c_str());
-			iss >> word;
-			float color2 = atof(word.c_str());
-			iss >> word;
-			float color3 = atof(word.c_str());
-			std::cout << "Name: " << nameMaterial << std::endl;
-			std::cout << "Colors : " << color1 << " " << color2 << " " << color3 << std::endl;
-			current_material->setColor(glm::vec3(1, 1, 1));
-			//current_material->setColor(glm::vec3(color1, color2, color3));
+			glm::vec3 materialColors;
+			std::string remaining = line, param, values;
+			bool hasValues = false;
+			int pos = remaining.find_first_of("\"");
+			while (pos != std::string::npos) {
+				param = extractNextParameter(remaining, values, &hasValues, &pos);
+				if (!strcmp(param.c_str(), "rgb Kd"))
+					materialColors = parseVec3Values(values);
+			}
+			current_material = new Material();
+			current_material->setColor(materialColors);
 			material_library.addMaterial(current_material, nameMaterial);
 		}
 		// Forme géométriques et propriétés
-		if (!strcmp(word.c_str(), "Shape")) {
-			std::string remaining = line, param, values;
+		if (!strcmp(word.c_str(), "NamedMaterial")) {
+			// Get name material
+			std::string nameMat = extractSimpleParameter(line);
+			// Go to the next line ("Shape") and extract all the parameters and values
+			getline(pbrt_file, line);
 			bool hasValues = false;
+			std::string remaining = line, param, values;
 			int pos = remaining.find_first_of("\"");
 			// Découpage et gestion de la ligne pour chaque propriété
 			while (pos != std::string::npos){
@@ -99,26 +91,14 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 				if (!strcmp(param.c_str(), "float uv")) // Textures_coord
 					texture_coords = parseManyVec2Values(values);
 			}
-			/*std::cout << "Indices: ";
-			for (int i = 0; i < indices.size(); ++i)
-				std::cout << indices[i] << " ";
-			std::cout << std::endl;*/
-			/*std::cout << "Positions: ";
-			for (int i = 0; i < positions.size(); ++i)
-				displayVec3(positions[i]);
-			std::cout << "Normales: ";
-			for (int i = 0; i < normals.size(); ++i)
-				displayVec3(normals[i]);
-			for (int i = 0; i < texture_coords.size(); ++i)
-				displayVec2(texture_coords[i]);*/
 			// Remplissage du tableau de vertices
 			buildMeshData(vertices, indices, positions, normals, texture_coords);
 			// Ajout du modèle à la scène avec son mesh
 			Mesh *mesh = new Mesh(vertices,indices, false);
-			Model *model = new Model(mesh, current_material);
+			Model *model = new Model(mesh, material_library.getMaterial(nameMat));
 			SceneGraphNode *node = new SceneGraphNode(("node" + std::to_string(countNode)).c_str(), model);
 			root->addChild(node);
-			++countNode;
+			clearVectors(vertices, indices, positions, normals, texture_coords);
 		}
 		// Différents paramètres : Ne gère actuellement que les lumières style pointLight
 		if (!strcmp(word.c_str(), "AttributeBegin")) {
@@ -150,19 +130,19 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 void PBRTLoader::buildMeshData(std::vector<Vertex> &vertices, const std::vector<unsigned int> indices, const std::vector<glm::vec3> positions,
 	const std::vector<glm::vec3> normals, const std::vector<glm::vec2> texture_coords) {
 
-	for (int i = 0; i < indices.size(); ++i) {
+	for (int i = 0; i < positions.size(); ++i) {
 		Vertex v;
-		v.Position = positions[indices[i]];
-		v.Normal = normals[indices[i]];
-		v.TexCoords = texture_coords[indices[i]];
-		/*std::cout << "Vertex " << countVertex << ":" << std::endl;
-		std::cout << "Positions: "; displayVec3(v.Position);
-		std::cout << "Normal: "; displayVec3(v.Normal);
-		std::cout << "TexCoords: "; displayVec2(v.TexCoords);*/
+		v.Position = positions[i];
+		v.Normal = normals[i];
+		v.TexCoords = texture_coords[i];
 		vertices.push_back(v);
-		countVertex++;
 	}
-	countVertex = 0;
+}
+
+std::string PBRTLoader::extractSimpleParameter(std::string &line) {
+	std::string temp = line.substr(line.find_first_of("\"") + 1);
+	temp = temp.substr(0, temp.find_first_of("\""));
+	return temp;
 }
 
 std::string PBRTLoader::extractNextParameter(std::string &line, std::string &valuesString, bool *values, int *pos) {
@@ -229,10 +209,11 @@ std::vector<glm::vec2> PBRTLoader::parseManyVec2Values(std::string &values) {
 	return temp;
 }
 
-void PBRTLoader::displayVec3(glm::vec3 t) {
-	std::cout << "{ " << t.x << " " << t.y << " " << t.z << " }" << std::endl;
-}
-
-void PBRTLoader::displayVec2(glm::vec2 t) {
-	std::cout << "{ " << t.x << " " << t.y << " }" << std::endl;
+void PBRTLoader::clearVectors(std::vector<Vertex> &vertices, std::vector<unsigned int> &indices, std::vector<glm::vec3> &positions, 
+	std::vector<glm::vec3> &normals, std::vector<glm::vec2> &textures_coords) {
+	vertices.clear();
+	indices.clear();
+	positions.clear();
+	normals.clear();
+	textures_coords.clear();
 }

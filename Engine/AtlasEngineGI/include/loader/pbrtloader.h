@@ -21,6 +21,7 @@ private:
 	void addModels(MaterialLibrary &material_library, Scene *scene, const std::string &pbrt_path, const std::string &path);
 	void buildMeshData(std::vector<Vertex> &vertices, const std::vector<unsigned int> indices, std::vector<glm::vec3> positions, 
 		const std::vector<glm::vec3> normals, const std::vector<glm::vec2> texture_coords);
+	std::string extractSimpleParameter(std::string &line);
 	std::string extractNextParameter(std::string &line, std::string &valuesString, bool *values, int *pos);
 	std::string extractValues(std::string &line);
 	std::vector<unsigned int> parseIntegerValues(std::string &values);
@@ -28,11 +29,8 @@ private:
 	glm::vec3 parseVec3Values(std::string &values);
 	std::vector<glm::vec3> parseManyVec3Values(std::string &values);
 	std::vector<glm::vec2> parseManyVec2Values(std::string &values);
-
-	// For debug
-	void displayVec3(glm::vec3 t);
-	void displayVec2(glm::vec2 t);
-	int countVertex;
+	void clearVectors(std::vector<Vertex> &vertices, std::vector<unsigned int> &indices, std::vector<glm::vec3> &positions, 
+		std::vector<glm::vec3> &normals, std::vector<glm::vec2> &textures_coords);
 };
 
 #endif // PBRTLOADER_H

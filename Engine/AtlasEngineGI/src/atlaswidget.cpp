@@ -105,20 +105,20 @@ void AtlasWidget::initializeGL()
     LightingRenderProcess *lighting_render_process = new LightingRenderProcess(m_current_scene->numberOfPointLights());
     HDRRenderProcess *hdr_render_process = new HDRRenderProcess();
     ShadowMapRenderProcess *shadow_map_render_process = new ShadowMapRenderProcess(m_current_scene->numberOfPointLights());
-	  ComputeShaderProcess *compute_shader_render_process = new ComputeShaderProcess();
-	  IndirectLightingProcess *indirect_lighting_process = new IndirectLightingProcess(
+	  //ComputeShaderProcess *compute_shader_render_process = new ComputeShaderProcess();
+	  /*IndirectLightingProcess *indirect_lighting_process = new IndirectLightingProcess(
 		m_current_scene->getCurrentCamera()->getPosition(),
-		m_current_scene->getPointLight(0)->getPosition());
+		m_current_scene->getPointLight(0)->getPosition());*/
 
-    //connectProcesses(geometry_render_process, lighting_render_process, {0, 1, 2, 3}, {0, 1, 2, 3});
-    //connectProcesses(shadow_map_render_process, lighting_render_process, {0}, {4});
-    //connectProcesses(lighting_render_process, hdr_render_process, {0, 1, 2}, {0, 1, 2});
+    connectProcesses(geometry_render_process, lighting_render_process, {0, 1, 2, 3}, {0, 1, 2, 3});
+    connectProcesses(shadow_map_render_process, lighting_render_process, {0}, {4});
+    connectProcesses(lighting_render_process, hdr_render_process, {0, 1, 2}, {0, 1, 2});
 
     Pipeline *default_pipeline = new Pipeline(window()->width(), window()->height());
 
-    //default_pipeline->setLastProcess(hdr_render_process);
+    default_pipeline->setLastProcess(hdr_render_process);
 	  //default_pipeline->setLastProcess(compute_shader_render_process);
-	  default_pipeline->setLastProcess(indirect_lighting_process);
+	  //default_pipeline->setLastProcess(indirect_lighting_process);
 
     m_renderer.addPipeline(default_pipeline, "default");
 
@@ -249,8 +249,8 @@ void AtlasWidget::createRenderScene()
 
     addScene();
 
-    m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
-	  //m_pbrt_loader.loadFile("scenes/cornell-box.pbrt", m_current_scene, m_material_library);
+    //m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
+	m_pbrt_loader.loadFile("scenes/cornell-box.pbrt", m_current_scene, m_material_library);
 
     //m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
     m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 100.f, glm::vec3(0.f, 15.f, 0.f)));
