@@ -9,8 +9,8 @@ uniform float weight[5] = float[](0.2270270270, 0.1945945946, 0.1216216216, 0.05
 
 void main()
 {
-    int level = 3;
-    vec2 tex_offset = pow(2,level) / textureSize(image, 0);
+    float level = 3.0;
+    vec2 tex_offset = pow(2.0,level) / textureSize(image, 0);
     vec3 result = texture(image, TexCoords).rgb;
     
     for(int i = 1; i < 3; ++i)
