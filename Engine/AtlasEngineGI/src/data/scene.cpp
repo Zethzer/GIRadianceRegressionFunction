@@ -42,9 +42,6 @@ void Scene::draw(const Shaders &shaders, const GLboolean (&keys)[1024], const GL
     current_camera->orientate();
     current_camera->move(keys, render_time, m_AABB);
 
-    for(size_t i = 0; i < m_point_lights.size(); ++i)
-        m_point_lights[i]->move(keys, render_time, m_AABB);
-
     //  Loop on every shader type
     //  Loop and draw every mesh that uses this shader
     for(GLuint i = 0; i < NB_SHADER_TYPES; ++i)
@@ -72,9 +69,6 @@ void Scene::draw(const Shader &shader, const GLboolean (&keys)[1024], const GLfl
     Camera *current_camera = m_cameras[m_current_camera];
     current_camera->orientate();
     current_camera->move(keys, render_time, m_AABB);
-
-    for(size_t i = 0; i < m_point_lights.size(); ++i)
-        m_point_lights[i]->move(keys, render_time, m_AABB);
 
     //  Loop on every shader type
     //  Loop and draw every mesh that uses this shader

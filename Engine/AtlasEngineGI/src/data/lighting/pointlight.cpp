@@ -50,20 +50,20 @@ void PointLight::sendDatas(const Shader &shader) const
 
 void PointLight::move(const GLboolean keys[], const GLfloat &delta_time, const AABB &box)
 {
-    float speed = m_speed * delta_time;
+    GLfloat speed = m_speed * delta_time;
     glm::vec3 new_pos = m_position;
 
-    if(keys[Qt::Key_O])
+    if(keys[Qt::Key_K])
         new_pos.x += speed;
-    if(keys[Qt::Key_L])
+    if(keys[Qt::Key_M])
         new_pos.x -= speed;
     if(keys[Qt::Key_I])
         new_pos.y -= speed;
     if(keys[Qt::Key_P])
         new_pos.y += speed;
-    if(keys[Qt::Key_K])
+    if(keys[Qt::Key_L])
         new_pos.z -= speed;
-    if(keys[Qt::Key_M])
+    if(keys[Qt::Key_O])
         new_pos.z += speed;
 
     //if(box.isPointInside(new_pos))

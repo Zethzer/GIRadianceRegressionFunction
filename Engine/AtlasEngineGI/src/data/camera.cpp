@@ -55,7 +55,7 @@ void Camera::init(const glm::vec3 &pos, const glm::vec3 &front, const glm::vec3 
 
 void Camera::move(const GLboolean keys[], const GLfloat &delta_time, const AABB &box)
 {
-    float speed = m_speed * delta_time;
+    GLfloat speed = m_speed * delta_time;
     glm::vec3 new_pos = m_position;
 
     if(keys[Qt::Key_Z])
