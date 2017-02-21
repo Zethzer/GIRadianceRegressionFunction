@@ -14,29 +14,39 @@
     #include <sys/types.h>
 #endif
 
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder);
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR **rep);
 bool writeLog(std::string file_name, std::string folder_path);
 bool isInLog(std::string file_name, std::string folder_path);
+bool extractDataSet(const std::string &data_set_path, DataSet &data_set);
 
 /*
- * Inputs :
+ * Input :
  *
  * -Training folder path
+ *      This folder will contain training datas (.data) files,
+ *      DataSet and NeuralNetwork configuration files (config.xml)
+ *      and eventually a NeuralNetwork to be trained (neuralnetworksave[1|2].xml)
+ *      and a log file (training.log) which lists already used files
  *
  * Output :
  *
- * Create a NeuralNetwork, train it with
- * DataSet and save it to the defined path,
- * or if not defined, to the default path
+ * -Create and train a NeuralNetwork (eventually from file) with provided datas
+ *      Each time a file has been used, the NeuralNetwork will be saved in the oldest file
+ *      (neuralnetworksave 1 or 2) and the used fill will be written inside log file
+ *
  */
 int main(int argc, char *argv[])
 {
+    std::cout << std::endl;
+
     std::string path_to_training_folder,
                 neural_network_save1_path("neuralnetworksave1.xml"),
                 neural_network_save2_path("neuralnetworksave2.xml");
 
+    DIR *rep = 0;
+
     // 1- Extract arguments of the program
-    if(!extractArguments(argc, argv, path_to_training_folder))
+    if(!extractArguments(argc, argv, path_to_training_folder, &rep))
     {
         std::cerr << "MAIN::ERROR : problem during extraction of arguments" << std::endl;
         return EXIT_FAILURE;
@@ -55,53 +65,39 @@ int main(int argc, char *argv[])
     }
 
     // 3- Process training
-    //Trainer trainer(neural_network_parameters);
+    Trainer trainer(neural_network_parameters);
     //trainer.trainNetwork(training_data_set_path, data_set_parameters);
     //trainer.saveNetwork(neural_network_save_path);
 
-/////////////
-    DIR* rep = 0;
     struct dirent* file_read = 0;
-    bool file1 = true;
+    bool file1 = false;
 
-    rep = opendir(path_to_training_folder.c_str());
-
-    if (rep == 0)
-        return EXIT_FAILURE;
-
-    while ((file_read = readdir(rep)) != 0)
+    //  Loop over files inside the folder
+    while((file_read = readdir(rep)))
     {
         std::string file_name(file_read->d_name);
         size_t point_pos = file_name.find_last_of(".");
         if(point_pos < file_name.size())
         {
             std::string extension = file_name.substr(point_pos);
-            if(extension == ".data")
+            if(extension == ".data" && !isInLog(file_name, path_to_training_folder))
             {
-                if(!isInLog(file_name, path_to_training_folder))
-                {
-                    //DataSet data_set = extractDataSet(file_name);
-                    //trainer.trainNetwork(data_set, data_set_parameters); // TODO ROMOU Penser à modifier
+                DataSet data_set;
+                extractDataSet(file_name, data_set);
+                trainer.trainNetwork(data_set, data_set_parameters);
 
-                    if(file1)
-                    {
-                        //trainer.saveNetwork(neural_network_save1_path);
-                        std::cout << "Trained " << file_name << " in " << neural_network_save1_path << std::endl;
-                        file1 = !file1;
-                    }
-                    else
-                    {
-                        //trainer.saveNetwork(neural_network_save2_path);
-                        std::cout << "Trained " << file_name << " in " << neural_network_save2_path << std::endl;
-                        file1 = !file1;
-                    }
-                    if(!writeLog(file_name,path_to_training_folder))
-                        std::cerr << "MAIN::ERROR : A problem occured when trying to write in training.log" << std::endl;
+                if(file1)
+                {
+                    trainer.saveNetwork(neural_network_save1_path);
+                    file1 = !file1;
                 }
                 else
                 {
-                    std::cout << file_name << " already in training.log - Nothing to do..." << std::endl;
+                    trainer.saveNetwork(neural_network_save2_path);
+                    file1 = !file1;
                 }
+                if(!writeLog(file_name,path_to_training_folder))
+                    std::cerr << "MAIN::ERROR : A problem occured when trying to write in training.log" << std::endl;
             }
         }
     }
@@ -111,13 +107,12 @@ int main(int argc, char *argv[])
 
     return EXIT_SUCCESS;
 }
-///////////////
 
 
 /*
  * Check if arguments are correct
  */
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder)
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR **rep)
 {
     if(argc != 2)
     {
@@ -129,54 +124,68 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
 
     path_to_training_folder = argv[1];
 
-    DIR* rep = 0;
     struct dirent* file_read = 0;
     bool    config_file_found = false,
             log_file_found = false,
             xml1_file_found = false,
             xml2_file_found = false;
 
-    rep = opendir(path_to_training_folder.c_str());
+    rep = 0;
 
-    if (rep == 0)
+    //  Open folder
+    *rep = opendir(path_to_training_folder.c_str());
+    if(!rep)
     {
-        std::cerr << "MAIN::ERROR : path_to_training_folder could not be opened" << std::endl;
+        std::cerr << "MAIN::ERROR : input folder could not be opened" << std::endl;
         return false;
     }
 
-    while ((file_read = readdir(rep)) != 0)
+    //  List every file
+    while((file_read = readdir(*rep)) != 0)
     {
         std::string file_name(file_read->d_name);
         size_t point_pos = file_name.find_last_of(".");
         if(point_pos < file_name.size())
         {
-            std::string extension = file_name.substr(point_pos);
-            if(file_name == "config.xml")
+            if(!config_file_found && file_name == "config.xml")
                 config_file_found = true;
-            else if(file_name == "training.log")
+            else if(!log_file_found && file_name == "training.log")
                 log_file_found = true;
-            else if(file_name == "neuralnetworksave1.xml")
+            else if(!xml1_file_found && file_name == "neuralnetworksave1.xml")
                 xml1_file_found = true;
-            else if(file_name == "neuralnetworksave2.xml")
+            else if(!xml2_file_found && file_name == "neuralnetworksave2.xml")
                 xml2_file_found = true;
         }
     }
 
     if(!config_file_found)
     {
-        std::cerr << "MAIN::ERROR : config file not found in " << path_to_training_folder << std::endl
+        std::cerr << "MAIN::EXTRACTARGUMENTS::ERROR : config file not found in " << path_to_training_folder << std::endl
                   << "config file must be named config.xml" << std::endl;
 
         return false;
     }
+    else
+        std::cout << "- config.xml FOUND" << std::endl;
 
-    if(!log_file_found)
-    {
-        //std::ofstream log_file(path_to_training_folder + "/training.log");
-    }
 
-    if (closedir(rep) == -1)
-        return false;
+    if(log_file_found)
+        std::cout << "- training.log FOUND" << std::endl;
+    else
+        std::cout << "- training.log NOT FOUND" << std::endl;
+
+
+    if(xml1_file_found)
+        std::cout << "- neuralnetworksave1.xml FOUND" << std::endl;
+    else
+        std::cout << "- neuralnetworksave1.xml NOT FOUND" << std::endl;
+
+
+    if(xml2_file_found)
+        std::cout << "- neuralnetworksave2.xml FOUND" << std::endl;
+    else
+        std::cout << "- neuralnetworksave2.xml NOT FOUND" << std::endl;
+
 
     return true;
 }
@@ -188,12 +197,11 @@ bool writeLog(std::string file_name, std::string folder_path)
 {
     std::ofstream log_file(folder_path + "/training.log", std::ios::app);
 
-    if ( !log_file.is_open() ) {
+    if ( !log_file.is_open() )
       return false;
-    }
-    else {
-        log_file << file_name;
-        log_file << std::endl;
+    else
+    {
+        log_file << file_name << std::endl;
         return true;
     }
 }
@@ -205,10 +213,97 @@ bool isInLog(std::string file_name, std::string folder_path)
 {
     std::ifstream log_file(folder_path + "/training.log");
     std::string line;
+
     while (std::getline(log_file, line))
-    {
         if(line == file_name)
             return true;
-    }
+
     return false;
+}
+
+
+struct vec3
+{
+    double x;
+    double y;
+    double z;
+};
+
+/*
+ * Create a DataSet from a .data file
+ *
+ * The stucture of the file must respect the following structure:
+ *
+ * <camera_position.x> <camera_position.y> <camera_position.z>
+ * <light_position.x> <light_position.y> <light_position.z>
+ * <fragment_position.x> <fragment_position.y> <fragment_position.z> <normal.x> <normal.y> <normal.z> <R> <G> <B>  * N (N = number of datas)
+ * */
+bool extractDataSet(const std::string &data_set_path, DataSet &data_set)
+{
+    std::ifstream data_file;
+
+    data_file.open(data_set_path.c_str());
+
+    if(!(data_file))
+    {
+        std::cerr << "MAIN::EXTRACTDATASET::ERROR Problem while opening " << data_set_path << std::endl;
+        return false;
+    }
+
+    Matrix<double> data_matrix;
+
+    std::string line;
+    vec3    camera_position,
+            light_position,
+            normal,
+            fragment_position,
+            color;
+
+
+    //  Camera position
+    std::getline(data_file, line);
+    std::istringstream camera_iss(line);
+    if(!(camera_iss >> camera_position.x >> camera_position.y >> camera_position.z))
+    {
+        std::cerr << "MAIN::EXTRACTDATASET::ERROR Problem while parsing, 1st line must be the camera position" << std::endl;
+        return false;
+    }
+
+    //  Light position
+    std::getline(data_file, line);
+    std::istringstream light_iss(line);
+    if(!(light_iss >> light_position.x >> light_position.y >> light_position.z))
+    {
+        std::cerr << "MAIN::EXTRACTDATASET::ERROR Problem while parsing, 2nd line must be the light position" << std::endl;
+        return false;
+    }
+
+    //  Fragment position + Normal + Color
+    while(std::getline(data_file, line))
+    {
+        Vector<double> data_vector;
+        std::istringstream iss(line);
+
+        if(!(iss >> fragment_position.x >> fragment_position.y >> fragment_position.z >> normal.x >> normal.y >> normal.z >> color.x >> color.y >> color.z))
+        {
+            std::cerr << "MAIN::EXTRACTDATASET::ERROR Problem while parsing datas" << std::endl;
+            return false;
+        }
+        else
+        {
+            data_vector.push_back(fragment_position.x); data_vector.push_back(fragment_position.y); data_vector.push_back(fragment_position.z);
+            data_vector.push_back(camera_position.x); data_vector.push_back(camera_position.y); data_vector.push_back(camera_position.z);
+            data_vector.push_back(light_position.x); data_vector.push_back(light_position.y); data_vector.push_back(light_position.z);
+            data_vector.push_back(normal.x); data_vector.push_back(normal.y); data_vector.push_back(normal.z);
+            data_vector.push_back(color.x); data_vector.push_back(color.y); data_vector.push_back(color.z);
+
+            data_matrix.append_row(data_vector);
+        }
+    }
+
+    data_set.set_data(data_matrix);
+
+    data_file.close();
+
+    return true;
 }

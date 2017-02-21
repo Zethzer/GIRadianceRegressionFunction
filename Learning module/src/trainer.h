@@ -25,8 +25,8 @@ class Trainer
 public:
     Trainer(const NeuralNetworkParameters &neural_network_parameters);
 
-    void trainNetwork(const std::string &data_set_path, const DataSetParameters &data_set_parameters);
-    inline void saveNetwork(const std::string &neural_network_save_path) const{m_neural_network->save(neural_network_save_path);}
+    void trainNetwork(DataSet &data_set, DataSetParameters &data_set_parameters);
+    inline void saveNetwork(const std::string &neural_network_save_path) const {m_neural_network->save(neural_network_save_path);}
 
 private:
     DataSet loadDataSet(const std::string &data_set_path);

@@ -23,7 +23,7 @@ bool ConfigParser::parseConfig(const std::string &config_file_path, NeuralNetwor
 
     if(load_ok)
     {
-        std::cerr << "CONFIGPARSER::ERROR failed to load xml config file" << std::endl;
+        std::cerr << "CONFIGPARSER::ERROR failed to load xml config file " << config_file_path << std::endl;
         return false;
     }
 

@@ -18,12 +18,10 @@ Trainer::Trainer(const NeuralNetworkParameters &neural_network_parameters) :
  *
  * then, train the network with the DataSet
  * */
-void Trainer::trainNetwork(const std::string &data_set_path, const DataSetParameters &data_set_parameters)
+void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parameters)
 {
     try
     {
-        DataSet data_set = loadDataSet(data_set_path);
-
         //  Split DataSet
         Instances* instances_pointer = data_set.get_instances_pointer();
         instances_pointer->split_instances(data_set_parameters.m_splitting_parameters.m_splitting_method,
