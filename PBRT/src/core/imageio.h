@@ -54,7 +54,8 @@ RGBSpectrum *ReadImageEXR(const std::string &name, int *width,
 
 void WriteImage(const std::string &name, const Float *rgb,
                 const Bounds2i &outputBounds, const Point2i &totalResolution,
-                const Float *pos = nullptr, const Float *nor = nullptr);
+                const Float *pos = nullptr, const Float *nor = nullptr,
+                const Point3f camPos = Point3f(0., 0., 0.), const Point3f liPos = Point3f(0., 0., 0.));
 
 }  // namespace pbrt
 

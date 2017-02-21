@@ -123,7 +123,7 @@ void COPathIntegrator::Render(const Scene &scene) {
                                ray << " -> L = " << R.Li;
 
                     // Add camera ray's contribution to image
-                    Ri.Li += R.Li / tileSampler->samplesPerPixel;
+                    Ri.Li += R.Li;
                     Ri.pos = R.pos;
                     Ri.norm = R.norm;
 
@@ -132,6 +132,7 @@ void COPathIntegrator::Render(const Scene &scene) {
                     arena.Reset();
                     tileSampler->StartNextSample();
                 }
+                Ri.Li *= rayWeight / tileSampler->samplesPerPixel;
                 filmTile->AddSample(cameraSample.pFilm, Ri.Li, 1.0f, Ri.pos, Ri.norm);
             }
             LOG(INFO) << "Finished image tile " << tileBounds;
@@ -145,7 +146,11 @@ void COPathIntegrator::Render(const Scene &scene) {
     LOG(INFO) << "Rendering finished";
 
     // Save final image after rendering
-    camera->film->WriteImage();
+    Point3f posCam = camera->CameraToWorld(0.0f, Point3f(0.0f, 0.0f, 0.0f));
+    std::shared_ptr<Light> l = scene.lights[0];
+    Point3f lightPos = l->LightToWorld(Point3f(0.0, 0.0, 0.0));
+
+    camera->film->WriteImage(2.0f, posCam, lightPos);
 }
 
 COPathIntegrator *CreateCOPathIntegrator(const ParamSet &params,

@@ -71,7 +71,8 @@ class Film {
     void MergeFilmTile(std::unique_ptr<FilmTile> tile);
     void SetImage(const Spectrum *img) const;
     void AddSplat(const Point2f &p, Spectrum v);
-    void WriteImage(Float splatScale = 1);
+    void WriteImage(Float splatScale = 1,
+                    Point3f cameraPos = Point3f(0.f,0.f,0.f), Point3f lightPos = Point3f(0.f,0.f,0.f));
     void Clear();
 
     // Film Public Data

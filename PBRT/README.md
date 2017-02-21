@@ -128,10 +128,11 @@ illumination with the indirect composant of the incidental light.
 The new camera is based on Fibonnacci spiral and can be used with the title "fibonnaci"
 
 The new file type is a binary file wich contain the position, normal and color of one point in
-the scene for each pixel in the image resolution.
+the scene for each pixel in the image resolution and the camera and the light position.
 The data are formed as :
+ (CamPos x, y, z) '\n', (LightPos x, y, z) '\n'
 
- (Pos_x, Pos_y, Pos_z), (Norm_x, Norm_y, Norm_z), (Light_x, Light_y, Light_z)
+ (Pos_x, Pos_y, Pos_z), (Norm_x, Norm_y, Norm_z), (Light_x, Light_y, Light_z) '\n'
 
 Each number is a signed float, and the data follow this pattern for each point of the image.
 

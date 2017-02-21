@@ -61,7 +61,7 @@ static RGBSpectrum *ReadImagePFM(const std::string &filename, int *xres,
 static bool WriteImageData(const std::string &name, const Float *lum,
                            const Float *pos, const Float *norm,
                            int xRes, int yRes, int totalXRes, int totalYRes,
-                           int xOffset, int yOffset);
+                           int xOffset, int yOffset, Point3f camPos, Point3f ligPos);
 
 // ImageIO Function Definitions
 std::unique_ptr<RGBSpectrum[]> ReadImage(const std::string &name,
@@ -87,7 +87,7 @@ std::unique_ptr<RGBSpectrum[]> ReadImage(const std::string &name,
 
 void WriteImage(const std::string &name, const Float *rgb,
                 const Bounds2i &outputBounds, const Point2i &totalResolution,
-                const Float *pos, const Float *nor) {
+                const Float *pos, const Float *nor, const Point3f camPos, const Point3f liPos) {
     Vector2i resolution = outputBounds.Diagonal();
     if (HasExtension(name, ".exr")) {
         WriteImageEXR(name, rgb, resolution.x, resolution.y, totalResolution.x,
@@ -125,7 +125,8 @@ void WriteImage(const std::string &name, const Float *rgb,
         }
     } else if (HasExtension(name, ".data")) {
         WriteImageData(name, rgb, pos, nor, resolution.x, resolution.y,
-                       totalResolution.x, totalResolution.y, outputBounds.pMin.x, outputBounds.pMin.y);
+                       totalResolution.x, totalResolution.y, outputBounds.pMin.x, outputBounds.pMin.y,
+                       camPos, liPos);
     } else {
         Error("Can't determine image file type from suffix of filename \"%s\"",
               name.c_str());
@@ -495,16 +496,27 @@ fail:
 static bool WriteImageData(const std::string &name, const Float *lum,
                            const Float *pos, const Float *norm,
                            int xRes, int yRes, int totalXRes, int totalYRes,
-                           int xOffset, int yOffset) {
+                           int xOffset, int yOffset,
+                           Point3f camPos, Point3f ligPos) {
 
     FILE* file;
-        file = fopen(name.c_str(), "wb");
-        for (unsigned int i = 0; i < xRes * yRes; ++i){
-            fwrite(&pos[i*3], sizeof(Float), 3, file);
-            fwrite(&norm[i*3], sizeof(Float), 3, file);
-            fwrite(&lum[i*3], sizeof(Float), 3, file);
-        }
-        fclose(file);
+    char nl = '\n';
+
+    file = fopen(name.c_str(), "wb");
+
+    fwrite(&camPos, sizeof(Float), 3, file);
+    fwrite(&nl, sizeof(char), 1, file);
+
+    fwrite(&ligPos, sizeof(Float), 3, file);
+    fwrite(&nl, sizeof(char), 1, file);
+
+    for (unsigned int i = 0; i < xRes * yRes; ++i){
+        fwrite(&pos[i*3], sizeof(Float), 3, file);
+        fwrite(&norm[i*3], sizeof(Float), 3, file);
+        fwrite(&lum[i*3], sizeof(Float), 3, file);
+        fwrite(&nl, sizeof(char), 1, file);
+    }
+    fclose(file);
 
 }
 
