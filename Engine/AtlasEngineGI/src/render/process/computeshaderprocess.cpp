@@ -61,6 +61,26 @@ void ComputeShaderProcess::init(const GLuint &width, const GLuint &height)
 	//glGetIntegerv(GL_MAX_COMPUTE_LOCAL_INVOCATIONS, &work_grp_inv); // LINUX
 	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
     //printf ("max computer shader invocations %i\n", work_grp_inv);
+	
+	const int globalWorkGroupSize = m_tex_w*m_tex_h;
+	GLuint structBuffer;
+	glGenBuffers(1, &structBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, structBuffer);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, globalWorkGroupSize *sizeof(couleurStruct), NULL, GL_STATIC_DRAW);
+	
+	GLint bufMask = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT; // invalidate makes a ig difference when re-writting
+
+	couleurStruct *coul;
+	coul = (couleurStruct *)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, 1 * sizeof(couleurStruct), bufMask);
+
+	coul[0].r = 0.0;
+	coul[0].g = 1.0;
+	coul[0].b = 0.0;
+	coul[0].a = 1.0;
+
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, structBuffer);
 
     m_out_textures.push_back(&m_out_texture);
 
@@ -85,50 +105,21 @@ void ComputeShaderProcess::resize(const GLuint &width, const GLuint &height)
 void ComputeShaderProcess::process(const Quad &quad, const Scene &scene, const GLfloat &render_time, const GLboolean (&keys)[1024])
 {
 
-    /*
-     * Structure input test
-     * */
-    const int globalWorkGroupSize = m_tex_w*m_tex_h;
-    const int localWorkGroupSize = 32;
+	/*
+	* Structure input test
+	* */
+	const int globalWorkGroupSize = m_tex_w*m_tex_h;
+	const int localWorkGroupSize = 32;
 
-    GLuint structBuffer;
-    glGenBuffers(1, &structBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, structBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, globalWorkGroupSize*sizeof(couleurStruct), NULL, GL_STATIC_DRAW);
+	m_out_texture.bindImage(0);
 
-    GLint bufMask = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT; // invalidate makes a ig difference when re-writting
+	// Launch compute shader
+	m_shader.use();
 
-    couleurStruct *coul;
-    coul = (couleurStruct *) glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, 3*sizeof(couleurStruct), bufMask);
+	glDispatchCompute(nextPowerOfTwo(m_tex_w / localWorkGroupSize), nextPowerOfTwo(m_tex_h / localWorkGroupSize), 1);
 
-    coul[0].r = 1.0;
-    coul[0].g = 0.0;
-    coul[0].b = 0.0;
-    coul[0].a = 1.0;
-
-    coul[1].r = 0.0;
-    coul[1].g = 1.0;
-    coul[1].b = 0.0;
-    coul[1].a = 1.0;
-
-    coul[2].r = 0.0;
-    coul[2].g = 0.0;
-    coul[2].b = 1.0;
-    coul[2].a = 1.0;
-
-    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, structBuffer);
-
-    m_out_texture.bindImage(0);
-
-    // Launch compute shader
-    m_shader.use();
-
-    glDispatchCompute(nextPowerOfTwo(m_tex_w/localWorkGroupSize), nextPowerOfTwo(m_tex_h/localWorkGroupSize), 1);
-
-    // Prevent samplign before all writes to image are done
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	// Prevent samplign before all writes to image are done
+	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 }
 

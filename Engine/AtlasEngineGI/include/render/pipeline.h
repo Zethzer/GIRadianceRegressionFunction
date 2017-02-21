@@ -16,7 +16,6 @@ public:
     ~Pipeline();
 
     void resize(const GLuint &width, const GLuint &height);
-
     void process(const Quad &quad, const Scene &scene, const GLfloat &render_time, const GLboolean (&keys)[1024]) const;
 
     //  Getter

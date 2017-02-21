@@ -6,7 +6,7 @@
 #if QT_VERSION >= 0x050000
 #include <QSurfaceFormat>
 #else
-#include <QGLFormat>
+//#include <QGLFormat> pour glbindImageTexture à enlever
 #endif
 
 #include "ui_mainwindow.h"

@@ -20,191 +20,219 @@
 /**************************************************************************************************************************************/
 struct Perceptron
 {
-  uint inputs_number;
+	  uint inputs_number;
   
-  double bias;
-  double synaptic_weights[MAX_INPUTS_SIZE];
-  int activation_function;
+	  float bias;
+	  float synaptic_weights[MAX_INPUTS_SIZE];
+	  int activation_function;
 };
 
 struct PerceptronLayer
 {
-  uint perceptrons_size;
+	  uint perceptrons_size;
   
-  Perceptron perceptrons[MAX_LAYER_SIZE];
+	  Perceptron perceptrons[MAX_LAYER_SIZE];
 };
 
 struct MultilayerPerceptron
 {
-  uint layers_size;
+	  uint layers_size;
   
-  PerceptronLayer perceptron_layers[MAX_MULTILAYER_SIZE];
+	  PerceptronLayer perceptron_layers[MAX_MULTILAYER_SIZE];
 };
 
 struct Statistics
 {
-  double minimum;
-  double maximum;
-  double mean;
-  double standard_deviation;
+	  float minimum;
+	  float maximum;
+	  float mean;
+	  float standard_deviation;
 };
 
 struct ScalingLayer
 {
-  uint statistics_size;
+	  uint statistics_size;
   
-  Statistics statistics[MAX_STATISTICS_SIZE];
-  int scaling_method;
+	  Statistics statistics[MAX_STATISTICS_SIZE];
+	  int scaling_method;
 };
 
 struct UnscalingLayer
 {
-  uint statistics_size;
+	  uint statistics_size;
   
-  Statistics statistics[MAX_STATISTICS_SIZE];
-  int scaling_method;
+	  Statistics statistics[MAX_STATISTICS_SIZE];
+	  int scaling_method;
 };
 /**************************************************************************************************************************************/
 
 // Scaling Layer 
-double[MAX_STATISTICS_SIZE] ScalingLayerCalculateOutputs(double inputs[MAX_INPUTS_SIZE], ScalingLayer scaling_layer) 
+float[MAX_STATISTICS_SIZE] ScalingLayerCalculateOutputs(float inputs[MAX_INPUTS_SIZE], ScalingLayer scaling_layer) 
 {
-  double outputs[MAX_STATISTICS_SIZE];
+	  float outputs[MAX_STATISTICS_SIZE];
   
-  for (int i = 0; i < scaling_layer.statistics_size; i++)
-  {
-    if ((scaling_layer.statistics[i].maximum - scaling_layer.statistics[i].minimum) < 1e-99)
-    {
-      outputs[i] = inputs[i];
-    }
-    else
-    {
-      outputs[i] = 2.0 * (inputs[i] - scaling_layer.statistics[i].minimum / (scaling_layer.statistics[i].maximum - scaling_layer.statistics[i].minimum) - 1.0);
-    }
-  }
+	  for (int i = 0; i < scaling_layer.statistics_size; i++)
+	  {
+			if ((scaling_layer.statistics[i].maximum - scaling_layer.statistics[i].minimum) < 1e-99)
+			{
+				outputs[i] = inputs[i];
+			}
+			else
+			{
+				outputs[i] = 2.0 * (inputs[i] - scaling_layer.statistics[i].minimum / (scaling_layer.statistics[i].maximum - scaling_layer.statistics[i].minimum) - 1.0);
+			}
+	  }
   
-  return outputs;
+		return outputs;
 }
 
 // Combination
 /**************************************************************************************************************************************/
-double PerceptronLayerCalculateCombination(double inputs[MAX_STATISTICS_SIZE], Perceptron perceptron) 
+float PerceptronLayerCalculateCombination(float inputs[MAX_STATISTICS_SIZE], Perceptron perceptron) 
 {
-  double combination = perceptron.bias;
+	  float combination = perceptron.bias;
   
-  for (int i = 0; i < perceptron.inputs_number; ++i)
-  {
-    combination += perceptron.synaptic_weights[i] * inputs[i];
-  }
-  return combination;
+	  for (int i = 0; i < perceptron.inputs_number; ++i)
+	  {
+			combination += perceptron.synaptic_weights[i] * inputs[i];
+	  }
+	  return combination;
 }
 
-double[MAX_LAYER_SIZE] PerceptronLayerCalculateCombinations(double inputs[MAX_STATISTICS_SIZE], PerceptronLayer perceptron_layer)
+float[MAX_LAYER_SIZE] PerceptronLayerCalculateCombinations(float inputs[MAX_STATISTICS_SIZE], PerceptronLayer perceptron_layer)
 {
-  double combination[MAX_LAYER_SIZE];
+	  float combination[MAX_LAYER_SIZE];
   
-  for (int i = 0; i < perceptron_layer.perceptrons_size; i++)
-  {
-    combination[i] = PerceptronLayerCalculateCombination(inputs, perceptron_layer.perceptrons[i]);
-  }
-  return combination;
+	  for (int i = 0; i < perceptron_layer.perceptrons_size; i++)
+	  {
+			combination[i] = PerceptronLayerCalculateCombination(inputs, perceptron_layer.perceptrons[i]);
+	  }
+	  return combination;
 }
 /**************************************************************************************************************************************/
 
 
 // Activation
 /**************************************************************************************************************************************/
-double PerceptronCalculateActivation(double combination, Perceptron perceptron)
+float PerceptronCalculateActivation(float combination, Perceptron perceptron)
 {
-  switch (perceptron.activation_function) {
-  case Linear:
-    return combination;
-  case HyperbolicTangent:
-    return (1.0 - 2.0 / (exp(float(2.0 * combination)) + 1.0));
-  }
+	  switch (perceptron.activation_function) {
+	  case Linear:
+			return combination;
+	  case HyperbolicTangent:
+			return (1.0 - 2.0 / (exp(float(2.0 * combination)) + 1.0));
+	  }
 }
 
-double[MAX_STATISTICS_SIZE] PerceptronLayerCalculateActivations(double combinations[MAX_STATISTICS_SIZE], PerceptronLayer perceptron_layer)
+float[MAX_STATISTICS_SIZE] PerceptronLayerCalculateActivations(float combinations[MAX_STATISTICS_SIZE], PerceptronLayer perceptron_layer)
 {
-  double activations[MAX_STATISTICS_SIZE];
+	  float activations[MAX_STATISTICS_SIZE];
   
-  for (int i = 0; i < perceptron_layer.perceptrons_size; ++i)
-  {
-    activations[i] = PerceptronCalculateActivation(combinations[i], perceptron_layer.perceptrons[i]);
-  }
-  return activations;
+	  for (int i = 0; i < perceptron_layer.perceptrons_size; ++i)
+	  {
+			activations[i] = PerceptronCalculateActivation(combinations[i], perceptron_layer.perceptrons[i]);
+	  }
+	  return activations;
 }
 /**************************************************************************************************************************************/
 
 // Multilayer Perceptron
-double[MAX_STATISTICS_SIZE] MultilayerPerceptronCalculateOutputs(double inputs[MAX_STATISTICS_SIZE], MultilayerPerceptron multilayer_perceptron) 
+float[MAX_STATISTICS_SIZE] MultilayerPerceptronCalculateOutputs(float inputs[MAX_STATISTICS_SIZE], MultilayerPerceptron multilayer_perceptron) 
 {
-  double outputs[MAX_STATISTICS_SIZE];
-  if (multilayer_perceptron.layers_size == 0) 
-  {
-    return outputs;
-  }
-  else 
-  {
-    outputs = PerceptronLayerCalculateActivations(PerceptronLayerCalculateCombinations(inputs, multilayer_perceptron.perceptron_layers[0]), multilayer_perceptron.perceptron_layers[0]);
+	  float outputs[MAX_STATISTICS_SIZE];
+	  if (multilayer_perceptron.layers_size == 0) 
+	  {
+			return outputs;
+	  }
+	  else 
+	  {
+			outputs = PerceptronLayerCalculateActivations(PerceptronLayerCalculateCombinations(inputs, multilayer_perceptron.perceptron_layers[0]), multilayer_perceptron.perceptron_layers[0]);
     
-    for (uint i = 1; i < multilayer_perceptron.layers_size; i++)
-    {
-      outputs = PerceptronLayerCalculateActivations(PerceptronLayerCalculateCombinations(outputs, multilayer_perceptron.perceptron_layers[i]), multilayer_perceptron.perceptron_layers[i]);
-    }
-  }
-  return outputs;
+			for (uint i = 1; i < multilayer_perceptron.layers_size; i++)
+			{
+				outputs = PerceptronLayerCalculateActivations(PerceptronLayerCalculateCombinations(outputs, multilayer_perceptron.perceptron_layers[i]), multilayer_perceptron.perceptron_layers[i]);
+			}
+	  }
+	  return outputs;
 }
 
 // Unscaling Layer
-double[MAX_STATISTICS_SIZE] UnscalingLayerCalculateOutputs(double inputs[MAX_STATISTICS_SIZE], UnscalingLayer unscaling_layer)
+float[MAX_STATISTICS_SIZE] UnscalingLayerCalculateOutputs(float inputs[MAX_STATISTICS_SIZE], UnscalingLayer unscaling_layer)
 {
-  double outputs[MAX_STATISTICS_SIZE];
-  for (int i = 0; i < unscaling_layer.statistics_size; ++i) 
-  {
-    if ((unscaling_layer.statistics[i].maximum - unscaling_layer.statistics[i].minimum) < 1e-99)
-    {
-      outputs[i] = inputs[i];
-    }
-    else
-    {
-      outputs[i] = 0.5 * (inputs[i] + 1.0) * (unscaling_layer.statistics[i].maximum - unscaling_layer.statistics[i].minimum) + unscaling_layer.statistics[i].minimum;
-    }
-  }
+	  float outputs[MAX_STATISTICS_SIZE];
+	  for (int i = 0; i < unscaling_layer.statistics_size; ++i) 
+	  {
+			if ((unscaling_layer.statistics[i].maximum - unscaling_layer.statistics[i].minimum) < 1e-99)
+			{
+				outputs[i] = inputs[i];
+			}
+			else
+			{
+				outputs[i] = 0.5 * (inputs[i] + 1.0) * (unscaling_layer.statistics[i].maximum - unscaling_layer.statistics[i].minimum) + unscaling_layer.statistics[i].minimum;
+			}
+	  }
   
-  return outputs;
+	  return outputs;
 }
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
 /*
-* Inputs
-* */
-// camera position
+ * Inputs
+ * */
 uniform vec3 camera_position;
 uniform vec3 point_light_position;
+uniform sampler2D gPositionDepth;
+uniform sampler2D gNormal;
 
 // NeuralNetwork (SSBO)
 layout(std430, binding=4) buffer neural_network
 {
-  ScalingLayer scaling_layer;
-  MultilayerPerceptron multilayer_perceptron;
-  UnscalingLayer unscaling_layer;
+	  ScalingLayer scaling_layer;
+	  MultilayerPerceptron multilayer_perceptron;
+	  UnscalingLayer unscaling_layer;
 };
 
-// Inputs (SSBO)
-layout(std430, binding=5) buffer inputs_values
-{
-  double inputs[MAX_INPUTS_SIZE];
-};
+// Output
+layout(rgba32f, binding = 0) uniform image2D img_output;
 
 void main()
 {
-  double outputs_scaling[MAX_STATISTICS_SIZE];
-  double outputs_multilayer[MAX_STATISTICS_SIZE];
 
-  outputs_scaling = ScalingLayerCalculateOutputs(inputs, scaling_layer);
-  outputs_multilayer = MultilayerPerceptronCalculateOutputs(outputs_scaling, multilayer_perceptron);
-  outputs_scaling = UnscalingLayerCalculateOutputs(outputs_multilayer, unscaling_layer);
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);  
+
+	ivec2 dims = imageSize(img_output); // fetch image dimensions
+	float x = (float(pixel_coords.x ) / dims.x);
+	float y = (float(pixel_coords.y ) / dims.y);
+ 
+	vec2 texCoords = vec2(x,y);
+
+	float inputs[12];
+	// frag pos, camera, position light, normal
+
+
+	inputs[0] = texture(gPositionDepth, texCoords).r;
+	inputs[1] = texture(gPositionDepth, texCoords).g;
+	inputs[2] = texture(gPositionDepth, texCoords).b;
+	inputs[3] = camera_position.x;
+	inputs[4] = camera_position.y;
+	inputs[5] = camera_position.z;
+	inputs[6] = point_light_position.x;
+	inputs[7] = point_light_position.y;
+	inputs[8] = point_light_position.z;
+	inputs[9] = texture(gNormal, texCoords).r;
+	inputs[10] = texture(gNormal, texCoords).g;
+	inputs[11] = texture(gNormal, texCoords).b;
+
+	float outputs_scaling[MAX_STATISTICS_SIZE];
+	float outputs_multilayer[MAX_STATISTICS_SIZE];
+
+	//outputs_scaling = ScalingLayerCalculateOutputs(inputs, scaling_layer);
+	//outputs_multilayer = MultilayerPerceptronCalculateOutputs(outputs_scaling, multilayer_perceptron);
+	//outputs_scaling = UnscalingLayerCalculateOutputs(outputs_multilayer, unscaling_layer);
+
+	// output to a secific pixel in the image
+	vec4 pixel = vec4(inputs[0], inputs[1], inputs[2], 1.0);
+	imageStore (img_output, pixel_coords, pixel);
 
 }

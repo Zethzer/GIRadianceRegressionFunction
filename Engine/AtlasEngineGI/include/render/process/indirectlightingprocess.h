@@ -10,21 +10,21 @@
 #include "neuralnetworkloader.h"
 
 /*
-* IN:
-* -RGB			  : fragment's position
-* -RGB			  : normals
-* -vec3			  : camera's position
-* -vec3			  : point light's position
-* -Neural Network : neural network
-*
-* OUT:
-* -RGB  : fragment color
-* */
+ * IN:
+ * -RGB			  : fragment's position
+ * -RGB			  : normals
+ * -vec3			  : camera's position
+ * -vec3			  : point light's position
+ * -Neural Network : neural network
+ *
+ * OUT:
+ * -RGB  : fragment color
+ * */
 
 class IndirectLightingProcess : public RenderProcess
 {
 public:
-	IndirectLightingProcess(const glm::vec3 &camera_position, const glm::vec3 &point_light_position);
+	IndirectLightingProcess();
 
 	virtual void init(const GLuint &width, const GLuint &height);
 	virtual void initMenuElement();
@@ -39,8 +39,11 @@ private:
 
 	ComputeShader m_shader;
 	NeuralNetwork m_neural_network;
-	glm::vec3 m_camera_position;
-	glm::vec3 m_point_light_position;
+
+	// Working groups
+	int m_work_grp_cnt[3];
+	int m_work_grp_inv;
+	int m_work_grp_size[3];
 
 	Texture m_out_texture;
 	int m_tex_w;
