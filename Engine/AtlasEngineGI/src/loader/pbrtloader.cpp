@@ -119,7 +119,7 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 						lightPosition = parseVec3Values(values);
 				}
 				// Création de la pointLight et ajout à la scène
-				PointLight *pointLight = new PointLight(lightColors, 1.0f, lightPosition); // Intensité par défaut à 1
+				PointLight *pointLight = new PointLight(glm::normalize(lightColors), glm::dot(lightColors,lightColors), lightPosition);
 				scene->addPointLight(pointLight);
 			}
 		}

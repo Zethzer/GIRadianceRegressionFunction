@@ -42,7 +42,7 @@ struct AABB
     glm::vec3 getCenter() const
     {
         glm::vec3 diff = V[1] - V[0];
-        return diff * 0.5f + V[1];
+        return diff * 0.5f + V[0];
     }
 };
 
