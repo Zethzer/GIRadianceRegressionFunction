@@ -1,0 +1,8 @@
+WorldBegin
+	MakeNamedMaterial "Shape1" "string type" [ "matte" ] "rgb Kd" [ 1.0 1.0 1.0 ]
+	NamedMaterial "Shape1"
+	Shape "trianglemesh" "integer indices" [ 0 2 1 2 0 3 ] "point P" [ 10 0 -10 10 20 -10 10 20 10 10 0 10 ] "normal N" [ -1 0 0 -1 0 0 -1 0 0 -1 0 0 ] "float uv" [ 0 0 1 0 1 1 0 1 ]
+	AttributeBegin
+		LightSource "point" "rgb I" [ 17 12 4 ] "point from" [ 0 18 0 ]
+	AttributeEnd
+WorldEnd
