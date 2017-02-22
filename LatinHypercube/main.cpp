@@ -7,6 +7,8 @@
 #include <ctime>
 #include <cstdlib>
 
+#include "pbrtloader.h"
+
 using namespace std;
 
 typedef union Point_s {
@@ -22,8 +24,9 @@ string changeMat(string line, const Point &pos);
 void samplePos(Point up, Point down, unsigned int sample_number, vector<Point> &res);
 
 int main(int argc, char** argv) {
-    if(argc != 6) {
-        std::cout << "Usage : " << argv[0] << " file nbCameraSample nbLightSample upPoint downPoint" << endl;
+    if(argc != 4)
+    {
+        std::cout << "Usage : " << argv[0] << " file nbCameraSample nbLightSample" << endl;
         return 1;
     }
 
@@ -32,8 +35,22 @@ int main(int argc, char** argv) {
     vector<string> part, line;
     vector<Point> sampleC, sampleL;
 
-    parseMat(argv[4], up.pos, 3);
-    parseMat(argv[5], down.pos, 3);
+    //  Extract down and up points
+    PBRTLoader loader;
+    AABB box;
+    string file_string(argv[1]);
+    loader.extractAABBFromFile(file_string, box);
+
+    down.pos[0] = box.V[0].x;
+    down.pos[1] = box.V[0].y;
+    down.pos[2] = box.V[0].z;
+
+    up.pos[0] = box.V[1].x;
+    up.pos[1] = box.V[1].y;
+    up.pos[2] = box.V[1].z;
+
+    //parseMat(argv[5], up.pos, 3);
+    //parseMat(argv[4], down.pos, 3);
 
     parseFile(argv[1], part, line);
 

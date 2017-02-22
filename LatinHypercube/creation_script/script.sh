@@ -3,7 +3,7 @@
 if [ $1 = "-h" ]
 then
 	echo "This script automatise the creation and the use of pbrt"
-	echo "usage : $0 -pbrt LatinHypercubeExec NbCamSample NbLightSample"
+	echo "usage : $0 -pbrt LatinHypercubeExec SceneInputFile NbCamSample NbLightSample"
 	echo "        $0 -data PBRTExec lowRange HighRange"
 	echo
 	echo "LowRange and HighRange indicate the range of scene file to use"
@@ -18,7 +18,7 @@ then
 	cd ./scene_file
 
 	#Creation des fichier pbrt
-	"../$2" ../$3 $4 $5 "[ 1.0 2.0 1.0 ]" "[ -1.0 0.0 -1.0 ]"
+	"../$2" ../$3 $4 $5
 fi
 
 if [ $1 = "-data" ]
