@@ -252,7 +252,7 @@ void AtlasWidget::createRenderScene()
     addScene();
 
     //m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
-	m_pbrt_loader.loadFile("scenes/cornell-box.pbrt", m_current_scene, m_material_library);
+	m_pbrt_loader.loadFile("scenes/scene.pbrt", m_current_scene, m_material_library);
 
     //m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
     //m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 100.f, glm::vec3(0.f, 15.f, 0.f)));
