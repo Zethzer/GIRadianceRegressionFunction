@@ -23,12 +23,17 @@ Float FibonacciCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
 
     Float p = 2.0f * PI * (i / PHI - floor(i / PHI));
     Float z = 1.0f - ((2.0f * i) + 1.0f) / n;
+    z = std::min(std::max(z, -1.0f), 1.0f);
     Float t = acos(z);
 
     *ray = Ray(Point3f(0.0f, 0.0f, 0.0f), Vector3f(cos(p)*sin(t), sin(p)*sin(t), z));
     ray->time = Lerp(sample.time, shutterOpen, shutterClose);
     ray->medium = medium;
     *ray = CameraToWorld(*ray);
+
+    if(isNaN(ray->d.x)) {
+        std::cout << p << ";" << z << ";" << t << std::endl;
+    }
 
     return 1.0f;
 }
