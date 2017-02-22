@@ -29,7 +29,9 @@ Float FibonacciCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
     z = std::min(std::max(z, -1.0f), 1.0f);
     Float t = acos(z);
 
-    *ray = Ray(Point3f(0.0f, 0.0f, 0.0f), Vector3f(cos(p)*sin(t), sin(p)*sin(t), z));
+    Vector3f v = Vector3f(cos(p)*sin(t), sin(p)*sin(t), z);
+
+    *ray = Ray(Point3f(0.0f, 0.0f, 0.0f), v / v.Length());
     ray->time = Lerp(sample.time, shutterOpen, shutterClose);
     ray->medium = medium;
     *ray = CameraToWorld(*ray);
