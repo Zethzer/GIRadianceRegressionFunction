@@ -159,7 +159,7 @@ void samplePos(Point up, Point down, unsigned int sample_number, vector<Point> &
             float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
             r = std::min(std::max(r, 0.0f), 1.0f);
 
-            sample[i].push_back(j + r * var);
+            sample[i].push_back(std::min(j + r * var, up.pos[i]));
         }
 
         random_shuffle(sample[i].begin(), sample[i].end());
