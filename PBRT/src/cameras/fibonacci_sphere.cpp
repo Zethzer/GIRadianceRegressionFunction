@@ -18,7 +18,10 @@ Float FibonacciCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
     ProfilePhase prof(Prof::GenerateCameraRay);
 
     //Direction calculation
-    Float i = floor(sample.pFilm.y) * res.x + floor(sample.pFilm.x);
+    float x = std::min(std::max(sample.pFilm.x, 0.f), (float)res.x - 0.01f);
+    float y = std::min(std::max(sample.pFilm.y, 0.f), (float)res.y - 0.01f);
+
+    Float i = floor(y) * res.x + floor(x);
     Float n = res.y * res.x;
 
     Float p = 2.0f * PI * (i / PHI - floor(i / PHI));
@@ -30,10 +33,6 @@ Float FibonacciCamera::GenerateRay(const CameraSample &sample, Ray *ray) const {
     ray->time = Lerp(sample.time, shutterOpen, shutterClose);
     ray->medium = medium;
     *ray = CameraToWorld(*ray);
-
-    if(isNaN(ray->d.x)) {
-        std::cout << p << ";" << z << ";" << t << std::endl;
-    }
 
     return 1.0f;
 }

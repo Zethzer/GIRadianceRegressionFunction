@@ -157,6 +157,7 @@ void samplePos(Point up, Point down, unsigned int sample_number, vector<Point> &
 
         for (float j = down.pos[i]; j < up.pos[i]; j += var) {
             float r = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+            r = std::min(std::max(r, 0.0f), 1.0f);
 
             sample[i].push_back(j + r * var);
         }

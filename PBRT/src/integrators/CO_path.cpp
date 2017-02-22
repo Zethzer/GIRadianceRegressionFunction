@@ -84,7 +84,7 @@ void COPathIntegrator::Render(const Scene &scene) {
 
                 // Generate camera ray for current sample
                 RayDifferential ray;
-                Float rayWeight = camera->GenerateRayDifferential(cameraSample, &ray);
+                Float rayWeight = camera->GenerateRay(cameraSample, &ray);
                 ++nCameraRays;
 
                 LiResp R, Ri;
