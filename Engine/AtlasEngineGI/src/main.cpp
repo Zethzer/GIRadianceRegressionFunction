@@ -23,7 +23,8 @@ int main(int argc, char *argv[])
     QGLFormat::setDefaultFormat(glFormat);
 #endif
 
-    MainWindow w;
+	std::string sceneFile(argv[1]);
+	MainWindow w(0, sceneFile);
     w.show();
 
     return a.exec();

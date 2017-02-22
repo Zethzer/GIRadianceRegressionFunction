@@ -9,6 +9,8 @@
 //#include <QGLFormat> pour glbindImageTexture à enlever
 #endif
 
+#include <string>
+
 #include "ui_mainwindow.h"
 
 namespace Ui {
@@ -21,10 +23,15 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = 0);
+	MainWindow(QWidget *parent = 0, std::string sceneFile = "");
     ~MainWindow();
+
+	void setSceneFile(std::string sceneF) { sceneFile = sceneF; }
+	std::string getSceneFile() { return sceneFile; }
 
 private:
     Ui::AtlasEngine *ui;
+	std::string sceneFile;
 };
 
 #endif // MAINWINDOW_H

@@ -36,6 +36,8 @@ public:
     AtlasWidget(QWidget * parent = 0);
     ~AtlasWidget();
 
+	void setSceneFile(std::string sceneF) { m_sceneFile = sceneF; }
+
 protected:
     virtual void initializeGL();
     virtual void resizeGL(int w, int h);
@@ -54,6 +56,8 @@ private:
 
     void createRenderScene();
     void createGeometryScene();
+
+	std::string m_sceneFile;
 
     Menu m_menu;
     GLboolean m_paused;

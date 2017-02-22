@@ -79,6 +79,8 @@ public:
         openGLWidget->setBaseSize(QSize(0, 0));
         openGLWidget->setFocusPolicy(Qt::WheelFocus);
 
+		openGLWidget->setSceneFile(sceneFile);
+
         gridLayout->addWidget(openGLWidget, 0, 0, 1, 1);
 
         AtlasEngine->setCentralWidget(centralWidget);
@@ -92,6 +94,12 @@ public:
     {
         AtlasEngine->setWindowTitle(QApplication::translate("AtlasEngine", "AtlasEngine", 0));
     } // retranslateUi
+
+	void setSceneFile(std::string sceneF) { sceneFile = sceneF; }
+	std::string getSceneFile() { return sceneFile; }
+
+private:
+	std::string sceneFile;
 
 };
 

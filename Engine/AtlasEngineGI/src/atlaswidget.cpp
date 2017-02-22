@@ -69,6 +69,7 @@ void AtlasWidget::initializeGL()
     std::cout << "GLSL version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
     std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
     std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+	std::cout << "Scene file: " << m_sceneFile << std::endl;
 
     m_renderer.init();
 
@@ -252,7 +253,7 @@ void AtlasWidget::createRenderScene()
     addScene();
 
     //m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
-	m_pbrt_loader.loadFile("scenes/scene.pbrt", m_current_scene, m_material_library);
+	m_pbrt_loader.loadFile(("scenes/" + m_sceneFile).c_str(), m_current_scene, m_material_library);
 
     //m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 10.f, glm::vec3(0.f, 1.5f, 0.f)));
     //m_current_scene->addPointLight(new PointLight(glm::normalize(glm::vec3(17.f, 12.f, 4.f)), 100.f, glm::vec3(0.f, 15.f, 0.f)));
