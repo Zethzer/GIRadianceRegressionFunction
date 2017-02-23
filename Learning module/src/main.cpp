@@ -14,7 +14,7 @@
     #include <sys/types.h>
 #endif
 
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR **rep);
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *rep, std::string &neuralnetwork_file);
 bool writeLog(std::string file_name, std::string folder_path);
 bool isInLog(std::string file_name, std::string folder_path);
 bool extractDataSet(const std::string &data_set_path, DataSet &data_set);
@@ -41,12 +41,13 @@ int main(int argc, char *argv[])
 
     std::string path_to_training_folder,
                 neural_network_save1_path("neuralnetworksave1.xml"),
-                neural_network_save2_path("neuralnetworksave2.xml");
+                neural_network_save2_path("neuralnetworksave2.xml"),
+                neuralnetwork_file;
 
     DIR *rep = 0;
 
     // 1- Extract arguments of the program
-    if(!extractArguments(argc, argv, path_to_training_folder, &rep))
+    if(!extractArguments(argc, argv, path_to_training_folder, rep, neuralnetwork_file))
     {
         std::cerr << "MAIN::ERROR : problem during extraction of arguments" << std::endl;
         return EXIT_FAILURE;
@@ -65,7 +66,12 @@ int main(int argc, char *argv[])
     }
 
     // 3- Process training
-    Trainer trainer(neural_network_parameters);
+    Trainer trainer;
+    if(neuralnetwork_file == "")
+        trainer.init(neural_network_parameters);
+    else
+        trainer.init(neuralnetwork_file);
+
     //trainer.trainNetwork(training_data_set_path, data_set_parameters);
     //trainer.saveNetwork(neural_network_save_path);
 
@@ -87,20 +93,19 @@ int main(int argc, char *argv[])
                 trainer.trainNetwork(data_set, data_set_parameters);
 
                 if(file1)
-                {
                     trainer.saveNetwork(neural_network_save1_path);
-                    file1 = !file1;
-                }
                 else
-                {
                     trainer.saveNetwork(neural_network_save2_path);
-                    file1 = !file1;
-                }
+
+                file1 = !file1;
+
                 if(!writeLog(file_name,path_to_training_folder))
                     std::cerr << "MAIN::ERROR : A problem occured when trying to write in training.log" << std::endl;
             }
         }
     }
+
+    trainer.saveNetwork("neuralnetwork.xml");   //  Training finished, save file
 
     if (closedir(rep) == -1)
         return EXIT_FAILURE;
@@ -112,7 +117,7 @@ int main(int argc, char *argv[])
 /*
  * Check if arguments are correct
  */
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR **rep)
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *rep, std::string &neuralnetwork_file)
 {
     if(argc != 2)
     {
@@ -133,7 +138,7 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
     rep = 0;
 
     //  Open folder
-    *rep = opendir(path_to_training_folder.c_str());
+    rep = opendir(path_to_training_folder.c_str());
     if(!rep)
     {
         std::cerr << "MAIN::ERROR : input folder could not be opened" << std::endl;
@@ -141,7 +146,7 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
     }
 
     //  List every file
-    while((file_read = readdir(*rep)) != 0)
+    while((file_read = readdir(rep)) != 0)
     {
         std::string file_name(file_read->d_name);
         size_t point_pos = file_name.find_last_of(".");
@@ -174,17 +179,30 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
     else
         std::cout << "- training.log NOT FOUND" << std::endl;
 
+    neuralnetwork_file = "";
 
     if(xml1_file_found)
+    {
         std::cout << "- neuralnetworksave1.xml FOUND" << std::endl;
+        neuralnetwork_file = "neuralnetworksave1.xml";
+    }
     else
         std::cout << "- neuralnetworksave1.xml NOT FOUND" << std::endl;
 
 
     if(xml2_file_found)
+    {
         std::cout << "- neuralnetworksave2.xml FOUND" << std::endl;
+        neuralnetwork_file = "neuralnetworksave2.xml";
+    }
     else
         std::cout << "- neuralnetworksave2.xml NOT FOUND" << std::endl;
+
+    if(xml1_file_found && xml2_file_found)
+    {
+        std::cerr << "MAIN::EXTRACTARGUMENTS::ERROR both neuralnetworksave1.xml and neuralnetworksave2.xml are present, abort" << std::endl;
+        return false;
+    }
 
 
     return true;

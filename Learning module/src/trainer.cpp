@@ -1,15 +1,26 @@
 #include "trainer.h"
 #include "datasetparameters.h"
 
-Trainer::Trainer(const NeuralNetworkParameters &neural_network_parameters) :
-    m_neural_network_parameters(neural_network_parameters)
+Trainer::Trainer() :
+    m_neural_network(0)
 {
+
+}
+
+void Trainer::init(const NeuralNetworkParameters &neural_network_parameters)
+{
+    m_neural_network_parameters = neural_network_parameters;
     m_neural_network = new NeuralNetwork(m_neural_network_parameters.m_network_architecture);
 
     //  Activation functions
     MultilayerPerceptron *multilayer_perceptron = m_neural_network->get_multilayer_perceptron_pointer();
     for(size_t i = 1; i < m_neural_network_parameters.m_layers_activation_functions.size(); ++i)
         multilayer_perceptron->set_layer_activation_function(i, m_neural_network_parameters.m_layers_activation_functions[i]);
+}
+
+void Trainer::init(const std::string &neural_network_file_path)
+{
+    *m_neural_network = loadNeuralNetwork(neural_network_file_path);
 }
 
 /*
@@ -146,4 +157,24 @@ DataSet Trainer::loadDataSet(const std::string &data_set_path)
     outputs_pointer->set_information(targets_information);
 
     return data_set;
+}
+
+/*
+ * Load a neural network using
+ * saved path
+ * */
+NeuralNetwork Trainer::loadNeuralNetwork(const std::string &neural_network_path)
+{
+    try
+    {
+        NeuralNetwork neural_network;
+        neural_network.load(neural_network_path);
+        return neural_network;
+    }
+    catch(std::exception& e)
+    {
+       std::cerr << "TRAINER::LOADNEURALNETWORK::ERROR" << e.what() << std::endl;
+
+       return NeuralNetwork();
+    }
 }
