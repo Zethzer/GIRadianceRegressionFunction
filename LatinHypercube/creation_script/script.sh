@@ -35,7 +35,7 @@ then
 
 		for i in $(seq $3 $4)
 		do
-			./$2 ../scene_file/*$i*
+			"../$2" ../scene_file/*$i*
 		done
 	fi
 fi

@@ -21,6 +21,7 @@ bool parseFile(string fileName, vector<string> &part, vector<string> &line);
 void parseMat(string line, float *vec, unsigned int size);
 string changePos(string line, const Point &pos);
 string changeMat(string line, const Point &pos);
+string changeName(string line, string name);
 void samplePos(Point up, Point down, unsigned int sample_number, vector<Point> &res);
 
 int main(int argc, char** argv) {
@@ -64,8 +65,10 @@ int main(int argc, char** argv) {
             new_file << part[0];
             new_file << changeMat(line[0], sampleC[i]) << std::endl;
             new_file << part[1];
-            new_file << changePos(line[1], sampleL[j]) << std::endl;
+            new_file << changeName(line[1], "scene_" + std::to_string(i * nSampleC + j) + ".data");
             new_file << part[2];
+            new_file << changePos(line[2], sampleL[j]) << std::endl;
+            new_file << part[3];
 
             new_file.close();
         }
@@ -82,8 +85,9 @@ bool parseFile(string fileName, vector<string> &part, vector<string> &line) {
         while (getline(file, curr_line)) {
             std::size_t foundC = curr_line.find("Transform");
             std::size_t foundL = curr_line.find("LightSource");
+            std::size_t foundF = curr_line.find("Film");
 
-            if (foundC != string::npos || foundL != string::npos) {
+            if (foundC != string::npos || foundL != string::npos || foundF != string::npos) {
                 line.push_back(curr_line);
                 part.push_back(curr_part);
 
@@ -143,6 +147,15 @@ string changeMat(string line, const Point &pos) {
 
 
     return new_line + " ]";
+}
+
+string changeName(string line, string name) {
+    string new_line;
+    size_t f = line.find("filename\"");
+
+    new_line = line.substr(0, f) + "filename\" ";
+
+    return new_line +"[ \"" + name + "\" ]";
 }
 
 void samplePos(Point up, Point down, unsigned int sample_number, vector<Point> &res) {
