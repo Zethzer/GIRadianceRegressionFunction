@@ -9,7 +9,7 @@ Camera::Camera() :
     m_saved_offset_y(0.0f),
     m_yaw(0.0f),
     m_pitch(0.0f),
-    m_fov(45.5f),
+    m_fov(19.5f),
     m_speed(0.005f),
     m_position(glm::vec3(0.0f, 0.0f,  0.0f)),
     m_front(glm::vec3(1.0f, 0.0f, 0.0f)),
