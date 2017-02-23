@@ -518,6 +518,8 @@ static bool WriteImageData(const std::string &name, const Float *lum,
     }
     fclose(file);
 
+    return true;
+
 }
 
 }  // namespace pbrt
