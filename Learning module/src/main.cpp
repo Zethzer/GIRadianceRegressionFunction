@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <stdio.h>
 
 #include "../tinyxml2/tinyxml2.h"
 
@@ -14,10 +15,11 @@
     #include <sys/types.h>
 #endif
 
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *&rep, std::string &neuralnetwork_file);
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, std::string &neuralnetwork_file);
 bool writeLog(std::string file_name, std::string folder_path);
 bool isInLog(std::string file_name, std::string folder_path);
 bool extractDataSet(const std::string &data_set_path, DataSet &data_set);
+bool writeMat(Matrix<double> matrix, std::string folder_path, int nbLines);
 
 /*
  * Input :
@@ -47,7 +49,7 @@ int main(int argc, char *argv[])
     DIR *rep = 0;
 
     // 1- Extract arguments of the program
-    if(!extractArguments(argc, argv, path_to_training_folder, rep, neuralnetwork_file))
+    if(!extractArguments(argc, argv, path_to_training_folder, neuralnetwork_file))
     {
         std::cerr << "MAIN::ERROR : problem during extraction of arguments" << std::endl;
         return EXIT_FAILURE;
@@ -72,9 +74,9 @@ int main(int argc, char *argv[])
     else
         trainer.init(neuralnetwork_file);
 
+    rep = opendir(path_to_training_folder.c_str());
     struct dirent* file_read = 0;
     bool file1 = false;
-
     //  Loop over files inside the folder
     while((file_read = readdir(rep)))
     {
@@ -86,16 +88,14 @@ int main(int argc, char *argv[])
             if(extension == ".data" && !isInLog(file_name, path_to_training_folder))
             {
                 DataSet data_set;
-                extractDataSet(file_name, data_set);
+                extractDataSet(path_to_training_folder+"/"+file_name, data_set);
                 trainer.trainNetwork(data_set, data_set_parameters);
-
                 if(file1)
                     trainer.saveNetwork(neural_network_save1_path);
                 else
                     trainer.saveNetwork(neural_network_save2_path);
-
                 file1 = !file1;
-
+                std::cout << "LOG WRITE" << std::endl;
                 if(!writeLog(file_name,path_to_training_folder))
                     std::cerr << "MAIN::ERROR : A problem occured when trying to write in training.log" << std::endl;
             }
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 /*
  * Check if arguments are correct
  */
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *(&rep), std::string &neuralnetwork_file)
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, std::string &neuralnetwork_file)
 {
     if(argc != 2)
     {
@@ -132,9 +132,10 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
             xml1_file_found = false,
             xml2_file_found = false;
 
-    rep = 0;
+    DIR *rep = 0;
 
     //  Open folder
+    std::cout << "Learning folder : " << path_to_training_folder << std::endl;
     rep = opendir(path_to_training_folder.c_str());
     if(!rep)
     {
@@ -201,6 +202,9 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
         return false;
     }
 
+    if (closedir(rep) == -1)
+        return EXIT_FAILURE;
+
     return true;
 }
 
@@ -216,6 +220,31 @@ bool writeLog(std::string file_name, std::string folder_path)
     else
     {
         log_file << file_name << std::endl;
+        return true;
+    }
+}
+
+/*
+ * Write matrice to a file named "matrix.txt" for debugging
+ */
+bool writeMat(Matrix<double> matrix, std::string folder_path, int nbLines)
+{
+    std::ofstream mat_file(folder_path + "/matrix.txt", std::ios::trunc);
+
+    if ( !mat_file.is_open() )
+    {
+        std::cout<<"error while opening matrix.txt"<<std::endl;
+        return false;
+    }
+    else
+    {
+        //printing matrix in a file
+        for (int line = 0; line < nbLines; ++line) {
+            for (int col = 0; col < 15; ++col) {
+                mat_file << matrix(line,col) << " ";
+            }
+            mat_file << std::endl;
+        }
         return true;
     }
 }
@@ -254,9 +283,9 @@ struct vec3
  * */
 bool extractDataSet(const std::string &data_set_path, DataSet &data_set)
 {
-    std::ifstream data_file;
+    FILE* data_file;
 
-    data_file.open(data_set_path.c_str());
+    data_file = fopen(data_set_path.c_str(),"rb");
 
     if(!(data_file))
     {
@@ -264,60 +293,35 @@ bool extractDataSet(const std::string &data_set_path, DataSet &data_set)
         return false;
     }
 
-    Matrix<double> data_matrix;
+    int prodRes;
+    float camera_position[3];
+    float light_position[3];
+    float fragment_position[3];
+    float normal[3];
+    float color[3];
 
-    std::string line;
-    vec3    camera_position,
-            light_position,
-            normal,
-            fragment_position,
-            color;
+    fread(&prodRes, sizeof(int), 1, data_file);
 
+    Matrix<double> data_matrix(prodRes, 15);
 
-    //  Camera position
-    std::getline(data_file, line);
-    std::istringstream camera_iss(line);
-    if(!(camera_iss >> camera_position.x >> camera_position.y >> camera_position.z))
-    {
-        std::cerr << "MAIN::EXTRACTDATASET::ERROR Problem while parsing, 1st line must be the camera position" << std::endl;
-        return false;
+    fread(&camera_position, sizeof(float), 3, data_file);
+    fread(&light_position, sizeof(float), 3, data_file);
+
+    for (unsigned int i = 0; i < prodRes; ++i) {
+        fread(fragment_position, sizeof(float), 3, data_file);
+        fread(normal, sizeof(float), 3, data_file);
+        fread(color, sizeof(float), 3, data_file);
+
+        data_matrix(i, 0) = fragment_position[0]; data_matrix(i, 1) = fragment_position[1]; data_matrix(i, 2) = fragment_position[2];
+        data_matrix(i, 3) = camera_position[0]; data_matrix(i, 4) = camera_position[1]; data_matrix(i, 5) = camera_position[2];
+        data_matrix(i, 6) = light_position[0]; data_matrix(i, 7) = light_position[1]; data_matrix(i, 8) = light_position[2];
+        data_matrix(i, 9) = normal[0]; data_matrix(i, 10) = normal[1]; data_matrix(i, 11) = normal[2];
+        data_matrix(i, 12) = color[0]; data_matrix(i, 13) = color[1]; data_matrix(i, 14) = color[2];
     }
-
-    //  Light position
-    std::getline(data_file, line);
-    std::istringstream light_iss(line);
-    if(!(light_iss >> light_position.x >> light_position.y >> light_position.z))
-    {
-        std::cerr << "MAIN::EXTRACTDATASET::ERROR Problem while parsing, 2nd line must be the light position" << std::endl;
-        return false;
-    }
-
-    //  Fragment position + Normal + Color
-    while(std::getline(data_file, line))
-    {
-        Vector<double> data_vector;
-        std::istringstream iss(line);
-
-        if(!(iss >> fragment_position.x >> fragment_position.y >> fragment_position.z >> normal.x >> normal.y >> normal.z >> color.x >> color.y >> color.z))
-        {
-            std::cerr << "MAIN::EXTRACTDATASET::ERROR Problem while parsing datas" << std::endl;
-            return false;
-        }
-        else
-        {
-            data_vector.push_back(fragment_position.x); data_vector.push_back(fragment_position.y); data_vector.push_back(fragment_position.z);
-            data_vector.push_back(camera_position.x); data_vector.push_back(camera_position.y); data_vector.push_back(camera_position.z);
-            data_vector.push_back(light_position.x); data_vector.push_back(light_position.y); data_vector.push_back(light_position.z);
-            data_vector.push_back(normal.x); data_vector.push_back(normal.y); data_vector.push_back(normal.z);
-            data_vector.push_back(color.x); data_vector.push_back(color.y); data_vector.push_back(color.z);
-
-            data_matrix.append_row(data_vector);
-        }
-    }
-
+    writeMat(data_matrix, "./", prodRes);
     data_set.set_data(data_matrix);
 
-    data_file.close();
+    fclose(data_file);
 
     return true;
 }

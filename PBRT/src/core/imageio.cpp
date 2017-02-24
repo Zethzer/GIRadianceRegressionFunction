@@ -499,22 +499,20 @@ static bool WriteImageData(const std::string &name, const Float *lum,
                            int xOffset, int yOffset,
                            Point3f camPos, Point3f ligPos) {
 
+    int prodRes = xRes * yRes;
     FILE* file;
-    char nl = '\n';
 
     file = fopen(name.c_str(), "wb");
 
-    fwrite(&camPos, sizeof(Float), 3, file);
-    fwrite(&nl, sizeof(char), 1, file);
+    fwrite(&prodRes, sizeof(int), 1, file);
 
+    fwrite(&camPos, sizeof(Float), 3, file);
     fwrite(&ligPos, sizeof(Float), 3, file);
-    fwrite(&nl, sizeof(char), 1, file);
 
     for (unsigned int i = 0; i < xRes * yRes; ++i){
         fwrite(&pos[i*3], sizeof(Float), 3, file);
         fwrite(&norm[i*3], sizeof(Float), 3, file);
         fwrite(&lum[i*3], sizeof(Float), 3, file);
-        fwrite(&nl, sizeof(char), 1, file);
     }
     fclose(file);
 

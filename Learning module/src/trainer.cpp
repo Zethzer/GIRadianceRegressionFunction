@@ -33,6 +33,29 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
 {
     try
     {
+        // Prepare DataSet
+        Variables* variables_pointer = data_set.get_variables_pointer();
+
+        size_t i = 0;
+        for(; i < m_neural_network_parameters.m_number_of_inputs; ++i)
+            variables_pointer->set_use(i, Variables::Input);
+
+        for(; i < m_neural_network_parameters.m_number_of_inputs + m_neural_network_parameters.m_number_of_outputs; ++i)
+            variables_pointer->set_use(i, Variables::Target);
+
+        for(i = 0; i < m_neural_network_parameters.m_variables_names.size(); ++i)
+            variables_pointer->set_name(i, m_neural_network_parameters.m_variables_names[i]);
+
+        Matrix<std::string> inputs_information = variables_pointer->arrange_inputs_information();
+        Matrix<std::string> targets_information = variables_pointer->arrange_targets_information();
+
+        Inputs* inputs_pointer = m_neural_network->get_inputs_pointer();
+        inputs_pointer->set_information(inputs_information);
+
+        Outputs* outputs_pointer = m_neural_network->get_outputs_pointer();
+        outputs_pointer->set_information(targets_information);
+
+
         //  Split DataSet
         Instances* instances_pointer = data_set.get_instances_pointer();
         instances_pointer->split_instances(data_set_parameters.m_splitting_parameters.m_splitting_method,
@@ -44,7 +67,7 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
         Vector<Statistics<double>>  inputs_statistics,
                                     targets_statistics;
 
-        if(data_set_parameters.m_training_parameters.m_data_scaling_method == DataScalingMethod::MinimumMaximum)
+        /*if(data_set_parameters.m_training_parameters.m_data_scaling_method == DataScalingMethod::MinimumMaximum)
         {
             inputs_statistics = data_set.scale_inputs_minimum_maximum();
             targets_statistics = data_set.scale_targets_minimum_maximum();
@@ -53,7 +76,7 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
         {
             inputs_statistics = data_set.scale_inputs_mean_standard_deviation();
             targets_statistics = data_set.scale_targets_mean_standard_deviation();
-        }
+        }*/
 
 
         //  Scaling layers
@@ -115,8 +138,7 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
             break;
         }
 
-
-        training_strategy.perform_training();
+        training_strategy.perform_training(); //segfault
     }
     catch(std::exception& e)
     {
