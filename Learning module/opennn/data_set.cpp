@@ -1296,7 +1296,7 @@ void DataSet::set_data(const Matrix<double>& new_data)
 
    instances.set_instances_number(data.get_rows_number());
    variables.set_variables_number(data.get_columns_number());
-
+   missing_values.set(data.get_rows_number(), data.get_columns_number());
 }
 
 
