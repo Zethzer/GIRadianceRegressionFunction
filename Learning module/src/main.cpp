@@ -14,7 +14,7 @@
     #include <sys/types.h>
 #endif
 
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *rep, std::string &neuralnetwork_file);
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *&rep, std::string &neuralnetwork_file);
 bool writeLog(std::string file_name, std::string folder_path);
 bool isInLog(std::string file_name, std::string folder_path);
 bool extractDataSet(const std::string &data_set_path, DataSet &data_set);
@@ -72,9 +72,6 @@ int main(int argc, char *argv[])
     else
         trainer.init(neuralnetwork_file);
 
-    //trainer.trainNetwork(training_data_set_path, data_set_parameters);
-    //trainer.saveNetwork(neural_network_save_path);
-
     struct dirent* file_read = 0;
     bool file1 = false;
 
@@ -117,7 +114,7 @@ int main(int argc, char *argv[])
 /*
  * Check if arguments are correct
  */
-bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *rep, std::string &neuralnetwork_file)
+bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, DIR *(&rep), std::string &neuralnetwork_file)
 {
     if(argc != 2)
     {
@@ -203,7 +200,6 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
         std::cerr << "MAIN::EXTRACTARGUMENTS::ERROR both neuralnetworksave1.xml and neuralnetworksave2.xml are present, abort" << std::endl;
         return false;
     }
-
 
     return true;
 }
