@@ -58,8 +58,11 @@ void ComputeShaderProcess::init(const GLuint &width, const GLuint &height)
     //work_grp_size[0], work_grp_size[1], work_grp_size[2]);
 
     // Maximum compute shader invocations (x * y * z)
-	//glGetIntegerv(GL_MAX_COMPUTE_LOCAL_INVOCATIONS, &work_grp_inv); // LINUX
+#if defined (__linux__)
+	//glGetIntegerv(GL_MAX_COMPUTE_LOCAL_INVOCATIONS, &work_grp_inv);
+#else
 	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &work_grp_inv);
+#endif
     //printf ("max computer shader invocations %i\n", work_grp_inv);
 	
 	const int globalWorkGroupSize = m_tex_w*m_tex_h;
@@ -73,10 +76,10 @@ void ComputeShaderProcess::init(const GLuint &width, const GLuint &height)
 	couleurStruct *coul;
 	coul = (couleurStruct *)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, 1 * sizeof(couleurStruct), bufMask);
 
-	coul[0].r = 0.0;
-	coul[0].g = 1.0;
-	coul[0].b = 0.0;
-	coul[0].a = 1.0;
+	coul->r = 0.0;
+	coul->g = 1.0;
+	coul->b = 0.0;
+	coul->a = 1.0;
 
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 

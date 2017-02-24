@@ -88,7 +88,6 @@ void NeuralNetworkLoader::ScalingLayerFromXML(const tinyxml2::XMLDocument& docum
         errorHandler("NEURALNETWORKLOADER::SCALINGLAYERFROMXML::ERROR Problem with node <ScalingNeuronsNumber>");
 
     scaling_layer.statistics_size = atoi(scaling_neurons_number_element->GetText());
-    scaling_layer.statistics = new Statistics[scaling_layer.statistics_size];
 
     unsigned index = 0; // size_t does not work
     const tinyxml2::XMLElement* start_element = scaling_neurons_number_element;
@@ -170,16 +169,13 @@ void NeuralNetworkLoader::MultilayerPerceptronFromXML(const tinyxml2::XMLDocumen
                 std::vector<std::string> architecture_split = splitValues(architecture_text);
 
                 multilayer_perceptron.layers_size = architecture_split.size() - 1;
-                multilayer_perceptron.perceptron_layers = new PerceptronLayer[multilayer_perceptron.layers_size];
                 for(unsigned int i = 0; i < multilayer_perceptron.layers_size; ++i)
                 {
                     multilayer_perceptron.perceptron_layers[i].perceptrons_size = std::stoi(architecture_split[i + 1]);
-                    multilayer_perceptron.perceptron_layers[i].perceptrons = new Perceptron[multilayer_perceptron.perceptron_layers[i].perceptrons_size];
 
                     for(unsigned int j = 0; j < multilayer_perceptron.perceptron_layers[i].perceptrons_size; ++j)
                     {
                         multilayer_perceptron.perceptron_layers[i].perceptrons[j].inputs_number = std::stoi(architecture_split[i]);
-                        multilayer_perceptron.perceptron_layers[i].perceptrons[j].synaptic_weights = new float[multilayer_perceptron.perceptron_layers[i].perceptrons[j].inputs_number];
                     }
                 }
             }
@@ -253,7 +249,6 @@ void NeuralNetworkLoader::UnscalingLayerFromXML(const tinyxml2::XMLDocument& doc
         errorHandler("NEURALNETWORKLOADER::UNSCALINGLAYER::ERROR Problem with node <UnscalingNeuronsNumber>");
 
     unscaling_layer.statistics_size = atoi(unscaling_neurons_number_element->GetText());
-    unscaling_layer.statistics = new Statistics[unscaling_layer.statistics_size];
 
     unsigned index = 0; // size_t does not work
     const tinyxml2::XMLElement* start_element = unscaling_neurons_number_element;

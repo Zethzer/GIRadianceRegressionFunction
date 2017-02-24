@@ -22,7 +22,7 @@ void main() {
   float x = (float(pixel_coords.x * 2 - dims.x) / dims.x);
   float y = (float(pixel_coords.y * 2 - dims.y) / dims.y);
  
-  vec4 pixel = vec4(couleur1[0], couleur1[1], couleur1[2], couleur1[3]);
+  vec4 pixel = vec4(couleur1[4], 0.0, 0.0, 1.0);
 
   // output to a secific pixel in the image
   imageStore (img_output, pixel_coords, pixel);

@@ -38,54 +38,21 @@ struct Perceptron
 
     int activation_function;
     float bias;
-    float *synaptic_weights;
-
-    Perceptron() :
-        synaptic_weights(0)
-    {
-    }
-
-    ~Perceptron()
-    {
-        if(synaptic_weights)
-            delete[] synaptic_weights;
-    }
+    float synaptic_weights[20];
 };
 
 struct PerceptronLayer
 {
     unsigned int perceptrons_size;
 
-    Perceptron *perceptrons;
-
-    PerceptronLayer() :
-        perceptrons(0)
-    {
-    }
-
-    ~PerceptronLayer()
-    {
-        if(perceptrons)
-            delete[] perceptrons;
-    }
+	Perceptron perceptrons[20];
 };
 
 struct MultilayerPerceptron
 {
-    unsigned int layers_size;
+	unsigned int layers_size;
 
-    PerceptronLayer *perceptron_layers;
-
-    MultilayerPerceptron() :
-        perceptron_layers(0)
-    {
-    }
-
-    ~MultilayerPerceptron()
-    {
-        if(perceptron_layers)
-            delete[] perceptron_layers;
-    }
+	PerceptronLayer perceptron_layers[20];
 };
 
 struct Statistics
@@ -101,37 +68,15 @@ struct ScalingLayer
     unsigned int statistics_size;
 
     int scaling_method;
-    Statistics *statistics;
-
-    ScalingLayer() :
-        statistics(0)
-    {
-    }
-
-    ~ScalingLayer()
-    {
-        if(statistics)
-            delete[] statistics;
-    }
+    Statistics statistics[20];
 };
 
 struct UnscalingLayer
 {
-    unsigned int statistics_size;
+	unsigned int statistics_size;
 
-    int unscaling_method;
-    Statistics *statistics;
-
-    UnscalingLayer() :
-        statistics(0)
-    {
-    }
-
-    ~UnscalingLayer()
-    {
-        if(statistics)
-            delete[] statistics;
-    }
+	int unscaling_method;
+	Statistics statistics[20];
 };
 
 struct NeuralNetwork

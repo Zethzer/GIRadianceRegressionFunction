@@ -38,7 +38,7 @@ public:
 private:
 
 	ComputeShader m_shader;
-	NeuralNetwork m_neural_network;
+	NeuralNetwork *m_neural_network;
 
 	// Working groups
 	int m_work_grp_cnt[3];
