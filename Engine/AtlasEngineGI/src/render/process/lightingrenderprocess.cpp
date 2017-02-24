@@ -15,8 +15,8 @@ void LightingRenderProcess::init(const GLuint &width, const GLuint &height)
     m_buffer.init(width, height);
     std::vector<FramebufferTextureDatas> lighting_textures_datas;
     lighting_textures_datas.push_back(FramebufferTextureDatas(GL_RGB16F, GL_RGB, GL_FLOAT, GL_CLAMP_TO_BORDER));
-    lighting_textures_datas.push_back(FramebufferTextureDatas(GL_RGB16F, GL_RGB, GL_FLOAT, GL_CLAMP_TO_BORDER));
-    lighting_textures_datas.push_back(FramebufferTextureDatas(GL_R16F, GL_RED, GL_FLOAT, GL_CLAMP_TO_BORDER));
+    //lighting_textures_datas.push_back(FramebufferTextureDatas(GL_RGB16F, GL_RGB, GL_FLOAT, GL_CLAMP_TO_BORDER));
+    //lighting_textures_datas.push_back(FramebufferTextureDatas(GL_R16F, GL_RED, GL_FLOAT, GL_CLAMP_TO_BORDER));
     m_buffer.attachTextures(lighting_textures_datas);
 
     m_shader.use();
@@ -28,8 +28,8 @@ void LightingRenderProcess::init(const GLuint &width, const GLuint &height)
     glUseProgram(0);
 
     m_out_textures.push_back(m_buffer.getTexture(0));
-    m_out_textures.push_back(m_buffer.getTexture(1));
-    m_out_textures.push_back(m_buffer.getTexture(2));
+    //m_out_textures.push_back(m_buffer.getTexture(1));
+    //m_out_textures.push_back(m_buffer.getTexture(2));
 }
 
 void LightingRenderProcess::initMenuElement()

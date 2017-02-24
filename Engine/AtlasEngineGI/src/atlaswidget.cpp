@@ -13,6 +13,7 @@
 #include "include/render/process/shadowmaprenderprocess.h"
 #include "include/render/process/computeshaderprocess.h"
 #include "include/render/process/indirectlightingprocess.h"
+#include "include/render/process/switchlightingprocess.h"
 
 #include "include/loader/neuralnetworkloader.h"
 
@@ -106,19 +107,21 @@ void AtlasWidget::initializeGL()
     LightingRenderProcess *lighting_render_process = new LightingRenderProcess(m_current_scene->numberOfPointLights());
     HDRRenderProcess *hdr_render_process = new HDRRenderProcess();
     ShadowMapRenderProcess *shadow_map_render_process = new ShadowMapRenderProcess(m_current_scene->numberOfPointLights());
-	//ComputeShaderProcess *compute_shader_render_process = new ComputeShaderProcess();
 	IndirectLightingProcess *indirect_lighting_process = new IndirectLightingProcess();
+	SwitchLightingProcess *switch_lighting_process = new SwitchLightingProcess();
 
     connectProcesses(geometry_render_process, lighting_render_process, {0, 1, 2, 3}, {0, 1, 2, 3});
     connectProcesses(shadow_map_render_process, lighting_render_process, {0}, {4});
 	connectProcesses(geometry_render_process, indirect_lighting_process, {0, 1}, {0, 1});
-    //connectProcesses(lighting_render_process, hdr_render_process, {0, 1, 2}, {0, 1, 2});
+	connectProcesses(lighting_render_process, switch_lighting_process, {0}, {0});
+	connectProcesses(indirect_lighting_process, switch_lighting_process, {0}, {1});
+	connectProcesses(switch_lighting_process, hdr_render_process, {0, 1, 2}, {0, 1, 2});
 
     Pipeline *default_pipeline = new Pipeline(window()->width(), window()->height());
 
-    //default_pipeline->setLastProcess(hdr_render_process);
-	//default_pipeline->setLastProcess(compute_shader_render_process);
-	default_pipeline->setLastProcess(indirect_lighting_process);
+	default_pipeline->setLastProcess(hdr_render_process);
+    //default_pipeline->setLastProcess(switch_lighting_process);
+	//default_pipeline->setLastProcess(indirect_lighting_process);
 
 
     m_renderer.addPipeline(default_pipeline, "default");
@@ -244,10 +247,6 @@ void AtlasWidget::pause()
 
 void AtlasWidget::createRenderScene()
 {
-    NeuralNetworkLoader neural_network_loader;
-    NeuralNetwork neural_network;
-    //neural_network_loader.loadFile("neuralnetwork.xml", neural_network);
-
     addScene();
 
     //m_obj_loader.loadFile("scenes/cornell.obj", m_current_scene, m_material_library);
