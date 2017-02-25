@@ -67,7 +67,7 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
         Vector<Statistics<double>>  inputs_statistics,
                                     targets_statistics;
 
-        /*if(data_set_parameters.m_training_parameters.m_data_scaling_method == DataScalingMethod::MinimumMaximum)
+        if(data_set_parameters.m_training_parameters.m_data_scaling_method == DataScalingMethod::MinimumMaximum)
         {
             inputs_statistics = data_set.scale_inputs_minimum_maximum();
             targets_statistics = data_set.scale_targets_minimum_maximum();
@@ -76,7 +76,7 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
         {
             inputs_statistics = data_set.scale_inputs_mean_standard_deviation();
             targets_statistics = data_set.scale_targets_mean_standard_deviation();
-        }*/
+        }
 
 
         //  Scaling layers
@@ -138,7 +138,7 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
             break;
         }
 
-        training_strategy.perform_training(); //segfault
+        training_strategy.perform_training();
     }
     catch(std::exception& e)
     {

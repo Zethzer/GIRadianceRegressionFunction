@@ -15,8 +15,10 @@
     #include <sys/types.h>
 #endif
 
+#define EPSILON 0.000001
+
 bool extractArguments(int argc, char *argv[], std::string &path_to_training_folder, std::string &neuralnetwork_file);
-bool writeLog(std::string file_name, std::string folder_path);
+bool writeLog(std::string file_name, std::string folder_path, const bool &extraction_ok);
 bool isInLog(std::string file_name, std::string folder_path);
 bool extractDataSet(const std::string &data_set_path, DataSet &data_set);
 bool writeMat(Matrix<double> matrix, std::string folder_path, int nbLines);
@@ -55,7 +57,6 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    //NeuralNetwork neural_network;
     NeuralNetworkParameters neural_network_parameters;
     DataSetParameters data_set_parameters;
     ConfigParser config_parser;
@@ -87,16 +88,19 @@ int main(int argc, char *argv[])
             std::string extension = file_name.substr(point_pos);
             if(extension == ".data" && !isInLog(file_name, path_to_training_folder))
             {
+                bool extraction_ok = false;
                 DataSet data_set;
-                extractDataSet(path_to_training_folder+"/"+file_name, data_set);
-                trainer.trainNetwork(data_set, data_set_parameters);
-                if(file1)
-                    trainer.saveNetwork(neural_network_save1_path);
-                else
-                    trainer.saveNetwork(neural_network_save2_path);
-                file1 = !file1;
-                std::cout << "LOG WRITE" << std::endl;
-                if(!writeLog(file_name,path_to_training_folder))
+                if(extractDataSet(path_to_training_folder+"/"+file_name, data_set))
+                {
+                    extraction_ok = true;
+                    trainer.trainNetwork(data_set, data_set_parameters);
+                    if(file1)
+                        trainer.saveNetwork(neural_network_save1_path);
+                    else
+                        trainer.saveNetwork(neural_network_save2_path);
+                    file1 = !file1;
+                }
+                if(!writeLog(file_name,path_to_training_folder, extraction_ok))
                     std::cerr << "MAIN::ERROR : A problem occured when trying to write in training.log" << std::endl;
             }
         }
@@ -211,7 +215,7 @@ bool extractArguments(int argc, char *argv[], std::string &path_to_training_fold
 /*
  * Write the input file_name in training.log located in folder_path
  */
-bool writeLog(std::string file_name, std::string folder_path)
+bool writeLog(std::string file_name, std::string folder_path, const bool &extraction_ok)
 {
     std::ofstream log_file(folder_path + "/training.log", std::ios::app);
 
@@ -219,7 +223,10 @@ bool writeLog(std::string file_name, std::string folder_path)
       return false;
     else
     {
-        log_file << file_name << std::endl;
+        log_file << file_name;
+        if(!extraction_ok)
+            log_file << " - ERROR";
+        log_file << std::endl;
         return true;
     }
 }
@@ -239,8 +246,8 @@ bool writeMat(Matrix<double> matrix, std::string folder_path, int nbLines)
     else
     {
         //printing matrix in a file
-        for (int line = 0; line < nbLines; ++line) {
-            for (int col = 0; col < 15; ++col) {
+        for (unsigned int line = 0; line < nbLines; ++line) {
+            for (unsigned int col = 0; col < 15; ++col) {
                 mat_file << matrix(line,col) << " ";
             }
             mat_file << std::endl;
@@ -272,9 +279,10 @@ struct vec3
     double z;
 };
 
+
 /*
  * Create a DataSet from a .data file
- *
+ *j
  * The stucture of the file must respect the following structure:
  *
  * <camera_position.x> <camera_position.y> <camera_position.z>
@@ -293,32 +301,79 @@ bool extractDataSet(const std::string &data_set_path, DataSet &data_set)
         return false;
     }
 
-    int prodRes;
-    float camera_position[3];
-    float light_position[3];
-    float fragment_position[3];
-    float normal[3];
-    float color[3];
+    unsigned int prodRes;
+    float   camera_position[3],
+            light_position[3],
+            fragment_position[3],
+            normal[3],
+            color[3];
 
+    //  Read fixed datas
     fread(&prodRes, sizeof(int), 1, data_file);
-
-    Matrix<double> data_matrix(prodRes, 15);
-
     fread(&camera_position, sizeof(float), 3, data_file);
     fread(&light_position, sizeof(float), 3, data_file);
 
-    for (unsigned int i = 0; i < prodRes; ++i) {
+    //  Read 1st instance
+    fread(fragment_position, sizeof(float), 3, data_file);
+    fread(normal, sizeof(float), 3, data_file);
+    fread(color, sizeof(float), 3, data_file);
+
+    //  Set 1st row of matrix, matrix needs to have at least 1 row if we want to append
+    Matrix<double> data_matrix(1, 15);
+    data_matrix(0, 0) = fragment_position[0]; data_matrix(0, 1) = fragment_position[1]; data_matrix(0, 2) = fragment_position[2];
+    data_matrix(0, 3) = camera_position[0];   data_matrix(0, 4) = camera_position[1];   data_matrix(0, 5) = camera_position[2];
+    data_matrix(0, 6) = light_position[0];    data_matrix(0, 7) = light_position[1];    data_matrix(0, 8) = light_position[2];
+    data_matrix(0, 9) = normal[0];            data_matrix(0, 10) = normal[1];           data_matrix(0, 11) = normal[2];
+    data_matrix(0, 12) = 1;/*color[0];*/            data_matrix(0, 13) = 1;/*color[1];*/            data_matrix(0, 14) = 1;/*color[2];*/
+
+    //  Loop over other instances
+    for(unsigned int i = 1; i < prodRes; ++i)
+    {
+        //  Read instance
         fread(fragment_position, sizeof(float), 3, data_file);
         fread(normal, sizeof(float), 3, data_file);
         fread(color, sizeof(float), 3, data_file);
 
-        data_matrix(i, 0) = fragment_position[0]; data_matrix(i, 1) = fragment_position[1]; data_matrix(i, 2) = fragment_position[2];
-        data_matrix(i, 3) = camera_position[0]; data_matrix(i, 4) = camera_position[1]; data_matrix(i, 5) = camera_position[2];
-        data_matrix(i, 6) = light_position[0]; data_matrix(i, 7) = light_position[1]; data_matrix(i, 8) = light_position[2];
-        data_matrix(i, 9) = normal[0]; data_matrix(i, 10) = normal[1]; data_matrix(i, 11) = normal[2];
-        data_matrix(i, 12) = color[0]; data_matrix(i, 13) = color[1]; data_matrix(i, 14) = color[2];
+        //  Fill instance vector
+        Vector<double> instance(15);
+        instance[0] = fragment_position[0]; instance[1] = fragment_position[1]; instance[2] = fragment_position[2];
+        instance[3] = camera_position[0];   instance[4] = camera_position[1];   instance[5] = camera_position[2];
+        instance[6] = light_position[0];    instance[7] = light_position[1];    instance[8] = light_position[2];
+        instance[9] = normal[0];            instance[10] = normal[1];           instance[11] = normal[2];
+        instance[12] = color[0];            instance[13] = color[1];            instance[14] = color[2];
+
+        //  Check if instance is not already in Matrix
+        bool instance_found = false;
+        unsigned int j = 0;
+        while(j < data_matrix.get_rows_number())    //  Row loop
+        {
+            bool row_equal = true;
+            unsigned int k = 0;
+            while(k < 15)
+            {
+                if(fabs((data_matrix(j, k) - instance[k])) > EPSILON)    //  Column loop
+                {
+                    row_equal = false;
+                    break;
+                }
+                ++k;
+            }
+            if(row_equal)
+            {
+                instance_found = true;
+                break;
+            }
+            ++j;
+        }
+
+        if(!instance_found)
+            data_matrix.append_row(instance);
     }
-    writeMat(data_matrix, "./", prodRes);
+    //writeMat(data_matrix, "./", data_matrix.get_rows_number());
+
+    if(data_matrix.get_rows_number() <= 1)  //  Only one line left in DataSet
+        return false;
+
     data_set.set_data(data_matrix);
 
     fclose(data_file);
