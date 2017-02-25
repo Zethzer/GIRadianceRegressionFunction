@@ -41,7 +41,7 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 	std::getline(pbrt_file, line);
 	std::istringstream iss(line);
 	iss >> word;
-	while (strcmp(word.c_str(), "WorldBegin")) {
+	while (word != "WorldBegin") {
 		std::getline(pbrt_file, line);
 		iss.str(line);
 		iss >> word;
@@ -54,7 +54,7 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 		iss.str(line);
 		iss >> word;
 		// Propriétés des matériaux
-		if (!strcmp(word.c_str(), "MakeNamedMaterial")) {
+		if (word == "MakeNamedMaterial") {
 			std::string nameMaterial = extractSimpleParameter(line);
 			// Extraction des couleurs du matériaux
 			glm::vec3 materialColors;
@@ -71,7 +71,7 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 			material_library.addMaterial(current_material, nameMaterial);
 		}
 		// Forme géométriques et propriétés
-		if (!strcmp(word.c_str(), "NamedMaterial")) {
+		if (word == "NamedMaterial") {
 			// Get name material
 			std::string nameMat = extractSimpleParameter(line);
 			// Go to the next line ("Shape") and extract all the parameters and values
@@ -82,13 +82,13 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 			// Découpage et gestion de la ligne pour chaque propriété
 			while (pos != std::string::npos){
 				param = extractNextParameter(remaining, values, &hasValues, &pos);
-				if (!strcmp(param.c_str(), "integer indices")) // Indices
+				if (param == "integer indices") // Indices
 					indices = parseIntegerValues(values);
-				if (!strcmp(param.c_str(), "point P")) // Positions
+				if (param == "point P") // Positions
 					positions = parseManyVec3Values(values);
-				if (!strcmp(param.c_str(), "normal N")) // Normales
+				if (param == "normal N") // Normales
 					normals = parseManyVec3Values(values);
-				if (!strcmp(param.c_str(), "float uv")) // Textures_coord
+				if (param == "float uv") // Textures_coord
 					texture_coords = parseManyVec2Values(values);
 			}
 			// Remplissage du tableau de vertices
@@ -101,21 +101,21 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 			clearVectors(vertices, indices, positions, normals, texture_coords);
 		}
 		// Différents paramètres : Ne gère actuellement que les lumières style pointLight
-		if (!strcmp(word.c_str(), "AttributeBegin")) {
+		if (word == "AttributeBegin") {
 			std::getline(pbrt_file, line);
 			iss.clear();
 			iss.str(line);
 			iss >> word;
-			if (!strcmp(word.c_str(), "LightSource")) {
+			if (word == "LightSource") {
 				// Extraction des paramètres
 				std::string remaining = line, param, values;
 				bool hasValues = false;
 				int pos = remaining.find_first_of("\"");
 				while (pos != std::string::npos) {
 					param = extractNextParameter(remaining, values, &hasValues, &pos);
-					if (!strcmp(param.c_str(), "rgb I"))
+					if (param == "rgb I")
 						lightColors = parseVec3Values(values);
-					if (!strcmp(param.c_str(), "point from"))
+					if (param == "point from")
 						lightPosition = parseVec3Values(values);
 				}
 				// Création de la pointLight et ajout à la scène
