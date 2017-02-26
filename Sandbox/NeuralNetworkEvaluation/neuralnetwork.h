@@ -46,15 +46,6 @@ struct PerceptronLayer
     unsigned int perceptrons_size;
 
 	Perceptron perceptrons[20];
-	size_t get_perceptrons_number(void) const
-	{
-		return 20;
-	}
-	//  Layer
-	Vector<double> PerceptronLayerCalculateOutputs(const Vector<double>& inputs) const
-	{
-		return(calculate_activations(calculate_combinations(inputs)));
-	}
 };
 
 struct MultilayerPerceptron
@@ -62,10 +53,6 @@ struct MultilayerPerceptron
 	unsigned int layers_size;
 
 	PerceptronLayer perceptron_layers[20];
-	size_t get_layers_number(void) const
-	{
-		return 20;
-	}
 };
 
 struct Statistics
@@ -82,10 +69,6 @@ struct ScalingLayer
 
     int scaling_method;
     Statistics statistics[20];
-	size_t get_scaling_neurons_number(void) const
-	{
-		return 20;
-	}
 };
 
 struct UnscalingLayer
