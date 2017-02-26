@@ -113,8 +113,8 @@ void AtlasWidget::initializeGL()
     connectProcesses(geometry_render_process, lighting_render_process, {0, 1, 2, 3}, {0, 1, 2, 3});
     connectProcesses(shadow_map_render_process, lighting_render_process, {0}, {4});
 	connectProcesses(geometry_render_process, indirect_lighting_process, {0, 1}, {0, 1});
-	connectProcesses(lighting_render_process, switch_lighting_process, {0}, {0});
-	connectProcesses(indirect_lighting_process, switch_lighting_process, {0}, {1});
+	connectProcesses(lighting_render_process, switch_lighting_process, {0}, {1});
+	connectProcesses(indirect_lighting_process, switch_lighting_process, {0}, {0});
 	connectProcesses(switch_lighting_process, hdr_render_process, {0, 1, 2}, {0, 1, 2});
 
     Pipeline *default_pipeline = new Pipeline(window()->width(), window()->height());
