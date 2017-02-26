@@ -29,17 +29,7 @@ AABB PBRTLoader::extractAABBFromFile(const std::string &pbrt_path, AABB &box)
 
     std::string word,
                 line;
-
-    // Parse file until WorldBegin
-    std::getline(pbrt_file, line);
-    std::istringstream iss(line);
-    iss >> word;
-    while(word != "WorldBegin")
-    {
-        std::getline(pbrt_file, line);
-        iss.str(line);
-        iss >> word;
-    }
+	std::istringstream iss;
 
     // WorldBegin loop
     while(std::getline(pbrt_file, line))

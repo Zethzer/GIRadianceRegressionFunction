@@ -36,16 +36,8 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 		exit(1);
 	}
 
-	std::string word, line, word2;
-	// Parcours le fichier jusqu'au WorldBegin
-	std::getline(pbrt_file, line);
-	std::istringstream iss(line);
-	iss >> word;
-	while (word != "WorldBegin") {
-		std::getline(pbrt_file, line);
-		iss.str(line);
-		iss >> word;
-	}
+	std::string word, line;
+	std::istringstream iss;
 	
 	// Parcours de WorldBegin
 	int countNode = 0;
