@@ -324,7 +324,7 @@ bool extractDataSet(const std::string &data_set_path, DataSet &data_set)
     data_matrix(0, 3) = camera_position[0];   data_matrix(0, 4) = camera_position[1];   data_matrix(0, 5) = camera_position[2];
     data_matrix(0, 6) = light_position[0];    data_matrix(0, 7) = light_position[1];    data_matrix(0, 8) = light_position[2];
     data_matrix(0, 9) = normal[0];            data_matrix(0, 10) = normal[1];           data_matrix(0, 11) = normal[2];
-    data_matrix(0, 12) = 1;/*color[0];*/            data_matrix(0, 13) = 1;/*color[1];*/            data_matrix(0, 14) = 1;/*color[2];*/
+    data_matrix(0, 12) = color[0];            data_matrix(0, 13) = color[1];            data_matrix(0, 14) = color[2];
 
     //  Loop over other instances
     for(unsigned int i = 1; i < prodRes; ++i)
