@@ -10,7 +10,25 @@ Output evaluateInput(NeuralNetwork &neural_network, const Input &input);
 
 int main(int argc, char *argv[])
 {
-    std::cout << "hello world" << std::endl;
+    NeuralNetwork nn = loadNeuralNetwork("neuralnetwork.xml");
+    Input input;
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+    input.push_back(1.0);
+
+    Output output = evaluateInput(nn, input);
+
+    for(size_t i = 0; i < output.size(); ++i)
+        std::cout << output[i] << ' ';
 }
 
 Vector<Output> evaluate(const std::string &neural_network_path, Vector<Input> inputs)
