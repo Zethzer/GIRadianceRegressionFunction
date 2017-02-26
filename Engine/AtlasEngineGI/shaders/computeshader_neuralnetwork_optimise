@@ -217,7 +217,7 @@ void main()
  
 	vec2 texCoords = vec2(x,y);
 
-	float inputs[12];
+	float inputs[MAX_STATISTICS_SIZE];
 	// frag pos, camera, position light, normal
 
 
@@ -250,11 +250,11 @@ void main()
 	float outputs_scaling[MAX_STATISTICS_SIZE];
 	float outputs_multilayer[MAX_STATISTICS_SIZE];
 
-	outputs_scaling = ScalingLayerCalculateOutputs(inputs, neural_network.scaling_layer);
-    outputs_multilayer = MultilayerPerceptronCalculateOutputs(outputs_scaling, neural_network.multilayer_perceptron);
-    outputs_scaling = UnscalingLayerCalculateOutputs(outputs_multilayer, neural_network.unscaling_layer);
+	//outputs_scaling = ScalingLayerCalculateOutputs(inputs, neural_network.scaling_layer);
+    //outputs_multilayer = MultilayerPerceptronCalculateOutputs(outputs_scaling, neural_network.multilayer_perceptron);
+    //outputs_scaling = UnscalingLayerCalculateOutputs(outputs_multilayer, neural_network.unscaling_layer);
 	
-	//outputs_multilayer = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
+	outputs_multilayer = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
 
 	// output to a secific pixel in the image
     //vec4 pixel = vec4(outputs_scaling[0], 0.0, 0.0, 1.0);

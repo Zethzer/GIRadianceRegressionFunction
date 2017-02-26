@@ -99,5 +99,8 @@ void SwitchLightingProcess::switchLightingType(int index)
 	}
 
 	m_shader.reload();
-
+	m_shader.use();
+	glUniform1i(glGetUniformLocation(m_shader.getProgram(), "directLighting"), 0);
+	glUniform1i(glGetUniformLocation(m_shader.getProgram(), "indirectLighting"), 1);
+	glUseProgram(0);
 }
