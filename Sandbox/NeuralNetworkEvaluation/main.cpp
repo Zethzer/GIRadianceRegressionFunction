@@ -3,14 +3,30 @@
 #include "neuralnetworkloader.h"
 #include "neuralnetwork.h"
 
+using namespace std;
+
+/* Bon, j'ai essayé de faire en sorte que ça compile.
+ * J'ai mis les fonctions en proto avant le main. Mais y a pas que ça à faire je crois x)
+ * Exemple ligne 79 => Faut trouver le moyen de faire utiliser la bonne fonction.
+ * Et y a pleins de lignes où c'est le cas x) Mais comme tu as fait des structures et non des objets
+ * et laisser les définitions des fonctions dans le main.cpp. J'ai tenté d'en bouger une :/ Peut-être avais-tu
+ * pas fini et j'ai fait du caca =X Pardon si c'est le cas.
+ */
+
+Vector<double> NeuralNetwork::calculate_outputs(const Vector<double>& inputs) const;
+Vector<double> ScalingLayerCalculateOutputs(const Vector<double>& inputs) const;
+Vector<double> MultilayerPerceptronCalculateOutputs(const Vector<double>& inputs) const;
+double PerceptronCalculateActivation(const double& combination) const;
+Vector<double> PerceptronLayerCalculateActivations(const Vector<double>& combinations) const;
+double PerceptronCalculateCombination(const Vector<double>& inputs) const;
+Vector<double> PerceptronLayerCalculateCombinations(const Vector<double>& inputs) const;
+Vector<double> UnscalingLayerOutputs(const Vector<double>& inputs) const;
 
 int main(int argc, char* argv[])
 {
     NeuralNetwork neural_network;
     NeuralNetworkLoader neural_network_loader;
     neural_network_loader.loadFile("neuralnetwork.xml", neural_network);
-
-
 
     return EXIT_SUCCESS;
 }
@@ -19,9 +35,12 @@ Vector<double> NeuralNetwork::calculate_outputs(const Vector<double>& inputs) co
 {
     Vector<double> outputs(inputs);
 
-    outputs = scaling_layer_pointer->calculate_outputs(inputs);
+    /*outputs = scaling_layer_pointer->calculate_outputs(inputs);
     outputs = multilayer_perceptron_pointer->calculate_outputs(outputs);
-    outputs = unscaling_layer_pointer->calculate_outputs(outputs);
+    outputs = unscaling_layer_pointer->calculate_outputs(outputs);*/
+	outputs = ScalingLayerCalculateOutputs(inputs);
+	outputs = MultilayerPerceptronCalculateOutputs(inputs);
+	outputs = UnscalingLayerOutputs(inputs);
 
     return(outputs);
 }
@@ -35,17 +54,17 @@ Vector<double> ScalingLayerCalculateOutputs(const Vector<double>& inputs) const
 
     for(size_t i = 0; i < scaling_neurons_number; i++)
     {
-        if(statistics[i].maximum-statistics[i].minimum < 1e-99)
+        if(ScalingLayer.statistics[i].maximum-statistics[i].minimum < 1e-99)
             outputs[i] = inputs[i];
         else
-            outputs[i] = 2.0*(inputs[i] - statistics[i].minimum)/(statistics[i].maximum-statistics[i].minimum) - 1.0;
+            outputs[i] = 2.0*(inputs[i] - ScalingLayer.statistics[i].minimum)/(ScalingLayer.statistics[i].maximum - ScalingLayer.statistics[i].minimum) - 1.0;
     }
 
     return(outputs);
 }
 
 //  Multilayer perceptron
-Vector<double> MultilayerPerceptron::calculate_outputs(const Vector<double>& inputs) const
+Vector<double> MultilayerPerceptronCalculateOutputs(const Vector<double>& inputs) const
 {
     const size_t layers_number = get_layers_number();
 
@@ -57,11 +76,11 @@ Vector<double> MultilayerPerceptron::calculate_outputs(const Vector<double>& inp
     }
     else
     {
-        outputs = layers[0].calculate_outputs(inputs);
+        outputs = MultilayerPerceptron.perceptron_layers[0].PerceptronLayerCalculateOutputs(inputs); // Je me suis arrêté là
 
         for(size_t i = 1; i < layers_number; i++)
         {
-            outputs = layers[i].calculate_outputs(outputs);
+            outputs = MultilayerPerceptron.perceptron_layers[i].calculate_outputs(outputs);
         }
     }
 
@@ -69,14 +88,14 @@ Vector<double> MultilayerPerceptron::calculate_outputs(const Vector<double>& inp
 }
 
 //  Activation
-double Perceptron::calculate_activation(const double& combination) const
+double PerceptronCalculateActivation(const double& combination) const
 {
-   switch(activation_function)
+   /*switch(Perceptron.activation_function)
    {
       case Perceptron::HyperbolicTangent:
-      {
+      {*/
          return(1.0-2.0/(exp(2.0*combination)+1.0));
-      }
+      /*}
       break;
 
       case Perceptron::Threshold:
@@ -100,11 +119,11 @@ double Perceptron::calculate_activation(const double& combination) const
 
       default:
       break;
-   }
+   }*/
 }
 
 //  Activations
-Vector<double> PerceptronLayer::calculate_activations(const Vector<double>& combinations) const
+Vector<double> PerceptronLayerCalculateActivations(const Vector<double>& combinations) const
 {
    const size_t perceptrons_number = get_perceptrons_number();
 
@@ -113,13 +132,13 @@ Vector<double> PerceptronLayer::calculate_activations(const Vector<double>& comb
    Vector<double> activations(perceptrons_number);
 
    for(size_t i = 0; i < perceptrons_number; i++)
-      activations[i] = perceptrons[i].calculate_activation(combinations[i]);
+      activations[i] = perceptrons[i].PerceptronCalculateActivation(combinations[i]);
 
    return(activations);
 }
 
 //  Combination
-double Perceptron::calculate_combination(const Vector<double>& inputs) const
+double PerceptronCalculateCombination(const Vector<double>& inputs) const
 {
     const size_t inputs_number = get_inputs_number();
 
@@ -136,7 +155,7 @@ double Perceptron::calculate_combination(const Vector<double>& inputs) const
 }
 
 //  Combinations
-Vector<double> PerceptronLayer::calculate_combinations(const Vector<double>& inputs) const
+Vector<double> PerceptronLayerCalculateCombinations(const Vector<double>& inputs) const
 {
    const size_t perceptrons_number = get_perceptrons_number();
 
@@ -150,12 +169,6 @@ Vector<double> PerceptronLayer::calculate_combinations(const Vector<double>& inp
    }
 
    return(combination);
-}
-
-//  Layer
-Vector<double> PerceptronLayer::calculate_outputs(const Vector<double>& inputs) const
-{
-   return(calculate_activations(calculate_combinations(inputs)));
 }
 
 //  Unscaling layer
