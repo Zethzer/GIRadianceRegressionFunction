@@ -35,7 +35,8 @@ then
 
 		for i in $(seq $3 $4)
 		do
-			"../$2" ../scene_file/*$i*
+			echo "scene_$i.pbrt"
+			"../$2" ../scene_file/scene_$i.pbrt
 		done
 	fi
 fi
