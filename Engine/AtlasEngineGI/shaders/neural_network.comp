@@ -181,8 +181,8 @@ float[MAX_LAYER_SIZE] CalculateOutputs(float inputs[MAX_LAYER_SIZE], NeuralNetwo
 	//outputs = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
     
 	// To get multilayers and unscaling layers
-	//outputs = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
-    //outputs = UnscalingLayerOutputs(outputs, neural_network.unscaling_layer);
+	outputs = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
+    outputs = UnscalingLayerOutputs(outputs, neural_network.unscaling_layer);
 
     return(outputs);
 }

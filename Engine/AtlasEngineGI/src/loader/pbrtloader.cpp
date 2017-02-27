@@ -55,8 +55,7 @@ void PBRTLoader::addModels(MaterialLibrary &material_library, Scene *scene, cons
 			int pos = remaining.find_first_of("\"");
 			while (pos != std::string::npos) {
 				param = extractNextParameter(remaining, values, &hasValues, &pos);
-				//if (word == "rgb Kd")
-					if (!strcmp(param.c_str(), "rgb Kd"))
+				if (param == "rgb Kd")
 					materialColors = parseVec3Values(values);
 			}
 			current_material = new Material();

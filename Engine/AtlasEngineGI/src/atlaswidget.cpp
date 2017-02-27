@@ -11,7 +11,6 @@
 #include "include/render/process/lightingrenderprocess.h"
 #include "include/render/process/hdrrenderprocess.h"
 #include "include/render/process/shadowmaprenderprocess.h"
-#include "include/render/process/computeshaderprocess.h"
 #include "include/render/process/indirectlightingprocess.h"
 #include "include/render/process/switchlightingprocess.h"
 
@@ -120,9 +119,6 @@ void AtlasWidget::initializeGL()
     Pipeline *default_pipeline = new Pipeline(window()->width(), window()->height());
 
 	default_pipeline->setLastProcess(hdr_render_process);
-    //default_pipeline->setLastProcess(switch_lighting_process);
-	//default_pipeline->setLastProcess(indirect_lighting_process);
-
 
     m_renderer.addPipeline(default_pipeline, "default");
 
