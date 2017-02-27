@@ -136,7 +136,7 @@ string changeMat(string line, const Point &pos) {
 
     parseMat(line.substr(f), vec, 16);
 
-    vec[12] = pos.x; vec[13] = pos.y; vec[14] = pos.z;
+    vec[12] = -pos.x; vec[13] = -pos.y; vec[14] = pos.z;
 
     new_line = line.substr(0, f) + " [ ";
 
