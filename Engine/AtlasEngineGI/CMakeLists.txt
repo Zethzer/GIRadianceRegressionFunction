@@ -67,6 +67,8 @@ elseif(WIN32)
     find_package(OpenGL)
     include_directories(${OPENGL_INCLUDE_DIR})
 
+    FILE(GLOB folder_shader  shaders/*.* shaders/*/*.*)
+
     #Qt5 inclusion
     set(CMAKE_PREFIX_PATH "D:\\Program Files\\Qt\\5.7\\msvc2015_64\\")
     find_package(Qt5Core)
@@ -89,7 +91,7 @@ elseif(WIN32)
     set(GLEW_LIB lib/msvs2015/glew32)
     set(GLEW_STATIC_LIB lib/msvs2015/glew32s)
 
-    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} ${folder_shader})
 
     target_link_libraries(${PROJECT_NAME} Qt5::WinMain Qt5::Widgets Qt5::Gui Qt5::OpenGL ${QT_LIBRARIES} ${GLEW_LIB} ${GLEW_STATIC_LIB} ${OPENGL_LIBRARIES} tinyxml2)
 endif()
