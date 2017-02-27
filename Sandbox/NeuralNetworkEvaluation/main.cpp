@@ -85,7 +85,7 @@ float *MultilayerPerceptronCalculateOutputs(float inputs[MAX_LAYER_SIZE], Multil
     //float outputs[MAX_LAYER_SIZE];
     float *outputs;
 
-    uint architecture[4];
+    unsigned int architecture[4];
     architecture[0] = 12;
     architecture[1] = 20;
     architecture[2] = 10;
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 {
     NeuralNetwork neural_network;
     NeuralNetworkLoader neural_network_loader;
-    neural_network_loader.loadFile("neuralnetwork.xml", neural_network);
+    neural_network_loader.loadFile("neural_network_romain_3.xml", neural_network);
 
     float inputs[MAX_LAYER_SIZE];
     for(unsigned int i = 0; i < 12; ++i)

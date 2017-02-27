@@ -172,8 +172,7 @@ void IndirectLightingProcess::init(const GLuint &width, const GLuint &height)
 {
 	RenderProcess::init(width, height);
 
-	//m_shader = ComputeShader("shaders/compute_optimise_2_2.comp");
-	m_shader = ComputeShader("shaders/computeshader_neuralnetwork_optimise");
+	m_shader = ComputeShader("shaders/neural_network.comp");
 	
 	/*
 	* Inputs
@@ -229,7 +228,7 @@ void IndirectLightingProcess::init(const GLuint &width, const GLuint &height)
 	neural_network = (NeuralNetwork *)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(NeuralNetwork), bufMask);
 
 	NeuralNetworkLoader neural_network_loader;
-	neural_network_loader.loadFile("networksXML/neural_network_pierre.xml", *neural_network);
+	neural_network_loader.loadFile("networksXML/neural_network_pierre_2.xml", *neural_network);
 	
 	float *rgb = computeNeuralNetworkResult(*neural_network);
 	std::cout << rgb[0] << std::endl;
@@ -264,7 +263,7 @@ void IndirectLightingProcess::resize(const GLuint &width, const GLuint &height)
 void IndirectLightingProcess::process(const Quad &quad, const Scene &scene, const GLfloat &render_time, const GLboolean(&keys)[1024])
 {
 	// Working groups
-	const int localWorkGroupSize = 16;
+	const int localWorkGroupSize = 32;
 
 	// Inputs
 	glm::vec3 camera_position = scene.getCurrentCamera()->getPosition();

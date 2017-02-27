@@ -1,0 +1,261 @@
+#version 430 compatibility
+#extension GL_ARB_compute_shader : enable
+#extension GL_ARB_compute_storage_buffer_shader : enable
+
+// Scaling Methods
+#define NoScaling 0
+#define MinimumMaximum 1
+#define MeanStandardDeviation 2
+
+// Activation Functions
+#define Linear 0
+#define HyperbolicTangent 1
+
+#define MAX_INPUTS_SIZE 12
+#define MAX_STATISTICS_SIZE 20
+#define MAX_MULTILAYER_SIZE 4
+#define MAX_LAYER_SIZE 20
+
+/*
+ * Structures 
+ * */
+
+struct Perceptron
+{
+    uint inputs_number;
+
+    int activation_function;
+    float bias;
+    float synaptic_weights[20];
+};
+
+struct PerceptronLayer
+{
+    uint perceptrons_size;
+
+	Perceptron perceptrons[20];
+};
+
+struct MultilayerPerceptron
+{
+	uint layers_size;
+
+	PerceptronLayer perceptron_layers[20];
+};
+
+struct Statistics
+{
+    float minimum;
+    float maximum;
+    float mean;
+    float standard_deviation;
+};
+
+struct ScalingLayer
+{
+    uint statistics_size;
+
+    int scaling_method;
+    Statistics statistics[20];
+};
+
+struct UnscalingLayer
+{
+	uint statistics_size;
+
+	int unscaling_method;
+	Statistics statistics[20];
+};
+
+struct NeuralNetwork
+{
+    ScalingLayer scaling_layer;
+    MultilayerPerceptron multilayer_perceptron;
+    UnscalingLayer unscaling_layer;
+};
+
+/*
+ * Functions
+ * */
+
+// Scaling Layers
+float[MAX_LAYER_SIZE] ScalingLayerCalculateOutputs(float inputs[MAX_LAYER_SIZE], ScalingLayer scaling_layer)
+{
+    float outputs[MAX_LAYER_SIZE];
+
+    for(uint i = 0; i < 12; ++i)
+    {
+        outputs[i] = inputs[i];
+        if(scaling_layer.statistics[i].maximum-scaling_layer.statistics[i].minimum >= 1e-99)
+            outputs[i] = 2.0 * (inputs[i] - scaling_layer.statistics[i].minimum) * (1.0 / (scaling_layer.statistics[i].maximum - scaling_layer.statistics[i].minimum)) - 1.0;
+    }
+
+    return(outputs);
+}
+
+// Unscaling Layers
+float[MAX_LAYER_SIZE] UnscalingLayerOutputs(float inputs[MAX_LAYER_SIZE], UnscalingLayer unscaling_layer)
+{
+    float outputs[MAX_LAYER_SIZE];
+
+    for(uint i = 0; i < 3; ++i)
+    {
+        outputs[i] = inputs[i];
+        if(unscaling_layer.statistics[i].maximum - unscaling_layer.statistics[i].minimum >= 1e-99)
+            outputs[i] = 0.5 * (inputs[i] + 1.0) * (unscaling_layer.statistics[i].maximum-unscaling_layer.statistics[i].minimum) + unscaling_layer.statistics[i].minimum;
+    }
+
+    return(outputs);
+}
+
+// Activations
+float[MAX_LAYER_SIZE] PerceptronLayerCalculateActivationsHyperbolicTangent(float combinations[MAX_LAYER_SIZE], uint current_layer_size)
+{
+   float activations[MAX_LAYER_SIZE];
+
+   for(uint i = 0; i < current_layer_size; ++i)
+      activations[i] = 1.0 - (2.0 * (1.0 / (exp(2.0 * combinations[i]) + 1.0)));
+
+   return(activations);
+}
+
+float[MAX_LAYER_SIZE] PerceptronLayerCalculateActivationsLinear(float combinations[MAX_LAYER_SIZE], uint current_layer_size)
+{
+   float activations[MAX_LAYER_SIZE];
+
+   for(uint i = 0; i < current_layer_size; ++i)
+      activations[i] = combinations[i];
+
+   return(activations);
+}
+
+// Combination
+float PerceptronCalculateCombination(float inputs[MAX_LAYER_SIZE], uint previous_layer_size, Perceptron perceptron)
+{
+   float combination = perceptron.bias;
+
+   for(uint i = 0; i < previous_layer_size; ++i)
+       combination += perceptron.synaptic_weights[i] * inputs[i];
+
+   return(combination);
+}
+
+// Combinations
+float[MAX_LAYER_SIZE] PerceptronLayerCalculateCombinations(float inputs[MAX_LAYER_SIZE], uint current_layer_size, uint previous_layer_size, PerceptronLayer perceptron_layer)
+{
+   float combination[MAX_LAYER_SIZE];
+
+   for(uint i = 0; i < current_layer_size; ++i)
+      combination[i] = PerceptronCalculateCombination(inputs, previous_layer_size, perceptron_layer.perceptrons[i]);
+
+   return(combination);
+}
+
+//  Multilayer perceptron
+float[MAX_LAYER_SIZE] MultilayerPerceptronCalculateOutputs(float inputs[MAX_LAYER_SIZE], MultilayerPerceptron multilayer_perceptron)
+{
+    float outputs[MAX_LAYER_SIZE];
+    
+    uint architecture[4];
+    architecture[0] = 12;
+    architecture[1] = 20;
+    architecture[2] = 10;
+    architecture[3] = 3;
+
+    outputs = PerceptronLayerCalculateActivationsHyperbolicTangent(PerceptronLayerCalculateCombinations(inputs, architecture[1], architecture[0], multilayer_perceptron.perceptron_layers[0]), architecture[1]);
+    outputs = PerceptronLayerCalculateActivationsHyperbolicTangent(PerceptronLayerCalculateCombinations(outputs, architecture[2], architecture[1], multilayer_perceptron.perceptron_layers[1]), architecture[2]);
+    outputs = PerceptronLayerCalculateActivationsLinear(PerceptronLayerCalculateCombinations(outputs, architecture[3], architecture[2], multilayer_perceptron.perceptron_layers[2]), architecture[3]);
+
+    return(outputs);
+}
+
+float[MAX_LAYER_SIZE] CalculateOutputs(float inputs[MAX_LAYER_SIZE], NeuralNetwork neural_network)
+{
+    float outputs[MAX_LAYER_SIZE];
+
+    outputs = ScalingLayerCalculateOutputs(inputs, neural_network.scaling_layer);
+    outputs = MultilayerPerceptronCalculateOutputs(outputs, neural_network.multilayer_perceptron);
+    outputs = UnscalingLayerOutputs(outputs, neural_network.unscaling_layer);
+
+    // To get multilayers only
+	//outputs = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
+    
+	// To get multilayers and unscaling layers
+	//outputs = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
+    //outputs = UnscalingLayerOutputs(outputs, neural_network.unscaling_layer);
+
+    return(outputs);
+}
+/*****************************************************************/
+
+/*
+ * Inputs
+ * */
+layout(local_size_x = 32, local_size_y = 32) in;
+
+uniform vec3 camera_position;
+uniform vec3 point_light_position;
+uniform sampler2D gPositionDepth;
+uniform sampler2D gNormal;
+
+// NeuralNetwork (SSBO)
+layout(std430, binding=4) buffer nn
+{
+	  NeuralNetwork neural_network;
+};
+/******************************************************************/
+
+/*
+ * Output
+ * */
+layout(rgba32f, binding = 0) uniform image2D img_output;
+
+void main() 
+{
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
+	ivec2 dims = imageSize(img_output);
+	float x = (float(pixel_coords.x ) * (1.0 / dims.x));
+	float y = (float(pixel_coords.y ) * (1.0 / dims.y));
+
+	vec2 texCoords = vec2(x,y);
+
+	/*
+	 * To test the compute shader
+	 * */  
+	/*
+	float inputs[MAX_LAYER_SIZE];
+	for(uint i = 0; i < 12; ++i)
+        inputs[i] = i + 1;
+
+    float outputs[MAX_LAYER_SIZE];
+    outputs = CalculateOutputs(inputs, neural_network);
+
+    vec4 pixel = vec4(abs(5.65696 - outputs[0]) < 0.0001, abs(7.05279 - outputs[1]) < 0.0001, abs(7.33611 - outputs[2]) < 0.0001, 1.0);
+    */
+    /***********************************************************************************/
+
+    /*
+     * To compute it
+     * */
+    float inputs[MAX_LAYER_SIZE];
+    inputs[0] = texture(gPositionDepth, texCoords).r;
+	inputs[1] = texture(gPositionDepth, texCoords).g;
+	inputs[2] = texture(gPositionDepth, texCoords).b;
+	inputs[3] = camera_position.x;
+	inputs[4] = camera_position.y;
+	inputs[5] = camera_position.z;
+	inputs[6] = point_light_position.x;
+	inputs[7] = point_light_position.y;
+	inputs[8] = point_light_position.z;
+	inputs[9] = texture(gNormal, texCoords).r;
+	inputs[10] = texture(gNormal, texCoords).g;
+	inputs[11] = texture(gNormal, texCoords).b;
+
+	float outputs[MAX_LAYER_SIZE];
+    outputs = CalculateOutputs(inputs, neural_network);
+
+    vec4 pixel = vec4(outputs[0], outputs[1], outputs[2], 1.0);
+
+	imageStore (img_output, pixel_coords, pixel);
+}

@@ -21,7 +21,7 @@ void main()
 #endif
 
 #ifdef COMPLETE_LIGHTING
-	lighting = texture(directLighting, TexCoords).rgb + texture(indirectLighting, TexCoords).rgb; 
+	lighting = 0.5 * (texture(directLighting, TexCoords).rgb + texture(indirectLighting, TexCoords).rgb); 
 #endif
 
 	Brightness = vec2(0.0);
