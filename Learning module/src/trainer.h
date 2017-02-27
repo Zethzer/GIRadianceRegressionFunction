@@ -41,6 +41,9 @@ private:
     NeuralNetwork *m_neural_network;
 
     std::string saved_data_set_path;
+
+    ScalingLayer *m_scaling_layer_pointer;
+    UnscalingLayer *m_unscaling_layer_pointer;
 };
 
 #endif // TRAINER_H
