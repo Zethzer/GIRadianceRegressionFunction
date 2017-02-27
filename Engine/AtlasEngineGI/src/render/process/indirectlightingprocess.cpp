@@ -59,7 +59,7 @@ void IndirectLightingProcess::init(const GLuint &width, const GLuint &height)
 	neural_network = (NeuralNetwork *)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(NeuralNetwork), bufMask);
 
 	NeuralNetworkLoader neural_network_loader;
-	neural_network_loader.loadFile("networksXML/neural_network_pierre_19h07.xml", *neural_network);
+	neural_network_loader.loadFile("networksXML/neural_network_pierre_19h46.xml", *neural_network);
 	
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, neural_network_buffer);
