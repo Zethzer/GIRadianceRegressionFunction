@@ -92,13 +92,13 @@
             <Minimum>13.0617</Minimum>
             <Maximum>13.0617</Maximum>
             <Mean>13.0617</Mean>
-            <StandardDeviation>nan</StandardDeviation>
+            <StandardDeviation>0</StandardDeviation>
         </Statistics>
         <Statistics Index="6">
             <Minimum>-5.37925</Minimum>
             <Maximum>-5.37925</Maximum>
             <Mean>-5.37925</Mean>
-            <StandardDeviation>nan</StandardDeviation>
+            <StandardDeviation>0</StandardDeviation>
         </Statistics>
         <Statistics Index="7">
             <Minimum>7.29968</Minimum>
@@ -110,7 +110,7 @@
             <Minimum>0.535615</Minimum>
             <Maximum>0.535615</Maximum>
             <Mean>0.535615</Mean>
-            <StandardDeviation>nan</StandardDeviation>
+            <StandardDeviation>0</StandardDeviation>
         </Statistics>
         <Statistics Index="9">
             <Minimum>-5.57833</Minimum>
