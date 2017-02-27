@@ -1,0 +1,186 @@
+<NeuralNetwork>
+    <Inputs>
+        <InputsNumber>12</InputsNumber>
+        <Item Index="1">
+            <Name>position.x</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="2">
+            <Name>position.y</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="3">
+            <Name>position.z</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="4">
+            <Name>view.x</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="5">
+            <Name>view.y</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="6">
+            <Name>view.z</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="7">
+            <Name>source.x</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="8">
+            <Name>source.y</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="9">
+            <Name>source.z</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="10">
+            <Name>normal.x</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="11">
+            <Name>normal.y</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="12">
+            <Name>normal.z</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+    </Inputs>
+    <ScalingLayer>
+        <ScalingNeuronsNumber>12</ScalingNeuronsNumber>
+        <Statistics Index="1">
+            <Minimum>-10</Minimum>
+            <Maximum>10</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="2">
+            <Minimum>0</Minimum>
+            <Maximum>20</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="3">
+            <Minimum>-10</Minimum>
+            <Maximum>10</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="4">
+            <Minimum>-10</Minimum>
+            <Maximum>10</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="5">
+            <Minimum>0</Minimum>
+            <Maximum>20</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="6">
+            <Minimum>-10</Minimum>
+            <Maximum>10</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="7">
+            <Minimum>-10</Minimum>
+            <Maximum>10</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="8">
+            <Minimum>0</Minimum>
+            <Maximum>20</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="9">
+            <Minimum>-10</Minimum>
+            <Maximum>10</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="10">
+            <Minimum>-1</Minimum>
+            <Maximum>1</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="11">
+            <Minimum>-1</Minimum>
+            <Maximum>1</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="12">
+            <Minimum>-1</Minimum>
+            <Maximum>1</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <ScalingMethod>MinimumMaximum</ScalingMethod>
+    </ScalingLayer>
+    <MultilayerPerceptron>
+        <Architecture>12 20 10 3</Architecture>
+        <LayersActivationFunction>HyperbolicTangent HyperbolicTangent Linear</LayersActivationFunction>
+        <Parameters>-0.56972 1.936 -5.56133 11.9871 4.17676 4.38888 -3.27453 -4.22973 1.80474 -1.14698 1.9048 4.66063 -1.71583 -1.25403 0.919094 6.21787 25.033 -7.35049 -11.8572 -5.97695 9.44847 -8.54679 1.13248 -5.59998 0.407346 -13.0236 0.147329 -1.24392 -5.21354 -11.3429 -17.5012 -9.98278 14.264 7.76157 4.21207 -3.70362 -1.76589 -10.2337 10.725 -0.543158 -4.18624 -4.88336 5.51301 4.37625 8.04374 -1.31479 -4.97836 3.98952 -1.27179 1.25683 -4.3967 -0.0192097 1.07735 6.10706 6.72822 3.32476 2.91122 5.39582 -2.61634 -1.30216 2.06598 -5.02153 -3.28808 -13.677 -5.2234 1.57075 4.18829 -12.4647 -0.31415 -1.34088 3.74985 0.922888 -1.30721 1.5291 -1.58773 -2.55094 -5.5227 -5.12745 0.298112 -5.82207 -0.698704 17.8381 3.38794 2.39855 -0.000108498 3.84435 7.38136 1.3162 -0.358023 6.48613 -4.46983 1.9059 -0.11935 11.4036 -17.3515 -0.173492 4.09877 0.368583 -2.81077 6.72715 -0.999642 -5.73021 16.1285 -6.68027 0.501785 6.637 18.4001 9.2613 -1.08182 2.59815 -2.9389 -3.53742 2.79384 -3.72222 12.8953 1.84089 -6.5246 0.532443 -1.98137 -15.3838 7.55772 2.59235 1.28687 4.34508 4.35025 7.89749 4.77648 -3.56861 7.80607 -1.07643 0.337332 0.146819 -2.58405 -1.32301 1.09682 -5.53406 3.87621 -1.14668 -1.46821 1.15271 3.71377 5.70212 -4.30166 0.370557 -12.3497 6.15888 -13.5933 2.47598 -4.88532 -1.9249 -10.9241 -6.50852 -10.8876 12.3255 3.83337 -4.18423 1.53145 19.5449 -8.03061 -3.275 -13.3946 3.21229 -2.51574 5.35532 1.91845 -1.16704 5.74043 -14.9733 -3.83813 -0.276971 0.816659 -0.598269 1.80605 -2.80766 2.81711 -8.65472 -5.07521 3.14918 1.00396 3.37887 -2.24497 1.24842 -0.458895 -0.770034 -10.3787 0.891157 -1.20463 -3.81149 0.175445 4.9159 -2.2756 -2.30633 8.10295 0.322459 -4.4707 2.73797 -0.273513 -4.21152 7.10256 -1.89085 6.74834 2.04861 -0.919538 4.65433 -1.293 -0.500548 3.12574 0.491754 -0.218348 -2.46325 2.50297 1.8326 -3.09106 3.48528 -6.76801 -4.06082 -0.565999 -0.184043 1.32142 -12.476 0.85259 -3.29304 -0.862953 3.31685 -3.81996 11.3194 -4.79638 -1.2256 -11.7274 -8.37272 1.61097 -1.84647 -2.33359 2.37778 2.32073 3.25034 -8.04716 30.9496 1.26839 7.96496 4.37512 4.13512 7.22202 -5.91589 -12.5508 -1.17154 -8.3018 -1.21581 8.56743 -39.0312 -28.2851 0.799573 -4.06345 0.614454 -0.407182 -6.11361 1.62213 2.65029 -69.4236 -24.5888 7.15613 -2.97483 -7.80209 2.75534 1.07977 1.68059 -0.731887 6.30343 9.75693 -0.479478 1.09236 -2.4249 -0.39596 11.9445 1.27805 1.51143 3.33797 -2.30084 -5.27316 5.75435 -2.05681 3.08614 1.05089 -3.9901 -12.6849 3.3127 7.85867 4.6704 -7.90864 7.05336 15.6483 -0.71339 -8.50745 -0.732962 -16.0589 6.03588 -6.02159 -10.6521 10.2347 -0.706302 8.17263 -4.33766 12.477 14.5148 -9.19606 -10.389 13.3512 12.7862 17.2989 9.42644 12.2467 11.4391 -38.8515 -9.11955 9.3805 -7.50415 11.365 -9.58884 14.9087 10.3942 9.02391 15.5109 -256.174 -3.3579 -4.85424 7.98183 7.83815 0.475527 -3.66896 -8.28725 2.50033 7.40971 6.05408 3.80361 8.00149 2.85553 28.3965 -2.29169 3.79292 -4.16531 -3.92342 1.93822 -2.34315 1.53668 2.97846 3.53877 -3.85431 3.28929 3.80085 -1.91702 -0.0771683 9.08113 -1.69087 4.2278 2.75462 -3.34125 -1.61338 3.74852 3.24171 -1.4524 5.56625 -2.46682 -0.337022 2.95193 -3.3305 -3.03971 -2.65418 11.516 -1.70042 -3.74132 -0.743396 -5.46817 -1.44605 -6.45494 4.50015 -0.0921993 -3.32508 1.06629 -0.635955 -0.214023 -0.735865 -0.982966 -2.4004 4.22645 -0.841181 -1.37479 -3.29629 -1.83243 2.60829 0.889708 0.846269 -2.76578 -2.59913 -2.96965 8.35449 -7.67743 1.68746 0.293035 0.905341 -3.19851 -1.33967 1.41286 -8.68297 0.655211 3.32542 -17.272 4.42553 -4.14231 -4.23484 -3.0365 -6.93137 -1.83123 -2.69564 -3.283 -4.51793 -3.06366 -3.5816 1.48971 4.43004 4.2471 -4.71551 -2.60626 1.37141 -4.51395 -2.80254 7.09531 -13.1925 4.06468 5.43935 -5.52262 -4.42038 7.46043 9.18115 2.826 6.77054 -12.2271 6.29934 -3.23952 -8.83646 -1.38048 -2.75853 -20.5251 0.4503 -0.118412 8.51712 -0.915776 -11.3221 28.3509 -4.55441 6.10775 3.26342 -4.66261 -0.140416 8.41608 3.77952 5.89289 2.08916 8.49892 -0.560184 4.50429 2.93975 -3.12115 3.60433 -1.84886 4.09127 3.16482 -2.69688 -3.72547 7.89958 -1.52108 -1.9646 -10.5973 -0.0164161 0.328859 -0.636312 4.10955 3.3988 4.67561 -5.49695 12.4547 -2.58746 -5.55309 -0.460739 -0.161484 0.225878 -0.728562 1.35431 5.41111 2.48056 -8.57379 3.69357 -0.86429 -4.56034 -1.33628 -0.0700255 0.209949 -0.73707 1.76724 5.22106 3.00062 -8.65422 4.61224 -2.15263</Parameters>
+    </MultilayerPerceptron>
+    <UnscalingLayer>
+        <UnscalingNeuronsNumber>3</UnscalingNeuronsNumber>
+        <Statistics Index="1">
+            <Minimum>-1</Minimum>
+            <Maximum>6.302</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="2">
+            <Minimum>-1</Minimum>
+            <Maximum>4.25579</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <Statistics Index="3">
+            <Minimum>-1</Minimum>
+            <Maximum>1.29501</Maximum>
+            <Mean>0</Mean>
+            <StandardDeviation>1</StandardDeviation>
+        </Statistics>
+        <UnscalingMethod>MinimumMaximum</UnscalingMethod>
+    </UnscalingLayer>
+    <Outputs>
+        <OutputsNumber>3</OutputsNumber>
+        <Item Index="1">
+            <Name>R</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="2">
+            <Name>G</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+        <Item Index="3">
+            <Name>B</Name>
+            <Units></Units>
+            <Description></Description>
+        </Item>
+    </Outputs>
+</NeuralNetwork>
