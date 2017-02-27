@@ -40,11 +40,6 @@ private:
 	ComputeShader m_shader;
 	NeuralNetwork *m_neural_network;
 
-	// Working groups
-	int m_work_grp_cnt[3];
-	int m_work_grp_inv;
-	int m_work_grp_size[3];
-
 	Texture m_out_texture;
 	int m_tex_w;
 	int m_tex_h;

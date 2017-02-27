@@ -48,32 +48,6 @@ void IndirectLightingProcess::init(const GLuint &width, const GLuint &height)
 	m_tex_w = width;
 	m_tex_h = height;	 
 
-	/*
-	* Determining the Work Group Size
-	* */
-
-	// Maximum global work group (total work in a dispatch)
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &m_work_grp_cnt[0]);
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &m_work_grp_cnt[1]);
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &m_work_grp_cnt[2]);
-	//printf ("max global (total) work group size x:%i y:%i z:%i\n",
-	//m_work_grp_cnt[0], m_work_grp_cnt[1], m_work_grp_cnt[2]);
-
-	// Maximum local work group (one shader's slice)
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &m_work_grp_size[0]);
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &m_work_grp_size[1]);
-	glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &m_work_grp_size[2]);
-	//printf ("max local (in one shader) work group sizes x:%i y:%i z:%i\n",
-	//m_work_grp_size[0], m_work_grp_size[1], m_work_grp_size[2]);
-
-	// Maximum compute shader invocations (x * y * z)
-#if defined (__linux__)
-	glGetIntegerv(GL_MAX_COMPUTE_LOCAL_INVOCATIONS, &m_work_grp_inv);
-#else
-	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &m_work_grp_inv);
-#endif
-	//printf ("max computer shader invocations %i\n", m_work_grp_inv);
-
 	// Neural network buffer
 	GLuint neural_network_buffer;
 	glGenBuffers(1, &neural_network_buffer);
@@ -85,7 +59,7 @@ void IndirectLightingProcess::init(const GLuint &width, const GLuint &height)
 	neural_network = (NeuralNetwork *)glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(NeuralNetwork), bufMask);
 
 	NeuralNetworkLoader neural_network_loader;
-	neural_network_loader.loadFile("networksXML/neuralnetworksave1.xml", *neural_network);
+	neural_network_loader.loadFile("networksXML/best_neural_network.xml", *neural_network);
 	
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, neural_network_buffer);
@@ -120,7 +94,6 @@ void IndirectLightingProcess::process(const Quad &quad, const Scene &scene, cons
 	glm::vec3 camera_position = scene.getCurrentCamera()->getPosition();
 	glm::vec3 point_light_position = scene.getPointLight(0)->getPosition();
 
-
 	m_out_texture.bindImage(0);
 
 	// Launch compute shader
@@ -130,17 +103,6 @@ void IndirectLightingProcess::process(const Quad &quad, const Scene &scene, cons
 	bindPreviousTexture(0);
 	glActiveTexture(GL_TEXTURE1);
 	bindPreviousTexture(1);
-
-	std::cout << "Camera" << std::endl;
-	std::cout << scene.getCurrentCamera()->getPosition().x << std::endl;
-	std::cout << scene.getCurrentCamera()->getPosition().y << std::endl;
-	std::cout << scene.getCurrentCamera()->getPosition().z << std::endl;
-
-	std::cout << "Light" << std::endl;
-	std::cout << scene.getPointLight(0)->getPosition().x << std::endl;
-	std::cout << scene.getPointLight(0)->getPosition().y << std::endl;
-	std::cout << scene.getPointLight(0)->getPosition().z << std::endl;
-
 
 	// Uniform inputs
 	glUniform3f(glGetUniformLocation(m_shader.getProgram(), "camera_position"), camera_position.x, camera_position.y, camera_position.z);
