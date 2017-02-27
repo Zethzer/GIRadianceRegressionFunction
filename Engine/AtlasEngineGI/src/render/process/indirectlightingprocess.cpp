@@ -131,6 +131,17 @@ void IndirectLightingProcess::process(const Quad &quad, const Scene &scene, cons
 	glActiveTexture(GL_TEXTURE1);
 	bindPreviousTexture(1);
 
+	std::cout << "Camera" << std::endl;
+	std::cout << scene.getCurrentCamera()->getPosition().x << std::endl;
+	std::cout << scene.getCurrentCamera()->getPosition().y << std::endl;
+	std::cout << scene.getCurrentCamera()->getPosition().z << std::endl;
+
+	std::cout << "Light" << std::endl;
+	std::cout << scene.getPointLight(0)->getPosition().x << std::endl;
+	std::cout << scene.getPointLight(0)->getPosition().y << std::endl;
+	std::cout << scene.getPointLight(0)->getPosition().z << std::endl;
+
+
 	// Uniform inputs
 	glUniform3f(glGetUniformLocation(m_shader.getProgram(), "camera_position"), camera_position.x, camera_position.y, camera_position.z);
 	glUniform3f(glGetUniformLocation(m_shader.getProgram(), "point_light_position"), point_light_position.x, point_light_position.y, point_light_position.z);
