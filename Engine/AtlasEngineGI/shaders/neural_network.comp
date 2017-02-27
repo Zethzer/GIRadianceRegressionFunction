@@ -182,7 +182,7 @@ float[MAX_LAYER_SIZE] CalculateOutputs(float inputs[MAX_LAYER_SIZE], NeuralNetwo
     
 	// To get multilayers and unscaling layers
 	outputs = MultilayerPerceptronCalculateOutputs(inputs, neural_network.multilayer_perceptron);
-    outputs = UnscalingLayerOutputs(outputs, neural_network.unscaling_layer);
+  outputs = UnscalingLayerOutputs(outputs, neural_network.unscaling_layer);
 
     return(outputs);
 }
@@ -240,22 +240,22 @@ void main()
      * */
     float inputs[MAX_LAYER_SIZE];
     inputs[0] = texture(gPositionDepth, texCoords).r;
-	inputs[1] = texture(gPositionDepth, texCoords).g;
-	inputs[2] = texture(gPositionDepth, texCoords).b;
-	inputs[3] = camera_position.x;
-	inputs[4] = camera_position.y;
-	inputs[5] = camera_position.z;
-	inputs[6] = point_light_position.x;
-	inputs[7] = point_light_position.y;
-	inputs[8] = point_light_position.z;
-	inputs[9] = texture(gNormal, texCoords).r;
-	inputs[10] = texture(gNormal, texCoords).g;
-	inputs[11] = texture(gNormal, texCoords).b;
+  	inputs[1] = texture(gPositionDepth, texCoords).g;
+  	inputs[2] = texture(gPositionDepth, texCoords).b;
+  	inputs[3] = camera_position.x;
+  	inputs[4] = camera_position.y;
+  	inputs[5] = camera_position.z;
+  	inputs[6] = point_light_position.x;
+  	inputs[7] = point_light_position.y;
+  	inputs[8] = point_light_position.z;
+  	inputs[9] = texture(gNormal, texCoords).r;
+  	inputs[10] = texture(gNormal, texCoords).g;
+  	inputs[11] = texture(gNormal, texCoords).b;
 
-	float outputs[MAX_LAYER_SIZE];
-    outputs = CalculateOutputs(inputs, neural_network);
+  	float outputs[MAX_LAYER_SIZE];
+      outputs = CalculateOutputs(inputs, neural_network);
 
-    vec4 pixel = vec4(outputs[0], outputs[1], outputs[2], 1.0);
+      vec4 pixel = vec4(outputs[0], outputs[1], outputs[2], 1.0);
 
-	imageStore (img_output, pixel_coords, pixel);
+  	imageStore (img_output, pixel_coords, pixel);
 }
