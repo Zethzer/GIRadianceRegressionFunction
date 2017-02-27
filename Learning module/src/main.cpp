@@ -224,8 +224,8 @@ bool writeLog(std::string file_name, std::string folder_path, const bool &extrac
     else
     {
         log_file << file_name;
-        if(!extraction_ok)
-            log_file << " - ERROR";
+        //if(!extraction_ok)
+        //    log_file << " - ERROR";
         log_file << std::endl;
         return true;
     }
