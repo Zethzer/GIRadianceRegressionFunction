@@ -2,9 +2,7 @@
 #include "datasetparameters.h"
 
 Trainer::Trainer() :
-    m_neural_network(0),
-    m_scaling_layer_pointer(0),
-    m_unscaling_layer_pointer(0)
+    m_neural_network(0)
 {
 
 }
@@ -18,15 +16,6 @@ void Trainer::init(const NeuralNetworkParameters &neural_network_parameters)
     MultilayerPerceptron *multilayer_perceptron = m_neural_network->get_multilayer_perceptron_pointer();
     for(size_t i = 1; i < m_neural_network_parameters.m_layers_activation_functions.size(); ++i)
         multilayer_perceptron->set_layer_activation_function(i, m_neural_network_parameters.m_layers_activation_functions[i]);
-
-    //  Scaling layers
-    m_neural_network->construct_scaling_layer();
-    m_scaling_layer_pointer = m_neural_network->get_scaling_layer_pointer();
-    m_scaling_layer_pointer->set_scaling_method(m_neural_network_parameters.m_scaling_layer_method);
-
-    m_neural_network->construct_unscaling_layer();
-    m_unscaling_layer_pointer = m_neural_network->get_unscaling_layer_pointer();
-    m_unscaling_layer_pointer->set_unscaling_method(m_neural_network_parameters.m_unscaling_layer_method);
 }
 
 void Trainer::init(const std::string &neural_network_file_path)
@@ -66,50 +55,7 @@ void Trainer::trainNetwork(DataSet &data_set, DataSetParameters &data_set_parame
         Outputs* outputs_pointer = m_neural_network->get_outputs_pointer();
         outputs_pointer->set_information(targets_information);
 
-
-        //  Split DataSet
-        Instances* instances_pointer = data_set.get_instances_pointer();
-        instances_pointer->split_instances(data_set_parameters.m_splitting_parameters.m_splitting_method,
-                                           data_set_parameters.m_splitting_parameters.m_training_data_ratio,
-                                           data_set_parameters.m_splitting_parameters.m_selection_data_ratio,
-                                           data_set_parameters.m_splitting_parameters.m_testing_data_ratio);
-
-        //  Get statistics of nn and dataset
-        Vector<Statistics<double>>  ds_inputs_statistics,
-                                    ds_targets_statistics,
-                                    nn_inputs_statistics = m_scaling_layer_pointer->get_statistics(),
-                                    nn_targets_statistics = m_unscaling_layer_pointer->get_statistics(),
-                                    mixed_inputs_statistics(nn_inputs_statistics.size()),
-                                    mixed_targets_statistics(nn_targets_statistics.size());
-
-        if(data_set_parameters.m_training_parameters.m_data_scaling_method == DataScalingMethod::MinimumMaximum)
-        {
-            ds_inputs_statistics = data_set.scale_inputs_minimum_maximum();
-            ds_targets_statistics = data_set.scale_targets_minimum_maximum();
-
-            for(size_t i = 0; i < nn_inputs_statistics.size(); ++i)
-            {
-                mixed_inputs_statistics[i].set_minimum(std::min(ds_inputs_statistics[i].minimum, nn_inputs_statistics[i].minimum));
-                mixed_inputs_statistics[i].set_maximum(std::max(ds_inputs_statistics[i].maximum, nn_inputs_statistics[i].maximum));
-            }
-            for(size_t i = 0; i < nn_targets_statistics.size(); ++i)
-            {
-                mixed_targets_statistics[i].set_minimum(std::min(ds_targets_statistics[i].minimum, nn_targets_statistics[i].minimum));
-                mixed_targets_statistics[i].set_maximum(std::max(ds_targets_statistics[i].maximum, nn_targets_statistics[i].maximum));
-            }
-        }
-        //  Only MinimumMaximum supported for now
-        /*else if(data_set_parameters.m_training_parameters.m_data_scaling_method == DataScalingMethod::MeanStandardDeviation)
-        {
-            ds_inputs_statistics = data_set.scale_inputs_mean_standard_deviation();
-            ds_targets_statistics = data_set.scale_targets_mean_standard_deviation();
-        }*/
-
-        //  Scaling layers
-        m_scaling_layer_pointer->set_statistics(mixed_inputs_statistics);
-        m_unscaling_layer_pointer->set_statistics(mixed_targets_statistics);
-
-        //  Training strategy + performance goal
+        //  Training stategy + performance goal
         PerformanceFunctional performance_functional(m_neural_network, &data_set);
         TrainingStrategy training_strategy(&performance_functional);
 
