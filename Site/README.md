@@ -1,4 +1,4 @@
-# Website of our final study project
+# Website of our final year study project
 
 ### Template used
 
