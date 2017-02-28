@@ -36,7 +36,7 @@
 										</ul>
 									</div>
 									<span class="image object">
-										<img src="images/resultat.jpg" alt="" />
+										<img src="images/best_result_banner.png" alt="Meilleur résultat obtenu" />
 									</span>
 								</section>
 								<!-- Content -->
@@ -82,7 +82,30 @@
 										<h2 id="resultats">Résultats</h2>
 									</header>
 									<!-- Content -->
-										<p>Praesent ac adipiscing ullamcorper semper ut amet ac risus. Lorem sapien ut odio odio nunc. Ac adipiscing nibh porttitor erat risus justo adipiscing adipiscing amet placerat accumsan. Vis. Faucibus odio magna tempus adipiscing a non. In mi primis arcu ut non accumsan vivamus ac blandit adipiscing adipiscing arcu metus praesent turpis eu ac lacinia nunc ac commodo gravida adipiscing eget accumsan ac nunc adipiscing adipiscing lorem ipsum dolor sit amet nullam veroeros adipiscing.</p>									
+										<div class="row">
+											<div class="6u 12u$(small)">
+												<h3>Eclairage direct</h3>
+												<p>L'éclairage direct est calculé avec la méthode de Cook-Torrance (sur GPU)</p>
+												<img src="images/pbrt_loader.png" alt="Eclairage direct">
+											</div>
+											<div class="6u$ 12u$(small)">
+												<h3>Eclairage global (direct + indirect)</h3>
+												<p>Ce résultat de l'éclairage global est le meilleur que nous ayons obtenu. Il est bien entendu faux comme vous pouvez le voir sur les images ci-dessous.</p>
+												<p>Nous pensons que cela viens de quelques soucis de l'extraction que nous n'avons pas identifiés à ce jour. Nous pensons aussi qu'il n y a pas assez d'échantillons extraits de la scène (c'est-à-dire qu'il faudrait plus de scènes extraites de PBRT v3 et de fichiers <i>.data</i> générés).</p>
+												<p>Paramètres pour ce résultat:
+												<ul>
+													<li>Extractions de 100*100 scènes de PBRT v3</li>
+													<li>Création de 10 000 fichiers <i>.data</i></li>
+													<li>Apprentissage:</li>
+													<ul>
+														<li>QuasiNewton au lieu de Levenberg-Marquard</li>
+														<li>8h d'apprentissage (10 000 fichiers <i>.data</i> traités)</li>
+													</ul>
+												</ul></p>
+												<img src="images/best_result_content.png" alt="Eclairage global">
+												<img src="images/best_result_other_angle.png" alt="Eclairage global contre plongée">
+											</div>
+										</div>									
 									</section>
 						</div>
 					</div>
@@ -105,7 +128,7 @@
 												<li><a href="docs/Rapport_M_et_A.pdf" target="_blank">Méthodes et algorithmes</a></li>
 												<li><a href="docs/rapport_spec.pdf" target="_blank">Spécifications</a></li>
 												<li><a href="docs/rapport_CD_GlobalIllum.pdf" target="_blank">Conception détaillée</a></li>
-												<li><a href="#" target="_blank">Recette</a></li>
+												<li><a href="docs/recette-chef-doeuvre.pdf" target="_blank">Recette</a></li>
 											</ul>
 										</li>
 										<li>
@@ -114,20 +137,22 @@
 												<li><a href="docs/DiaposAlgo.pdf" target="_blank">Méthodes et algorithmes</a></li>
 												<li><a href="docs/DiaposSpec.pdf" target="_blank">Spécifications</a></li>
 												<li><a href="docs/DiaposConception.pdf" target="_blank">Conception détaillée</a></li>
-												<li><a href="#" target="_blank">Recette</a></li>
+												<li><a href="docs/4_DiaposRecette.pdf" target="_blank">Recette</a></li>
 											</ul>
 										</li>
 										<li>
 											<span class="opener">Autres</span>
 											<ul>
-												<li><a href="#" target="_blank">Manuel d'utilisation</a></li>
+												<li><a href="docs/manuel-chef-doeuvre.pdf" target="_blank">Manuel d'utilisation</a></li>
 												<li><a href="https://github.com/Zethzer/GIRadianceRegressionFunction" target="_blank">Code source (Github)</a></li>
 											</ul>
 										</li>
 									</ul>
 								</nav>
 								<section>
-								<h3>Equipe</h3>
+								<header class="major">
+									<h3>Equipe</h3>
+								</header>
 								<ul>
 									<li>Romain <b>Moutrille</b> <a href="https://www.linkedin.com/in/romain-moutrille-9b207612a/" class="icon fa-linkedin" target="_blank"></a> <a href="https://github.com/Oredon42" class="icon fa-github" target="_blank"></a></li>
 									<li>Pierre <b>Guérineau</b> <a href="https://github.com/PeterOvski" class="icon fa-github" target="_blank"></a></li>
