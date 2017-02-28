@@ -1,0 +1,4 @@
+- Le template est libre sur internet. On a laissé le fichier licence et readme au cas où.
+- Tout le code html est contenu sur la page "index.html"
+- Le dossier "assets" ne contient que les fichiers CSS et JavaScript pour la mise en forme
+- Les documents sont liés via un lien de lecture. Ils sont hébergés sur Google Drive et ils sont téléchargeables.
