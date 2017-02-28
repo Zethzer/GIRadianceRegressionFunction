@@ -253,9 +253,9 @@ void main()
   	inputs[11] = texture(gNormal, texCoords).b;
 
   	float outputs[MAX_LAYER_SIZE];
-      outputs = CalculateOutputs(inputs, neural_network);
+    outputs = CalculateOutputs(inputs, neural_network);
 
-      vec4 pixel = vec4(outputs[0], outputs[1], outputs[2], 1.0);
+    vec4 pixel = vec4(outputs[0], outputs[1], outputs[2], 1.0);
 
   	imageStore (img_output, pixel_coords, pixel);
 }
